@@ -116,7 +116,7 @@ async function main() {
       supabase.from('brokers').select('*'),
       supabase.from('countries').select('*'),
       supabase.from('guides').select('*'),
-      supabase.from('intents').select('*').order('sort_order', { ascending: true }).order('id', { ascending: true }),
+      supabase.from('intents').select('*').order('id', { ascending: true }),
       supabase.from('country_best_for').select('*, countries!inner(name, slug)').eq('indexable', true),
       supabase.from('reviews').select('broker_id, rating, verified, created_at'),
       supabase.from('localized_seo_pages').select('*, countries!inner(name,slug), country_languages!inner(name,native_name,code,locale,url_prefix,active)').eq('published', true).eq('indexable', true),
