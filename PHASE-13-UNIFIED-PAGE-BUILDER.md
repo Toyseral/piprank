@@ -1,0 +1,2 @@
+# Phase 13 — Unified Visual Page Builder
+Country SEO editorial documents and broker profile editorial documents now share a visual block editor. Editors/admins can add, edit, reorder and delete headings, rich text, images, tables, callouts and dividers, preview the editorial canvas, upload images, and save structured blocks alongside generated HTML. Public country topic and broker profile pages prefer blocks and fall back to legacy HTML. Structured broker facts remain separate and protected.
