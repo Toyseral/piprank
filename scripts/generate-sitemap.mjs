@@ -133,8 +133,8 @@ async function main() {
 
     fetchRows(
       'intents',
-      'slug, indexable, updated_at',
-      'slug, indexable'
+      'slug, updated_at',
+      'slug'
     ),
 
     fetchRows(
@@ -200,7 +200,7 @@ async function main() {
 
   // Global intent pages
   for (const intent of intents ?? []) {
-    if (!intent.slug || intent.indexable === false) continue;
+    if (!intent.slug) continue;
 
     urls.push({
       loc: `/best/${intent.slug}`,
