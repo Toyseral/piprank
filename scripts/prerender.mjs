@@ -300,7 +300,7 @@ async function main() {
   ];
 
   for (const page of staticPages) {
-    writePage(page.path, { title: page.title, description: page.description, path: page.path, type: 'website' }, page.jsonLd, page.content, shell);
+    writePage(page.path, { title: page.title, description: page.description, path: page.path, type: 'website' }, page.jsonLd, page.content, shell, writtenPaths);
     written++;
   }
 
@@ -328,7 +328,7 @@ async function main() {
       breadcrumbJsonLd([{ name: 'Home', path: '/' }, { name: country.name, path: `/${country.slug}` }, { name: doc.title, path }]),
       ...(faqs.length ? [faqPageJsonLd(faqs.map((f) => ({ question: f.q, answer: f.a })))] : []),
     ];
-    writePage(path, { title, description, path, type: 'article' }, jsonLd, content, shell);
+    writePage(path, { title, description, path, type: 'article' }, jsonLd, content, shell, writtenPaths);
     written++;
   }
 
@@ -433,7 +433,7 @@ async function main() {
       ...(Array.isArray(b.faqs) && b.faqs.length ? [faqPageJsonLd(b.faqs.map((f) => ({ question: f.q, answer: f.a })))] : []),
     ];
 
-    writePage(`/brokers/${b.slug}`, { title, description, path: `/brokers/${b.slug}` }, jsonLd, content, shell);
+    writePage(`/brokers/${b.slug}`, { title, description, path: `/brokers/${b.slug}` }, jsonLd, content, shell, writtenPaths);
     written++;
   }
 
@@ -597,8 +597,8 @@ async function main() {
       faqPageJsonLd(faq),
     ];
 
-    writePage(`/countries/${c.slug}`, { title, description, path: `/countries/${c.slug}` }, jsonLd, content, shell);
-    writePage(`/${c.slug}`, { title, description, path: `/${c.slug}` }, [webPageJsonLd(title, description, `/${c.slug}`, 'WebPage'), breadcrumbJsonLd([{ name: 'Home', path: '/' }, { name: c.name, path: `/${c.slug}` }]), itemListJsonLd(`Recommended forex brokers in ${c.name}`, recBrokers.map((b) => ({ name: b.name, path: `/brokers/${b.slug}` }))), faqPageJsonLd(faq)], content.replaceAll(`/countries/${c.slug}`, `/${c.slug}`), shell);
+    writePage(`/countries/${c.slug}`, { title, description, path: `/countries/${c.slug}` }, jsonLd, content, shell, writtenPaths);
+    writePage(`/${c.slug}`, { title, description, path: `/${c.slug}` }, [webPageJsonLd(title, description, `/${c.slug}`, 'WebPage'), breadcrumbJsonLd([{ name: 'Home', path: '/' }, { name: c.name, path: `/${c.slug}` }]), itemListJsonLd(`Recommended forex brokers in ${c.name}`, recBrokers.map((b) => ({ name: b.name, path: `/brokers/${b.slug}` }))), faqPageJsonLd(faq)], content.replaceAll(`/countries/${c.slug}`, `/${c.slug}`), shell, writtenPaths);
     written += 2;
   }
 
@@ -616,7 +616,7 @@ async function main() {
     const faqHtml = faqs.length ? `<h2>Frequently Asked Questions</h2>${faqs.map((f) => `<details><summary>${esc(f.q)}</summary><p>${esc(f.a)}</p></details>`).join('')}` : '';
     const content = `<main><nav aria-label="Breadcrumb"><a href="/">Home</a> &rsaquo; <a href="/best">Best Forex Brokers</a> &rsaquo; <span>${esc(p.title)}</span></nav><h1>${esc(p.title)}</h1>${(p.intro ?? []).map((x) => `<p>${esc(x)}</p>`).join('')}${criteria.length ? `<h2>How PipRank ranks this category</h2><ul>${criteria.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}<h2>${esc(p.title)}</h2><ol>${ranked.slice(0,10).map((b) => `<li><a href="/brokers/${esc(b.slug)}">${esc(b.name)}</a> — ${esc(b.tagline || 'Broker profile and comparison')}</li>`).join('')}</ol>${sectionHtml}${faqHtml}<p><a href="/countries">Find brokers by country</a> · <a href="/quiz">Get a personal broker match</a></p></main>`;
     const jsonLd = [webPageJsonLd(title, description, `/best/${p.slug}`, 'WebPage'), breadcrumbJsonLd([{ name: 'Home', path: '/' }, { name: 'Best Forex Brokers', path: '/best' }, { name: p.title, path: `/best/${p.slug}` }]), itemListJsonLd(p.title, ranked.slice(0,10).map((b) => ({ name: b.name, path: `/brokers/${b.slug}` }))), ...(faqs.length ? [faqPageJsonLd(faqs.map((f) => ({ question: f.q, answer: f.a })))] : [])];
-    writePage(`/best/${p.slug}`, { title, description, path: `/best/${p.slug}` }, jsonLd, content, shell);
+    writePage(`/best/${p.slug}`, { title, description, path: `/best/${p.slug}` }, jsonLd, content, shell, writtenPaths);
     written++;
   }
 
@@ -672,7 +672,7 @@ async function main() {
       itemListJsonLd(`Best ${p.label} forex brokers in ${countryName}`, fallback.map((b) => ({ name: b.name, path: `/brokers/${b.slug}` }))),
       ...(faqs.length ? [faqPageJsonLd(faqs.map((f) => ({ question: f.q, answer: f.a })))] : []),
     ];
-    writePage(`/countries/${p.country_slug}/best/${p.slug}`, { title, description, path: `/countries/${p.country_slug}/best/${p.slug}` }, jsonLd, content, shell);
+    writePage(`/countries/${p.country_slug}/best/${p.slug}`, { title, description, path: `/countries/${p.country_slug}/best/${p.slug}` }, jsonLd, content, shell, writtenPaths);
     written++;
   }
 
@@ -722,7 +722,7 @@ async function main() {
         itemListJsonLd(`${topic.title} in ${c.name}`, eligible.slice(0,10).map((b) => ({ name: b.name, path: `/brokers/${b.slug}` }))),
         faqPageJsonLd(finalFaqs.map((f) => ({ question: f.q, answer: f.a }))),
       ];
-      writePage(path, { title: finalMetaTitle, description: finalDescription, path }, jsonLd, content, shell);
+      writePage(path, { title: finalMetaTitle, description: finalDescription, path }, jsonLd, content, shell, writtenPaths);
       written++;
     }
     if (countryBrokers.length === 0) warn(`No country recommendation set for ${c.slug}; no Phase 10 matrix pages generated.`);
@@ -761,7 +761,7 @@ async function main() {
       itemListJsonLd(lp.title, eligible.slice(0,10).map((b) => ({ name: b.name, path: `/brokers/${b.slug}` }))),
       faqPageJsonLd((lp.faqs || []).map((f) => ({ question: f.q || f.question, answer: f.a || f.answer }))),
     ];
-    writePage(path, { title, description, path, lang: lang.locale || lang.code, alternates: [{ hreflang: lang.locale || lang.code, path }, { hreflang: enHreflang, path: englishPath }, { hreflang: 'x-default', path: englishPath }] }, jsonLd, content, shell);
+    writePage(path, { title, description, path, lang: lang.locale || lang.code, alternates: [{ hreflang: lang.locale || lang.code, path }, { hreflang: enHreflang, path: englishPath }, { hreflang: 'x-default', path: englishPath }] }, jsonLd, content, shell, writtenPaths);
     written++;
   }
 
@@ -791,7 +791,7 @@ async function main() {
         itemListJsonLd(localized.title, eligible.slice(0,10).map((b) => ({ name: b.name, path: `/brokers/${b.slug}` }))),
         faqPageJsonLd(localized.faqs.map(([q,a]) => ({ question: q, answer: a }))),
       ];
-      writePage(path, { title: localized.metaTitle, description: localized.description, path, lang: 'vi-VN', alternates: [{ hreflang: 'vi-VN', path }, { hreflang: 'en-VN', path: englishPath }] }, jsonLd, content, shell);
+      writePage(path, { title: localized.metaTitle, description: localized.description, path, lang: 'vi-VN', alternates: [{ hreflang: 'vi-VN', path }, { hreflang: 'en-VN', path: englishPath }] }, jsonLd, content, shell, writtenPaths);
       written++;
     }
   } else warn('Vietnam country record not found; Vietnamese cluster was not prerendered.');
@@ -825,7 +825,7 @@ async function main() {
       ]),
     ];
 
-    writePage(`/guides/${g.slug}`, { title, description, path: `/guides/${g.slug}` }, jsonLd, content, shell);
+    writePage(`/guides/${g.slug}`, { title, description, path: `/guides/${g.slug}` }, jsonLd, content, shell, writtenPaths);
     written++;
   }
 
@@ -911,7 +911,7 @@ async function main() {
         faqPageJsonLd(faq),
       ];
 
-      writePage(path, { title, description, path }, jsonLd, content, shell);
+      writePage(path, { title, description, path }, jsonLd, content, shell, writtenPaths);
       written++;
     }
   }
@@ -1016,7 +1016,7 @@ function itemListJsonLd(name, items) {
   };
 }
 
-function writePage(routePath, seo, jsonLdArr, contentHtml, shell) {
+function writePage(routePath, seo, jsonLdArr, contentHtml, shell, writtenPaths) {
   writtenPaths.add(routePath || seo.path);
   const canonical = `${PRODUCTION_ORIGIN}${seo.path}`;
   const ogImage = `${PRODUCTION_ORIGIN}${DEFAULT_OG_IMAGE}`;
