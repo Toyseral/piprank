@@ -1,7 +1,7 @@
 // Generate a sitemap only for production. Every URL listed must be a public,
 // indexable route that the prerender step also generated.
 
-import { createClient } from '@Supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
 import { writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
