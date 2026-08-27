@@ -116,7 +116,7 @@ async function main() {
       supabase.from('brokers').select('*'),
       supabase.from('countries').select('*'),
       supabase.from('guides').select('*'),
-      supabase.from('intents').select('*').eq('indexable', true).order('sort_order', { ascending: true }).order('id', { ascending: true }),
+      supabase.from('intents').select('*').order('sort_order', { ascending: true }).order('id', { ascending: true }),
       supabase.from('country_best_for').select('*, countries!inner(name, slug)').eq('indexable', true),
       supabase.from('reviews').select('broker_id, rating, verified, created_at'),
       supabase.from('localized_seo_pages').select('*, countries!inner(name,slug), country_languages!inner(name,native_name,code,locale,url_prefix,active)').eq('published', true).eq('indexable', true),
@@ -604,7 +604,7 @@ async function main() {
 
   // --- Global Best-For SEO pages ----------------------------------------
   for (const p of intents) {
-    if (!p.slug || p.indexable === false) continue;
+    if (!p.slug) continue;
     const year = new Date().getFullYear();
     const title = p.meta_title?.trim() || `${p.title}${/\b20\d{2}\b/.test(p.title) ? '' : ` ${year}`} | ${SITE_NAME}`;
     const description = p.meta_description?.trim() || p.intro?.[0] || `Compare the best forex brokers for ${String(p.label || p.title).toLowerCase()} with ${SITE_NAME}.`;
