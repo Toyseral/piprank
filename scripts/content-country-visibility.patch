@@ -1,0 +1,74 @@
+--- a/api/content.js
++++ b/api/content.js
+@@ -126,23 +126,47 @@
+ 
+ /* ============================== countries ============================== */
+ 
++function isCountryPubliclyVisible(row) {
++  // Missing status (pre-migration) treated as published so existing live countries stay public.
++  const status = row?.status ?? 'published';
++  return status === 'published';
++}
++
+ async function handleCountries(req, res) {
+   if (req.method === 'GET') {
+-    const { slug } = req.query;
++    const { slug, admin } = req.query;
++    const wantAll = String(admin ?? '') === '1';
+     if (slug) {
+       const { data, error } = await supabase.from('countries').select('*').eq('slug', slug).single();
+       if (error || !data) return res.status(404).json({ error: 'Country not found' });
++      if (!wantAll && !isCountryPubliclyVisible(data)) {
++        return res.status(404).json({ error: 'Country not found' });
++      }
+       return res.status(200).json(data);
+     }
+-    const { data, error } = await supabase.from('countries').select('*').order('id', { ascending: true });
+-    if (error) throw error;
+-    return res.status(200).json(data);
++    let query = supabase.from('countries').select('*').order('id', { ascending: true });
++    if (!wantAll) {
++      query = query.or('status.eq.published,status.is.null');
++    }
++    const { data, error } = await query;
++    if (error) {
++      if (String(error.message || '').toLowerCase().includes('status')) {
++        const fallback = await supabase.from('countries').select('*').order('id', { ascending: true });
++        if (fallback.error) throw fallback.error;
++        return res.status(200).json(fallback.data ?? []);
++      }
++      throw error;
++    }
++    const rows = data ?? [];
++    if (wantAll) return res.status(200).json(rows);
++    return res.status(200).json(rows.filter(isCountryPubliclyVisible));
+   }
+   if (!(await requireRole(req, res, CONTENT_WRITE))) return;
+   if (req.method === 'POST') {
+     const body = req.body ?? {};
+     if (!body.name || String(body.name).trim().length < 2)
+       return res.status(400).json({ error: 'Country name is required' });
++    const status = ['draft', 'published', 'closed'].includes(body.status) ? body.status : 'draft';
+     const payload = {
+       name: String(body.name).trim().slice(0, 60),
+       slug: body.slug ? slugify(body.slug) : slugify(body.name),
+@@ -153,6 +177,7 @@
+       facts: Array.isArray(body.facts) ? body.facts : [],
+       recommended: Array.isArray(body.recommended) ? body.recommended : [],
+       unavailable: Array.isArray(body.unavailable) ? body.unavailable : [],
++      status,
+       seo_title: body.seo_title ? String(body.seo_title).slice(0, 180) : null,
+       seo_description: body.seo_description ? String(body.seo_description).slice(0, 320) : null,
+       seo_intro: Array.isArray(body.seo_intro) ? body.seo_intro.filter(Boolean) : [],
+@@ -166,9 +191,12 @@
+   if (req.method === 'PUT') {
+     const { id, ...fields } = req.body ?? {};
+     if (!id) return res.status(400).json({ error: 'id is required' });
+     if (fields.name) fields.slug = fields.slug ? slugify(fields.slug) : slugify(fields.name);
++    if (fields.status !== undefined && !['draft', 'published', 'closed'].includes(fields.status)) {
++      return res.status(400).json({ error: 'status must be draft, published, or closed' });
++    }
+     const { data, error } = await supabase.from('countries').update(fields).eq('id', Number(id)).select().single();
+     if (error) throw error;
+     return res.status(200).json(data);
+   }
