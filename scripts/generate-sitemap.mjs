@@ -18,11 +18,11 @@ const MAX_BROKERS_FOR_PAIRS = 12;
 
 function escXml(value) {
   return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
+    .replace(/&/g, '&')
+    .replace(/</g, '<')
+    .replace(/>/g, '>')
+    .replace(/"/g, '"')
+    .replace(/'/g, ''');
 }
 
 function cleanDate(value) {
@@ -121,8 +121,8 @@ async function main() {
 
     fetchRows(
       'countries',
-      'id, slug, recommended, updated_at',
-      'id, slug, recommended'
+      'id, slug, recommended, status, updated_at',
+      'id, slug, recommended, status'
     ),
 
     fetchRows(
@@ -178,10 +178,13 @@ async function main() {
     });
   }
 
-  // Country pages
-  for (const country of countries ?? []) {
-    if (!country.slug) continue;
+  // Only published countries are public (draft/closed must not appear in sitemap).
+  const publishedCountries = (countries ?? []).filter(
+    (c) => c.slug && (c.status == null || c.status === 'published')
+  );
 
+  // Country pages
+  for (const country of publishedCountries) {
     urls.push({
       loc: `/${country.slug}`,
       lastmod: cleanDate(country.updated_at),
@@ -208,10 +211,8 @@ async function main() {
     });
   }
 
-  // Country-first commercial SEO pages
-  for (const country of countries ?? []) {
-    if (!country.slug) continue;
-
+  // Country-first commercial SEO pages (published countries only)
+  for (const country of publishedCountries) {
     for (const topic of countrySeoTopics) {
       if (topic.indexable === false) continue;
 
@@ -230,9 +231,9 @@ async function main() {
     }
   }
 
-  // Country slug lookup
+  // Country slug lookup — published only
   const countrySlugById = new Map(
-    (countries ?? []).map((country) => [
+    publishedCountries.map((country) => [
       Number(country.id),
       country.slug,
     ])
@@ -296,7 +297,7 @@ async function main() {
   }
 
   // Vietnamese localized pages
-  const vietnam = (countries ?? []).find(
+  const vietnam = publishedCountries.find(
     (country) => country.slug === 'vietnam'
   );
 
@@ -342,13 +343,21 @@ async function main() {
     }
   }
 
-  // Country guide pages
+  // Country guide pages — only when country is published and document is published
+  const publishedCountrySlugs = new Set(
+    publishedCountries.map((c) => c.slug)
+  );
+
   for (const document of countryGuides ?? []) {
     if (document.content_type !== 'country-guide') {
       continue;
     }
 
     if (!document.country_slug || !document.slug) {
+      continue;
+    }
+
+    if (!publishedCountrySlugs.has(document.country_slug)) {
       continue;
     }
 
@@ -367,7 +376,7 @@ async function main() {
 
   // Country Best For pages not superseded by the new matrix
   const countryById = new Map(
-    (countries ?? []).map((country) => [
+    publishedCountries.map((country) => [
       Number(country.id),
       country.slug,
     ])
@@ -472,17 +481,11 @@ async function main() {
         ? `\n    <lastmod>${entry.lastmod}</lastmod>`
         : '';
 
-      return `  <url>
-    <loc>${escXml(siteUrl + entry.loc)}</loc>${lastmod}
-  </url>`;
+      return `  <url>\n    <loc>${escXml(siteUrl + entry.loc)}</loc>${lastmod}\n  </url>`;
     })
     .join('\n');
 
-  const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${body}
-</urlset>
-`;
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${body}\n</urlset>\n`;
 
   writeFileSync(
     join(DIST, 'sitemap.xml'),
