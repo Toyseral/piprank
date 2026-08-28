@@ -1,4 +1,4 @@
-import type { Broker, BrokerContent, BrokerCountryAvailability, BrokerCountryVerification, CountryBestFor, CountryPage, Guide, Intent, Review, ContentDocument, CountryLanguage, LocalizedSeoPage, CountryIntentBrokerRanking } from './types';
+import type { Author, Broker, BrokerContent, BrokerCountryAvailability, BrokerCountryVerification, CountryBestFor, CountryPage, Guide, Intent, Review, ContentDocument, CountryLanguage, LocalizedSeoPage, CountryIntentBrokerRanking } from './types';
 
 async function get<T>(url: string, token?: string): Promise<T> {
   const res = await fetch(url, {
@@ -35,9 +35,17 @@ export const fetchBrokerAvailability = (brokerId: number) =>
 export const fetchBrokerVerification = (brokerId?: number, countrySlug?: string) => get<BrokerCountryVerification[]>(`/api/broker-assets?resource=verification${brokerId ? `&broker_id=${brokerId}` : ''}${countrySlug ? `&country_slug=${encodeURIComponent(countrySlug)}` : ''}`);
 export const saveBrokerVerification = (payload: Partial<BrokerCountryVerification>) => send<BrokerCountryVerification>('/api/broker-assets?resource=verification', 'PUT', payload);
 
+/** Public country list — draft/closed countries are excluded by the API. */
 export const fetchCountries = () => get<CountryPage[]>('/api/countries');
 export const fetchCountry = (slug: string) =>
   get<CountryPage>(`/api/countries?slug=${encodeURIComponent(slug)}`);
+/** Admin country list including draft/closed. */
+export const fetchCountriesAdmin = () => get<CountryPage[]>('/api/countries?admin=1');
+
+export const fetchAuthors = (opts?: { all?: boolean }) =>
+  get<Author[]>(`/api/authors${opts?.all ? '?all=1' : ''}`);
+export const fetchAuthor = (slug: string) =>
+  get<Author>(`/api/authors?slug=${encodeURIComponent(slug)}`);
 export const fetchCountryIntentRankings = (countrySlug: string, intentSlug: string) =>
   get<CountryIntentBrokerRanking[]>(`/api/country-intent-rankings?country=${encodeURIComponent(countrySlug)}&intent=${encodeURIComponent(intentSlug)}`);
 
