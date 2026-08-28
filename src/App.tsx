@@ -53,6 +53,7 @@ export function Shell() {
             <Route path="/" element={<Home />} />
             <Route path="/brokers" element={<Brokers />} />
             <Route path="/brokers/:slug" element={<BrokerDetail />} />
+            <Route path="/:countrySlug/brokers/:slug" element={<BrokerDetail />} />
             <Route path="/compare" element={<Compare />} />
             <Route path="/compare/:pair" element={<ComparePair />} />
             <Route path="/quiz" element={<Quiz />} />
