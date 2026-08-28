@@ -253,6 +253,9 @@ export interface CountryRec {
   note: string;
 }
 
+/** Master public visibility for a country page and its child content. */
+export type CountryStatus = 'draft' | 'published' | 'closed';
+
 export interface CountryPage {
   id: number;
   slug: string;
@@ -263,11 +266,44 @@ export interface CountryPage {
   facts: CountryFact[];
   recommended: CountryRec[];
   unavailable: string[];
+  /** draft = hidden; published = visible when child content is published; closed = hidden + suppress all child content (content is not deleted). */
+  status?: CountryStatus;
   seo_title?: string | null;
   seo_description?: string | null;
   seo_intro?: string[];
   seo_sections?: { heading: string; body: string[]; bullets?: string[] }[];
   seo_faqs?: FAQ[];
+}
+
+export interface AuthorCredential {
+  title: string;
+  organization?: string;
+  year?: string | number | null;
+  verification_url?: string | null;
+  description?: string | null;
+}
+
+export interface AuthorLink {
+  label: string;
+  url: string;
+}
+
+export interface Author {
+  id: number;
+  slug: string;
+  pen_name: string;
+  role: string;
+  short_bio: string;
+  bio: string;
+  expertise: string[];
+  photo_url?: string | null;
+  color: string;
+  credentials: AuthorCredential[];
+  professional_links: AuthorLink[];
+  display_order: number;
+  published: boolean;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface ContentDocument {
