@@ -47,7 +47,7 @@ export default function Authors() {
 
   useEffect(() => {
     fetchAuthors()
-      .then((rows) => {
+      .then((rows: Author[]) => {
         if (!Array.isArray(rows) || rows.length === 0) return;
         setAuthors(
           rows.map((a) => ({
