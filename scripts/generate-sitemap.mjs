@@ -17,12 +17,14 @@ const DIST = join(__dirname, '..', 'dist');
 const MAX_BROKERS_FOR_PAIRS = 12;
 
 function escXml(value) {
+  // Build entities via concat so tooling cannot strip HTML entities into broken quotes.
+  const amp = String.fromCharCode(38);
   return String(value ?? '')
-    .replace(/&/g, '\u0026amp;')
-    .replace(/</g, '\u0026lt;')
-    .replace(/>/g, '\u0026gt;')
-    .replace(/"/g, '\u0026quot;')
-    .replace(/'/g, '\u0026apos;');
+    .replace(/&/g, amp + 'amp;')
+    .replace(/</g, amp + 'lt;')
+    .replace(/>/g, amp + 'gt;')
+    .replace(/"/g, amp + 'quot;')
+    .replace(/'/g, amp + 'apos;');
 }
 
 function cleanDate(value) {
