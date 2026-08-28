@@ -17,7 +17,7 @@ import {
   X,
 } from 'lucide-react';
 import type { Broker, BrokerContent, BrokerCountryVerification, PlatformDetail, Review, ContentDocument } from '../lib/types';
-import { createReview, fetchBroker, fetchBrokerContent, fetchBrokers, fetchBrokerVerification, fetchCountries, fetchReviews, fetchContentDocument, voteHelpful } from '../lib/api';
+import { createReview, fetchBroker, fetchBrokerContent, fetchBrokers, fetchBrokerVerification, fetchReviews, fetchContentDocument, voteHelpful } from '../lib/api';
 import { blocksToHtml } from '../components/PageBuilder';
 import { track } from '../lib/track';
 import { getSupabase } from '../lib/supabase-lazy';
@@ -58,7 +58,6 @@ export default function BrokerDetail() {
   const navigate = useNavigate();
   const [broker, setBroker] = useState<Broker | null>(null);
   const [all, setAll] = useState<Broker[]>([]);
-  const [countries, setCountries] = useState<import('../lib/types').CountryPage[]>([]);
   const [verifications, setVerifications] = useState<BrokerCountryVerification[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [extras, setExtras] = useState<BrokerContent | null>(null);
@@ -108,7 +107,6 @@ export default function BrokerDetail() {
         fetchBrokerContent(b.id).then(setExtras).catch(() => setExtras(null));
         fetchContentDocument(`broker:${b.slug}:main`).then(content => setRichProfile(content?.published ? content : null)).catch(() => setRichProfile(null));
         fetchBrokers().then(setAll).catch(() => {});
-        fetchCountries().then(setCountries).catch(() => {});
         fetchBrokerVerification(b.id).then(setVerifications).catch(() => setVerifications([]));
         track('broker_view', { broker: b.slug, name: b.name });
       })
@@ -516,9 +514,8 @@ export default function BrokerDetail() {
                 <div key={item} className="rounded-xl bg-white px-4 py-3 text-sm font-semibold text-slate-700 ring-1 ring-emerald-100">Best for {item}</div>
               ))}
             </div>
-            <div className="mt-5 flex flex-wrap gap-3">
-              <VisitButton broker={broker} />
-              <Link to="/methodology" className="inline-flex items-center rounded-xl border border-line bg-white px-4 py-2.5 text-sm font-bold text-ink-900 hover:border-emerald-300">See how PipRank scores brokers</Link>
+            <div className="mt-5">
+              <VisitButton broker={broker} className="w-full" />
             </div>
           </section>
 
@@ -540,33 +537,6 @@ export default function BrokerDetail() {
                 <ul className="mt-3 space-y-2.5">
                   {broker.cons.slice(0, 5).map((c) => <li key={c} className="flex gap-2 text-sm leading-relaxed text-slate-700"><X size={15} className="mt-0.5 shrink-0 text-rose-500" />{c}</li>)}
                 </ul>
-              </div>
-            </div>
-          </section>
-
-          {/* COMMERCIAL INTERNAL-LINK MESH */}
-          <section className="rounded-3xl border border-line bg-white p-6 sm:p-8" aria-labelledby="explore-broker">
-            <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Continue researching</p>
-            <h2 id="explore-broker" className="mt-1 font-display text-2xl font-bold text-ink-900">Explore {broker.name} by country, trading style and alternatives</h2>
-            <div className="mt-5 grid gap-5 md:grid-cols-3">
-              <div>
-                <h3 className="text-sm font-bold text-ink-900">Best for</h3>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {(broker.best_for ?? []).slice(0, 6).map((slug) => <Link key={slug} to={`/best/${slug}`} className="rounded-full border border-line bg-paper px-3 py-1.5 text-xs font-semibold text-slate-600 hover:border-emerald-400">{slug.replace(/-/g, ' ')}</Link>)}
-                </div>
-              </div>
-              <div>
-                <h3 className="text-sm font-bold text-ink-900">Available by country</h3>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {countries.filter((c) => c.recommended?.some((r) => r.slug === broker.slug)).slice(0, 8).map((c) => <Link key={c.slug} to={`/countries/${c.slug}`} className="rounded-full border border-line bg-paper px-3 py-1.5 text-xs font-semibold text-slate-600 hover:border-emerald-400">{c.name}</Link>)}
-                  {!countries.some((c) => c.recommended?.some((r) => r.slug === broker.slug)) && <Link to="/countries" className="text-xs font-semibold text-emerald-700">Browse country availability →</Link>}
-                </div>
-              </div>
-              <div>
-                <h3 className="text-sm font-bold text-ink-900">Compare</h3>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {all.filter((x) => x.slug !== broker.slug).slice(0, 6).map((o) => { const [x, y] = [broker.slug, o.slug].sort((a, b) => a.localeCompare(b)); return <Link key={o.slug} to={`/compare/${x}-vs-${y}`} className="rounded-full border border-line bg-paper px-3 py-1.5 text-xs font-semibold text-slate-600 hover:border-emerald-400">{o.name}</Link>; })}
-                </div>
               </div>
             </div>
           </section>
@@ -1030,23 +1000,6 @@ export default function BrokerDetail() {
             </div>
           </section>
 
-          {/* METHODOLOGY */}
-          <section id="methodology" className="scroll-mt-28 rounded-3xl border border-line bg-white p-6 sm:p-8">
-            <h2 className="font-display text-2xl font-bold text-ink-900">How PipRank evaluates {broker.name}</h2>
-            <p className="mt-3 max-w-3xl text-[15px] leading-relaxed text-slate-600">
-              PipRank separates broker facts from its own analysis. The profile considers regulation, withdrawal reliability, execution, longevity, customer support and user sentiment, alongside trading costs and platform features.
-            </p>
-            <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {HEALTH_LABELS.map(([key, label]) => (
-                <div key={key} className="rounded-2xl border border-line bg-paper p-4">
-                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500">{label}</p>
-                  <p className="tnum mt-1 font-display text-xl font-bold text-ink-900">{broker.health[key]}/100</p>
-                </div>
-              ))}
-            </div>
-            <Link to="/methodology" className="mt-5 inline-flex text-sm font-bold text-emerald-700 underline-offset-2 hover:underline">Read the full PipRank methodology →</Link>
-          </section>
-
           {/* FAQ */}
           <section id="faq" className="scroll-mt-28 rounded-3xl border border-line bg-white p-6 sm:p-8">
             <h2 className="font-display text-2xl font-bold text-ink-900">{broker.name} FAQs</h2>
@@ -1071,6 +1024,23 @@ export default function BrokerDetail() {
                 </div>
               ))}
             </div>
+          </section>
+
+          {/* METHODOLOGY */}
+          <section id="methodology" className="scroll-mt-28 rounded-3xl border border-line bg-white p-6 sm:p-8">
+            <h2 className="font-display text-2xl font-bold text-ink-900">How PipRank evaluates {broker.name}</h2>
+            <p className="mt-3 max-w-3xl text-[15px] leading-relaxed text-slate-600">
+              PipRank separates broker facts from its own analysis. The profile considers regulation, withdrawal reliability, execution, longevity, customer support and user sentiment, alongside trading costs and platform features.
+            </p>
+            <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {HEALTH_LABELS.map(([key, label]) => (
+                <div key={key} className="rounded-2xl border border-line bg-paper p-4">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500">{label}</p>
+                  <p className="tnum mt-1 font-display text-xl font-bold text-ink-900">{broker.health[key]}/100</p>
+                </div>
+              ))}
+            </div>
+            <Link to="/methodology" className="mt-5 inline-flex text-sm font-bold text-emerald-700 underline-offset-2 hover:underline">Read the full PipRank methodology →</Link>
           </section>
 
           {/* ALTERNATIVES */}
