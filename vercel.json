@@ -117,6 +117,10 @@
       "destination": "/api/content?resource=countries"
     },
     {
+      "source": "/api/authors",
+      "destination": "/api/content?resource=authors"
+    },
+    {
       "source": "/api/country-best-for",
       "destination": "/api/content?resource=country-best-for"
     },

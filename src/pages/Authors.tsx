@@ -1,15 +1,28 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Monogram from '../components/Monogram';
 import Reveal from '../components/Reveal';
 import { useSEO } from '../hooks/useSEO';
+import { fetchAuthors } from '../lib/api';
 import { buildBreadcrumbJsonLd, buildWebPageJsonLd, SITE_NAME } from '../lib/seo';
 import { TEAM } from '../lib/team';
+import type { Author } from '../lib/types';
 
 const AUTHORS_SEO = {
   title: `Our Editorial Team | ${SITE_NAME}`,
   description: 'Meet the PipRank editorial team responsible for broker regulation checks, real-money testing, Health Score methodology and country coverage.',
   path: '/authors',
   type: 'website' as const,
+};
+
+type DisplayAuthor = {
+  slug: string;
+  penName: string;
+  role: string;
+  color: string;
+  focus: string;
+  bio: string;
+  credentials?: Author['credentials'];
 };
 
 export default function Authors() {
@@ -20,6 +33,36 @@ export default function Authors() {
       { name: 'Editorial Team', path: '/authors' },
     ]),
   ]);
+
+  const [authors, setAuthors] = useState<DisplayAuthor[]>(
+    TEAM.map((t) => ({
+      slug: t.slug,
+      penName: t.penName,
+      role: t.role,
+      color: t.color,
+      focus: t.focus,
+      bio: t.bio,
+    }))
+  );
+
+  useEffect(() => {
+    fetchAuthors()
+      .then((rows) => {
+        if (!Array.isArray(rows) || rows.length === 0) return;
+        setAuthors(
+          rows.map((a) => ({
+            slug: a.slug,
+            penName: a.pen_name,
+            role: a.role,
+            color: a.color || '#1f8a5c',
+            focus: a.short_bio || (a.expertise?.[0] ?? ''),
+            bio: a.bio,
+            credentials: a.credentials,
+          }))
+        );
+      })
+      .catch(() => {});
+  }, []);
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6">
@@ -40,7 +83,7 @@ export default function Authors() {
       </p>
 
       <div className="mt-10 space-y-4">
-        {TEAM.map((t, i) => (
+        {authors.map((t, i) => (
           <Reveal key={t.slug} delay={i * 0.05}>
             <div id={t.slug} className="scroll-mt-28 flex gap-4 rounded-2xl border border-line bg-white p-5 shadow-soft sm:p-6">
               <Monogram name={t.penName} color={t.color} size={56} className="shrink-0" />
@@ -48,7 +91,26 @@ export default function Authors() {
                 <p className="font-display text-lg font-bold text-ink-900">{t.penName}</p>
                 <p className="text-xs font-bold uppercase tracking-wide text-emerald-700">{t.role}</p>
                 <p className="mt-2 text-sm leading-relaxed text-slate-600">{t.bio}</p>
-                <p className="mt-2 text-xs font-semibold text-slate-400">Focus: {t.focus}</p>
+                {t.focus && <p className="mt-2 text-xs font-semibold text-slate-400">Focus: {t.focus}</p>}
+                {Array.isArray(t.credentials) && t.credentials.length > 0 && (
+                  <ul className="mt-3 space-y-1 border-t border-line pt-3">
+                    {t.credentials.map((c, idx) => (
+                      <li key={idx} className="text-xs text-slate-500">
+                        <span className="font-semibold text-ink-900">{c.title}</span>
+                        {c.organization ? ` — ${c.organization}` : ''}
+                        {c.year ? ` (${c.year})` : ''}
+                        {c.verification_url ? (
+                          <>
+                            {' '}
+                            <a href={c.verification_url} target="_blank" rel="noopener noreferrer" className="font-semibold text-emerald-700 hover:underline">
+                              verify
+                            </a>
+                          </>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             </div>
           </Reveal>
