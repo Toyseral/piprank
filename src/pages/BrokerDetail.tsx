@@ -16,8 +16,8 @@ import {
   ThumbsUp,
   X,
 } from 'lucide-react';
-import type { Broker, BrokerContent, BrokerCountryVerification, PlatformDetail, Review, ContentDocument } from '../lib/types';
-import { createReview, fetchBroker, fetchBrokerContent, fetchBrokers, fetchBrokerVerification, fetchReviews, fetchContentDocument, voteHelpful } from '../lib/api';
+import type { Broker, BrokerContent, BrokerCountryAvailability, BrokerCountryVerification, PlatformDetail, Review, ContentDocument } from '../lib/types';
+import { createReview, fetchBroker, fetchBrokerAvailability, fetchBrokerContent, fetchBrokers, fetchBrokerVerification, fetchReviews, fetchContentDocument, voteHelpful } from '../lib/api';
 import { blocksToHtml } from '../components/PageBuilder';
 import { track } from '../lib/track';
 import { getSupabase } from '../lib/supabase-lazy';
@@ -54,10 +54,11 @@ const HEALTH_LABELS: [keyof Broker['health'], string][] = [
 ];
 
 export default function BrokerDetail() {
-  const { slug } = useParams<{ slug: string }>();
+  const { slug, countrySlug } = useParams<{ slug: string; countrySlug?: string }>();
   const navigate = useNavigate();
   const [broker, setBroker] = useState<Broker | null>(null);
   const [all, setAll] = useState<Broker[]>([]);
+  const [availability, setAvailability] = useState<BrokerCountryAvailability[]>([]);
   const [verifications, setVerifications] = useState<BrokerCountryVerification[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [extras, setExtras] = useState<BrokerContent | null>(null);
@@ -99,6 +100,7 @@ export default function BrokerDetail() {
     setError('');
     setFormDone(false);
     setExtras(null);
+    setAvailability([]);
     setPlatformTab(0);
     fetchBroker(slug)
       .then((b) => {
@@ -107,12 +109,18 @@ export default function BrokerDetail() {
         fetchBrokerContent(b.id).then(setExtras).catch(() => setExtras(null));
         fetchContentDocument(`broker:${b.slug}:main`).then(content => setRichProfile(content?.published ? content : null)).catch(() => setRichProfile(null));
         fetchBrokers().then(setAll).catch(() => {});
-        fetchBrokerVerification(b.id).then(setVerifications).catch(() => setVerifications([]));
+        if (countrySlug) {
+          fetchBrokerAvailability(b.id).then(setAvailability).catch(() => setAvailability([]));
+          fetchBrokerVerification(b.id, countrySlug).then(setVerifications).catch(() => setVerifications([]));
+        } else {
+          setAvailability([]);
+          setVerifications([]);
+        }
         track('broker_view', { broker: b.slug, name: b.name });
       })
       .catch((e) => setError(e instanceof Error ? e.message : 'Broker not found'))
       .finally(() => setLoading(false));
-  }, [slug]);
+  }, [slug, countrySlug]);
 
   // Full page metadata (title, description, canonical, OG, Twitter, JSON-LD).
   // useSEO is a no-op while seoInput is null (loading / not found); the
@@ -312,6 +320,17 @@ export default function BrokerDetail() {
       }
   );
   const activePlatform = platformContent[Math.min(platformTab, platformContent.length - 1)] ?? platformContent[0];
+  const countryAvailabilityBadge = countrySlug
+    ? verifications.find(
+        (verification) =>
+          verification.country_slug === countrySlug &&
+          verification.availability_verified &&
+          availability.some(
+            (entry) => entry.country_slug === countrySlug && entry.status === 'available'
+          )
+      )
+    : null;
+
 
   const accountRows = extras?.accounts?.length
     ? extras.accounts
@@ -366,9 +385,9 @@ export default function BrokerDetail() {
                     <ShieldCheck size={13} /> Tier-1 regulated
                   </span>
                 )}
-                {verifications.some((v) => v.country_slug === 'ghana' && v.availability_verified) && (
+                {countryAvailabilityBadge?.country_name && (
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-500/30 bg-sky-500/10 px-3 py-1 text-xs font-bold text-sky-200">
-                    <BadgeCheck size={13} /> Ghana availability verified
+                    <BadgeCheck size={13} /> {countryAvailabilityBadge.country_name} availability verified
                   </span>
                 )}
               </div>
