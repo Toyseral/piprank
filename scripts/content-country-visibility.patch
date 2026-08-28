@@ -52,7 +52,7 @@
      const payload = {
        name: String(body.name).trim().slice(0, 60),
        slug: body.slug ? slugify(body.slug) : slugify(body.name),
-@@ -153,6 +177,7 @@
+@@ -152,6 +176,7 @@
        facts: Array.isArray(body.facts) ? body.facts : [],
        recommended: Array.isArray(body.recommended) ? body.recommended : [],
        unavailable: Array.isArray(body.unavailable) ? body.unavailable : [],
@@ -60,7 +60,7 @@
        seo_title: body.seo_title ? String(body.seo_title).slice(0, 180) : null,
        seo_description: body.seo_description ? String(body.seo_description).slice(0, 320) : null,
        seo_intro: Array.isArray(body.seo_intro) ? body.seo_intro.filter(Boolean) : [],
-@@ -166,9 +191,12 @@
+@@ -166,6 +191,9 @@
    if (req.method === 'PUT') {
      const { id, ...fields } = req.body ?? {};
      if (!id) return res.status(400).json({ error: 'id is required' });
@@ -71,4 +71,112 @@
      const { data, error } = await supabase.from('countries').update(fields).eq('id', Number(id)).select().single();
      if (error) throw error;
      return res.status(200).json(data);
-   }
+@@ -1015,6 +1043,132 @@
+   return res.status(405).json({ error: 'Method not allowed' });
+ }
+ 
++function cleanCredentials(value) {
++  if (!Array.isArray(value)) return [];
++  return value
++    .map((c) => ({
++      title: String(c?.title ?? '').trim().slice(0, 200),
++      organization: c?.organization ? String(c.organization).trim().slice(0, 200) : undefined,
++      year: c?.year === null || c?.year === undefined || c?.year === '' ? null : c.year,
++      verification_url: c?.verification_url ? String(c.verification_url).trim().slice(0, 500) : null,
++      description: c?.description ? String(c.description).trim().slice(0, 500) : null,
++    }))
++    .filter((c) => c.title);
++}
++
++function cleanAuthorLinks(value) {
++  if (!Array.isArray(value)) return [];
++  return value
++    .map((l) => ({
++      label: String(l?.label ?? '').trim().slice(0, 80),
++      url: String(l?.url ?? '').trim().slice(0, 500),
++    }))
++    .filter((l) => l.label && l.url);
++}
++
++async function handleAuthors(req, res) {
++  if (req.method === 'GET') {
++    const { slug, all } = req.query;
++    if (slug) {
++      const { data, error } = await supabase.from('authors').select('*').eq('slug', slug).single();
++      if (error || !data) return res.status(404).json({ error: 'Author not found' });
++      if (String(all ?? '') !== '1' && !data.published) {
++        return res.status(404).json({ error: 'Author not found' });
++      }
++      return res.status(200).json(data);
++    }
++    let query = supabase.from('authors').select('*').order('display_order', { ascending: true }).order('id', { ascending: true });
++    if (String(all ?? '') !== '1') {
++      query = query.eq('published', true);
++    }
++    const { data, error } = await query;
++    if (error) {
++      if (String(error.message || '').toLowerCase().includes('authors') || error.code === '42P01') {
++        return res.status(200).json([]);
++      }
++      throw error;
++    }
++    return res.status(200).json(data ?? []);
++  }
++  if (!(await requireRole(req, res, CONTENT_WRITE))) return;
++  if (req.method === 'POST') {
++    const body = req.body ?? {};
++    if (!body.pen_name || String(body.pen_name).trim().length < 2) {
++      return res.status(400).json({ error: 'pen_name is required' });
++    }
++    const payload = {
++      slug: body.slug ? slugify(body.slug) : slugify(body.pen_name),
++      pen_name: String(body.pen_name).trim().slice(0, 120),
++      role: String(body.role ?? '').trim().slice(0, 120),
++      short_bio: String(body.short_bio ?? body.focus ?? '').trim().slice(0, 300),
++      bio: String(body.bio ?? '').trim().slice(0, 4000),
++      expertise: Array.isArray(body.expertise) ? body.expertise.map(String).filter(Boolean).slice(0, 20) : [],
++      photo_url: body.photo_url ? String(body.photo_url).slice(0, 500) : null,
++      color: String(body.color ?? '#1f8a5c').slice(0, 20),
++      credentials: cleanCredentials(body.credentials),
++      professional_links: cleanAuthorLinks(body.professional_links),
++      display_order: Number.isFinite(Number(body.display_order)) ? Number(body.display_order) : 100,
++      published: Boolean(body.published),
++      updated_at: new Date().toISOString(),
++    };
++    const { data, error } = await supabase.from('authors').insert(payload).select().single();
++    if (error) throw error;
++    return res.status(201).json(data);
++  }
++  if (req.method === 'PUT') {
++    const { id, ...fields } = req.body ?? {};
++    if (!id) return res.status(400).json({ error: 'id is required' });
++    if (fields.slug) fields.slug = slugify(fields.slug);
++    if (fields.credentials) fields.credentials = cleanCredentials(fields.credentials);
++    if (fields.professional_links) fields.professional_links = cleanAuthorLinks(fields.professional_links);
++    if (fields.expertise) fields.expertise = Array.isArray(fields.expertise) ? fields.expertise.map(String).filter(Boolean).slice(0, 20) : [];
++    fields.updated_at = new Date().toISOString();
++    const { data, error } = await supabase.from('authors').update(fields).eq('id', Number(id)).select().single();
++    if (error) throw error;
++    return res.status(200).json(data);
++  }
++  if (req.method === 'DELETE') {
++    const { id } = req.body ?? {};
++    if (!id) return res.status(400).json({ error: 'id is required' });
++    const { error } = await supabase.from('authors').delete().eq('id', Number(id));
++    if (error) throw error;
++    return res.status(200).json({ ok: true });
++  }
++  return res.status(405).json({ error: 'Method not allowed' });
++}
++
+ /* ================================ router ================================ */
+ 
+ export default async function handler(req, res) {
+@@ -1021,6 +1145,7 @@
+     if (resource === 'guides') return await handleGuides(req, res);
+     if (resource === 'intents') return await handleIntents(req, res);
+     if (resource === 'countries') return await handleCountries(req, res);
++    if (resource === 'authors') return await handleAuthors(req, res);
+     if (resource === 'country-best-for') return await handleCountryBestFor(req, res);
+     if (resource === 'content-documents') return await handleContentDocuments(req, res);
+     if (resource === 'content-assets') return await handleContentAssets(req, res);
