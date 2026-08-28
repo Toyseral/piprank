@@ -120,6 +120,38 @@ const TABS: { key: Tab; label: string; icon: typeof Landmark; desc: string }[] =
   { key: 'conversions', label: 'Conversions', icon: Globe2, desc: 'Click-through funnel by broker, country, source page and referrer.' },
 ];
 
+const ADMIN_ACTIVE_TAB_STORAGE_KEY = 'piprank-admin-active-tab';
+const DEFAULT_ADMIN_TAB: Tab = 'overview';
+const VALID_ADMIN_TAB_KEYS = new Set<Tab>(TABS.map((tab) => tab.key));
+
+function isAdminTab(value: string | null): value is Tab {
+  return value !== null && VALID_ADMIN_TAB_KEYS.has(value as Tab);
+}
+
+function readSavedAdminTab(): Tab {
+  if (typeof window === 'undefined') return DEFAULT_ADMIN_TAB;
+
+  try {
+    const savedTab = window.localStorage.getItem(ADMIN_ACTIVE_TAB_STORAGE_KEY);
+    if (isAdminTab(savedTab)) return savedTab;
+    if (savedTab !== null) window.localStorage.removeItem(ADMIN_ACTIVE_TAB_STORAGE_KEY);
+  } catch {
+    // Ignore storage access failures so private browsing or blocked storage does not break admin.
+  }
+
+  return DEFAULT_ADMIN_TAB;
+}
+
+function saveAdminTab(tab: Tab) {
+  if (typeof window === 'undefined') return;
+
+  try {
+    window.localStorage.setItem(ADMIN_ACTIVE_TAB_STORAGE_KEY, tab);
+  } catch {
+    // Ignore storage access failures; the in-memory tab state still updates.
+  }
+}
+
 const NUMERIC_KEYS = new Set([
   'rating',
   'trust_score',
@@ -335,7 +367,7 @@ function Login() {
 /* ============================ DASHBOARD SHELL ============================ */
 
 function Dashboard({ session, role }: { session: Session; role: string }) {
-  const [tab, setTab] = useState<Tab>('overview');
+  const [tab, setTab] = useState<Tab>(() => readSavedAdminTab());
   const [menuOpen, setMenuOpen] = useState(false);
   const [brokers, setBrokers] = useState<Broker[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -444,33 +476,34 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
 
   const visibleTabs = TABS.filter((t) => (ROLE_ACCESS[t.key] ?? []).includes(role));
 
-  useEffect(() => {
-    if (!visibleTabs.find((t) => t.key === tab)) setTab(visibleTabs[0]?.key ?? 'overview');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [role]);
+  const setActiveAdminTab = useCallback((nextTab: Tab) => {
+    setTab(nextTab);
+    saveAdminTab(nextTab);
+  }, []);
 
-  const active = visibleTabs.find((t) => t.key === tab) ?? visibleTabs[0];
+  const activeTab = visibleTabs.find((t) => t.key === tab)?.key ?? visibleTabs[0]?.key ?? DEFAULT_ADMIN_TAB;
+  const active = visibleTabs.find((t) => t.key === activeTab) ?? visibleTabs[0];
 
   const nav = (onPick?: () => void) =>
     visibleTabs.map((t) => (
       <button
         key={t.key}
         onClick={() => {
-          setTab(t.key);
+          setActiveAdminTab(t.key);
           onPick?.();
         }}
         className={`flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-semibold transition ${
-          tab === t.key
+          activeTab === t.key
             ? 'bg-ink-950 text-white shadow-sm'
             : 'text-slate-500 hover:bg-paper hover:text-ink-900'
         }`}
       >
-        <t.icon size={16} className={tab === t.key ? 'text-emerald-400' : 'text-slate-400'} />
+        <t.icon size={16} className={activeTab === t.key ? 'text-emerald-400' : 'text-slate-400'} />
         {t.label}
         {counts[t.key] !== null && (
           <span
             className={`tnum ml-auto rounded-full px-2 py-0.5 text-[10px] font-bold ${
-              tab === t.key ? 'bg-white/15 text-emerald-300' : 'bg-paper text-slate-500'
+              activeTab === t.key ? 'bg-white/15 text-emerald-300' : 'bg-paper text-slate-500'
             }`}
           >
             {counts[t.key]}
@@ -567,7 +600,7 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
               </h1>
               <p className="mt-1 text-sm text-slate-500">{active.desc}</p>
             </div>
-            {tab === 'brokers' && (
+            {activeTab === 'brokers' && (
               <button
                 onClick={() => setEditingBroker('new')}
                 className="inline-flex items-center gap-1.5 rounded-xl bg-ink-950 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-ink-800"
@@ -586,7 +619,7 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
               <div className="h-96 animate-pulse rounded-2xl border border-line bg-white" />
             ) : (
               <>
-                {tab === 'pages' && (
+                {activeTab === 'pages' && (
                   <PageManager
                     countries={countries}
                     brokers={brokers}
@@ -596,18 +629,18 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
                     onDelete={(d) => { if (window.confirm(`Delete the page document "${d.title || d.content_key}"?`)) mutate('/api/content-documents', 'DELETE', { id: d.id }, 'Page deleted'); }}
                   />
                 )}
-                {tab === 'overview' && (
+                {activeTab === 'overview' && (
                   <Overview
                     brokers={brokers}
                     reviews={reviews}
                     subs={subs}
                     clicks={clicks}
                     brokerName={brokerName}
-                    onGoBrokers={() => setTab('brokers')}
+                    onGoBrokers={() => setActiveAdminTab('brokers')}
                   />
                 )}
-                {tab === 'analytics' && <AnalyticsPanel token={session.access_token} brokers={brokers} />}
-                {tab === 'brokers' && (
+                {activeTab === 'analytics' && <AnalyticsPanel token={session.access_token} brokers={brokers} />}
+                {activeTab === 'brokers' && (
                   <BrokersTab
                     brokers={brokers}
                     onNew={() => setEditingBroker('new')}
@@ -626,7 +659,7 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
                     }}
                   />
                 )}
-                {tab === 'reviews' && (
+                {activeTab === 'reviews' && (
                   <ReviewsTab
                     reviews={reviews}
                     brokerName={brokerName}
@@ -639,7 +672,7 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
                     }}
                   />
                 )}
-                {tab === 'content' && (
+                {activeTab === 'content' && (
                   <ContentTab
                     guides={guides}
                     intents={intents}
@@ -680,8 +713,8 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
                     }}
                   />
                 )}
-                {tab === 'rankings' && <RankingManager countries={countries} intents={intents} brokers={brokers} token={session.access_token} />}
-                {tab === 'localization' && (
+                {activeTab === 'rankings' && <RankingManager countries={countries} intents={intents} brokers={brokers} token={session.access_token} />}
+                {activeTab === 'localization' && (
                   <LocalizationManager
                     countries={countries}
                     languages={countryLanguages}
@@ -691,19 +724,19 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
                     accessToken={session.access_token}
                   />
                 )}
-                {tab === 'promos' && (
+                {activeTab === 'promos' && (
                   <PromosTab token={session.access_token} brokers={brokers} notify={notify} />
                 )}
-                {tab === 'team' && (
+                {activeTab === 'team' && (
                   <TeamTab token={session.access_token} myEmail={(session.user.email ?? '').toLowerCase()} />
                 )}
-                {tab === 'affiliate' && (
+                {activeTab === 'affiliate' && (
                   <AffiliateLinksTab token={session.access_token} brokers={brokers} notify={notify} />
                 )}
-                {tab === 'conversions' && (
+                {activeTab === 'conversions' && (
                   <ConversionsTab token={session.access_token} brokers={brokers} />
                 )}
-                {tab === 'subs' && (
+                {activeTab === 'subs' && (
                   <SubsTab
                     subs={subs}
                     onDelete={(s) => {
