@@ -1,0 +1,2 @@
+-- Applied migration: admin_hub_entities_and_country_visibility
+-- Adds countries.status (draft/published/closed) and the normalized authors entity.
