@@ -81,6 +81,7 @@ export default function BrokerDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [openFaq, setOpenFaq] = useState(0);
+  const [reviewsExpanded, setReviewsExpanded] = useState(false);
   const [voted, setVoted] = useState<number[]>(() => {
     try {
       return JSON.parse(localStorage.getItem('piprank_voted') ?? '[]');
@@ -405,9 +406,9 @@ export default function BrokerDetail() {
                   {ratingWord(broker.rating)}
                 </span>
               </div>
-            </div>
-            <div className="w-full sm:w-auto">
-              <VisitButton broker={broker} className="w-full" />
+              <div className="mt-4 sm:max-w-xs">
+                <VisitButton broker={broker} className="w-full" />
+              </div>
             </div>
           </div>
 
@@ -837,15 +838,52 @@ export default function BrokerDetail() {
             </div>
           </section>
 
-          {/* COMMUNITY */}
+          {/* FAQ */}
+          <section id="faq" className="scroll-mt-28 rounded-3xl border border-line bg-white p-6 sm:p-8">
+            <h2 className="font-display text-2xl font-bold text-ink-900">{broker.name} FAQs</h2>
+            <div className="mt-5 space-y-2.5">
+              {(Array.isArray(profileSettings.faqs) && profileSettings.faqs.length ? profileSettings.faqs : broker.faqs).map((f:any, i:number) => (
+                <div key={f.q} className="overflow-hidden rounded-2xl border border-line">
+                  <button
+                    onClick={() => setOpenFaq(openFaq === i ? -1 : i)}
+                    className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left"
+                  >
+                    <span className="text-sm font-bold text-ink-900">{f.q}</span>
+                    <ChevronDown
+                      size={17}
+                      className={`shrink-0 text-slate-400 transition ${openFaq === i ? 'rotate-180' : ''}`}
+                    />
+                  </button>
+                  {openFaq === i && (
+                    <p className="border-t border-line bg-paper px-5 py-4 text-sm leading-relaxed text-slate-600">
+                      {f.a}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+
+{/* COMMUNITY */}
           <section id="community" className="scroll-mt-28 rounded-3xl border border-line bg-white p-6 sm:p-8">
-            <div className="flex flex-wrap items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={() => setReviewsExpanded((v) => !v)}
+              className="flex w-full flex-wrap items-center justify-between gap-3 text-left"
+              aria-expanded={reviewsExpanded}
+            >
               <h2 className="flex items-center gap-2.5 font-display text-2xl font-bold text-ink-900">
                 <MessageSquare size={20} className="text-emerald-600" />
                 Trader reviews <span className="tnum text-slate-400">({reviews.length})</span>
               </h2>
-            </div>
+              <ChevronDown
+                size={20}
+                className={`shrink-0 text-slate-400 transition ${reviewsExpanded ? 'rotate-180' : ''}`}
+              />
+            </button>
 
+            {reviewsExpanded && (
+            <>
             <div className="mt-5 space-y-4">
               {reviews.length === 0 && (
                 <p className="rounded-2xl border border-dashed border-line bg-paper p-6 text-center text-sm text-slate-500">
@@ -1017,33 +1055,10 @@ export default function BrokerDetail() {
                 </form>
               )}
             </div>
+            </>
+            )}
           </section>
 
-          {/* FAQ */}
-          <section id="faq" className="scroll-mt-28 rounded-3xl border border-line bg-white p-6 sm:p-8">
-            <h2 className="font-display text-2xl font-bold text-ink-900">{broker.name} FAQs</h2>
-            <div className="mt-5 space-y-2.5">
-              {(Array.isArray(profileSettings.faqs) && profileSettings.faqs.length ? profileSettings.faqs : broker.faqs).map((f:any, i:number) => (
-                <div key={f.q} className="overflow-hidden rounded-2xl border border-line">
-                  <button
-                    onClick={() => setOpenFaq(openFaq === i ? -1 : i)}
-                    className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left"
-                  >
-                    <span className="text-sm font-bold text-ink-900">{f.q}</span>
-                    <ChevronDown
-                      size={17}
-                      className={`shrink-0 text-slate-400 transition ${openFaq === i ? 'rotate-180' : ''}`}
-                    />
-                  </button>
-                  {openFaq === i && (
-                    <p className="border-t border-line bg-paper px-5 py-4 text-sm leading-relaxed text-slate-600">
-                      {f.a}
-                    </p>
-                  )}
-                </div>
-              ))}
-            </div>
-          </section>
 
           {/* METHODOLOGY */}
           <section id="methodology" className="scroll-mt-28 rounded-3xl border border-line bg-white p-6 sm:p-8">
