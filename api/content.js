@@ -124,6 +124,25 @@ async function handleIntents(req, res) {
   return res.status(405).json({ error: 'Method not allowed' });
 }
 
+
+function isMissingPublishingStateColumn(error) {
+  return error && (error.code === 'PGRST204' || /publishing_state/i.test(String(error.message || error.details || '')));
+}
+
+async function insertCountryWithPublishingFallback(payload) {
+  const result = await supabase.from('countries').insert(payload).select().single();
+  if (!result.error || !isMissingPublishingStateColumn(result.error)) return result;
+  const { publishing_state, ...safePayload } = payload;
+  return supabase.from('countries').insert(safePayload).select().single();
+}
+
+async function updateCountryWithPublishingFallback(id, fields) {
+  const result = await supabase.from('countries').update(fields).eq('id', Number(id)).select().single();
+  if (!result.error || !isMissingPublishingStateColumn(result.error)) return result;
+  const { publishing_state, ...safeFields } = fields;
+  return supabase.from('countries').update(safeFields).eq('id', Number(id)).select().single();
+}
+
 /* ============================== countries ============================== */
 
 async function handleCountries(req, res) {
@@ -159,7 +178,7 @@ async function handleCountries(req, res) {
       seo_faqs: Array.isArray(body.seo_faqs) ? body.seo_faqs : [],
       publishing_state: ['draft','published','closed'].includes(body.publishing_state) ? body.publishing_state : 'published',
     };
-    const { data, error } = await supabase.from('countries').insert(payload).select().single();
+    const { data, error } = await insertCountryWithPublishingFallback(payload);
     if (error) throw error;
     return res.status(201).json(data);
   }
@@ -167,7 +186,7 @@ async function handleCountries(req, res) {
     const { id, ...fields } = req.body ?? {};
     if (!id) return res.status(400).json({ error: 'id is required' });
     if (fields.name) fields.slug = fields.slug ? slugify(fields.slug) : slugify(fields.name);
-    const { data, error } = await supabase.from('countries').update(fields).eq('id', Number(id)).select().single();
+    const { data, error } = await updateCountryWithPublishingFallback(id, fields);
     if (error) throw error;
     return res.status(200).json(data);
   }

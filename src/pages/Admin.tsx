@@ -4,9 +4,7 @@ import type { Session } from '@supabase/supabase-js';
 import {
   AlertTriangle,
   ArrowUpRight,
-  BadgePercent,
   BarChart3,
-  BookOpen,
   CircleDollarSign,
   Copy,
   ExternalLink,
@@ -39,20 +37,16 @@ import {
 } from 'lucide-react';
 import AnalyticsPanel from './AnalyticsPanel';
 import supabase from '../lib/supabase';
-import LocalizationManager from '../components/admin/LocalizationManager';
-import RankingManager from '../components/admin/RankingManager';
 import type { Broker, BrokerContent, CountryBestFor, CountryPage, FAQ, Guide, GuideSection, Intent, Promotion, Regulation, Review, TestResult, ContentDocument, CountryLanguage, LocalizedSeoPage } from '../lib/types';
 import Monogram from '../components/Monogram';
 import Stars from '../components/Stars';
 import { fmtDate, timeAgo } from '../lib/format';
 import { INTENT_LABELS } from '../lib/score';
-import RichTextEditor from '../components/RichTextEditor';
 import PageBuilder, { blocksToHtml, type PageBlock } from '../components/PageBuilder';
-import PageManager from '../components/PageManager';
 
 /* =============================== TYPES =============================== */
 
-type Tab = 'overview' | 'analytics' | 'pages' | 'brokers' | 'countries' | 'authors' | 'reviews' | 'content' | 'rankings' | 'localization' | 'subs' | 'promos' | 'team' | 'affiliate' | 'conversions';
+type Tab = 'overview' | 'brokers' | 'countries' | 'authors' | 'commercial' | 'analytics' | 'team';
 
 interface Sub {
   id: number;
@@ -88,45 +82,34 @@ const ROLE_LABELS: Record<string, string> = {
 
 const ROLE_ACCESS: Record<string, string[]> = {
   overview: ['super_admin', 'admin', 'brokers_admin', 'content_admin', 'moderator'],
-  pages: ['super_admin', 'admin', 'content_admin', 'brokers_admin'],
-  analytics: ['super_admin', 'admin', 'brokers_admin', 'content_admin', 'moderator'],
   brokers: ['super_admin', 'admin', 'brokers_admin'],
   countries: ['super_admin', 'admin', 'content_admin', 'brokers_admin'],
   authors: ['super_admin', 'admin', 'content_admin'],
-  reviews: ['super_admin', 'admin', 'moderator'],
-  content: ['super_admin', 'admin', 'content_admin'],
-  rankings: ['super_admin', 'admin', 'content_admin'],
-  localization: ['super_admin', 'admin', 'content_admin'],
-  promos: ['super_admin', 'admin', 'content_admin'],
-  subs: ['super_admin', 'admin', 'moderator'],
+  commercial: ['super_admin', 'admin'],
+  analytics: ['super_admin', 'admin', 'brokers_admin', 'content_admin', 'moderator'],
   team: ['super_admin'],
-  // Commercially sensitive (CPA notes, routing) — admin/super_admin only,
-  // unlike most other tabs which extend to the broader staff roles.
-  affiliate: ['super_admin', 'admin'],
-  conversions: ['super_admin', 'admin'],
 };
 
 const TABS: { key: Tab; label: string; icon: typeof Landmark; desc: string }[] = [
-  { key: 'pages', label: 'Page Manager', icon: FileText, desc: 'Manage country SEO pages and broker profiles from one unified publishing workflow.' },
-  { key: 'overview', label: 'Overview', icon: LayoutDashboard, desc: 'Key numbers, data gaps and affiliate traffic at a glance.' },
-  { key: 'analytics', label: 'Analytics', icon: BarChart3, desc: 'CTA performance, quiz funnel, layouts and conversions by date range.' },
-  { key: 'brokers', label: 'Broker Workspace', icon: Landmark, desc: 'Manage broker profile, content, trading data, countries, reviews, promotions and affiliate coverage.' },
+  { key: 'overview', label: 'Overview', icon: LayoutDashboard, desc: 'Operational tasks, gaps and admin shortcuts.' },
+  { key: 'brokers', label: 'Broker Workspace', icon: Landmark, desc: 'Manage broker profile, rich content, trading data, countries, reviews, promotions and affiliate coverage.' },
   { key: 'countries', label: 'Country Hub', icon: Globe2, desc: 'Manage country overview, publishing, SEO, brokers, best-for pages, guides, FAQs and internal links.' },
   { key: 'authors', label: 'Author Hub', icon: Users, desc: 'Manage public author profiles, bios, expertise, credentials, photos, links and attribution.' },
-  { key: 'reviews', label: 'Reviews', icon: MessageSquare, desc: 'Moderate trader reviews — verify or remove in one click.' },
-  { key: 'content', label: 'Content', icon: BookOpen, desc: 'Guides, SEO intent pages and country guides.' },
-  { key: 'rankings', label: 'Rankings', icon: BarChart3, desc: 'Manage country and intent-specific broker ranking overrides.' },
-  { key: 'localization', label: 'Localization', icon: Globe2, desc: 'Add country languages and manage localized SEO page drafts.' },
-  { key: 'promos', label: 'Promotions', icon: BadgePercent, desc: 'Manage live broker promotions, bonuses and expiry dates.' },
-  { key: 'subs', label: 'Subscribers', icon: Users, desc: 'Friday Spread list — export or clean up subscribers.' },
+  { key: 'commercial', label: 'Commercial', icon: Link2, desc: 'Affiliate links, promotions and conversion reporting.' },
+  { key: 'analytics', label: 'Analytics', icon: BarChart3, desc: 'CTA performance, quiz funnel, layouts and conversions by date range.' },
   { key: 'team', label: 'Team', icon: ShieldCheck, desc: 'Invite staff, assign roles and control access.' },
-  { key: 'affiliate', label: 'Affiliate Links', icon: Link2, desc: 'Per-broker and per-country affiliate URLs, tracking params and CPA notes.' },
-  { key: 'conversions', label: 'Conversions', icon: Globe2, desc: 'Click-through funnel by broker, country, source page and referrer.' },
 ];
 
 const ADMIN_ACTIVE_TAB_STORAGE_KEY = 'piprank-admin-active-tab';
 const DEFAULT_ADMIN_TAB: Tab = 'overview';
 const VALID_ADMIN_TAB_KEYS = new Set<Tab>(TABS.map((tab) => tab.key));
+
+function normalizeAdminTab(value: string | null): string | null {
+  if (value === 'pages' || value === 'content' || value === 'rankings' || value === 'localization') return 'countries';
+  if (value === 'reviews') return 'brokers';
+  if (value === 'promos' || value === 'affiliate' || value === 'conversions' || value === 'subs') return 'commercial';
+  return value;
+}
 
 function isAdminTab(value: string | null): value is Tab {
   return value !== null && VALID_ADMIN_TAB_KEYS.has(value as Tab);
@@ -136,7 +119,7 @@ function readSavedAdminTab(): Tab {
   if (typeof window === 'undefined') return DEFAULT_ADMIN_TAB;
 
   try {
-    const hashTab = new URLSearchParams(window.location.hash.replace(/^#/, '')).get('tab');
+    const hashTab = normalizeAdminTab(new URLSearchParams(window.location.hash.replace(/^#/, '')).get('tab'));
     if (isAdminTab(hashTab)) return hashTab;
     const savedTab = window.localStorage.getItem(ADMIN_ACTIVE_TAB_STORAGE_KEY);
     if (isAdminTab(savedTab)) return savedTab;
@@ -453,7 +436,7 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
 
   useEffect(() => {
     const onHashChange = () => {
-      const nextTab = new URLSearchParams(window.location.hash.replace(/^#/, '')).get('tab');
+      const nextTab = normalizeAdminTab(new URLSearchParams(window.location.hash.replace(/^#/, '')).get('tab'));
       if (isAdminTab(nextTab)) setTab(nextTab);
     };
     window.addEventListener('hashchange', onHashChange);
@@ -479,21 +462,13 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
 
   const counts: Record<string, number | null> = {
     overview: null,
-    analytics: null,
-    pages: contentDocs.length,
     brokers: brokers.length,
     countries: countries.length,
     authors: contentDocs.filter((d) => d.content_type === 'author').length,
-    reviews: reviews.length,
-    content: guides.length + intents.length + countries.length + contentDocs.length,
-    localization: countryLanguages.length,
-    promos: null,
-    subs: subs.length,
+    commercial: null,
+    analytics: null,
     team: null,
-    affiliate: null,
-    conversions: null,
   };
-
   const visibleTabs = TABS.filter((t) => (ROLE_ACCESS[t.key] ?? []).includes(role));
 
   const setActiveAdminTab = useCallback((nextTab: Tab) => {
@@ -639,16 +614,6 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
               <div className="h-96 animate-pulse rounded-2xl border border-line bg-white" />
             ) : (
               <>
-                {activeTab === 'pages' && (
-                  <PageManager
-                    countries={countries}
-                    brokers={brokers}
-                    contentDocs={contentDocs}
-                    token={session.access_token}
-                    onSave={async (fields, isNew) => { await mutate('/api/content-documents', isNew ? 'POST' : 'PUT', fields, isNew ? 'Page published' : 'Page saved'); }}
-                    onDelete={(d) => { if (window.confirm(`Delete the page document "${d.title || d.content_key}"?`)) mutate('/api/content-documents', 'DELETE', { id: d.id }, 'Page deleted'); }}
-                  />
-                )}
                 {activeTab === 'overview' && (
                   <Overview
                     brokers={brokers}
@@ -665,6 +630,7 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
                     brokers={brokers}
                     onNew={() => setEditingBroker('new')}
                     onEdit={(b) => setEditingBroker(b)}
+                    onEditContent={(b) => setEditingBrokerContent(b)}
                     onDuplicate={(b) => {
                       const copy: BrokerForm = { ...b, name: `${b.name} (copy)`, slug: `${b.slug}-copy`, featured: false };
                       delete copy.id;
@@ -699,92 +665,11 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
                     onEditAuthor={(d) => setEditingContentDoc(d)}
                   />
                 )}
-                {activeTab === 'reviews' && (
-                  <ReviewsTab
-                    reviews={reviews}
-                    brokerName={brokerName}
-                    onToggleVerified={(r) =>
-                      mutate('/api/reviews', 'PUT', { id: r.id, verified: !r.verified }, 'Review updated')
-                    }
-                    onDelete={(r) => {
-                      if (window.confirm('Delete this review permanently?'))
-                        mutate('/api/reviews', 'DELETE', { id: r.id }, 'Review deleted');
-                    }}
-                  />
-                )}
-                {activeTab === 'content' && (
-                  <ContentTab
-                    guides={guides}
-                    intents={intents}
-                    countries={countries}
-                    countryBestFors={countryBestFors}
-                    brokers={brokers}
-                    onNewGuide={() => setEditingGuide('new')}
-                    onEditGuide={(g) => setEditingGuide(g)}
-                    onDeleteGuide={(g) => {
-                      if (window.confirm(`Delete the guide "${g.title}"? Its public page will 404.`))
-                        mutate('/api/guides', 'DELETE', { id: g.id }, 'Guide deleted');
-                    }}
-                    onNewIntent={() => setEditingIntent('new')}
-                    onEditIntent={(i) => setEditingIntent(i)}
-                    onDeleteIntent={(i) => {
-                      if (window.confirm(`Delete the "${i.label}" intent page? Brokers keep their category, but the public page will 404.`))
-                        mutate('/api/intents', 'DELETE', { id: i.id }, 'Intent removed');
-                    }}
-                    onNewCountry={() => setEditingCountry('new')}
-                    onEditCountry={(c) => setEditingCountry(c)}
-                    onNewCountryBestFor={() => setEditingCountryBestFor('new')}
-                    onEditCountryBestFor={(p) => setEditingCountryBestFor(p)}
-                    onEditBrokerContent={(b) => setEditingBrokerContent(b)}
-                    onDeleteCountryBestFor={(p) => {
-                      if (window.confirm(`Delete the ${p.title} page? Its public URL will 404.`))
-                        mutate('/api/country-best-for', 'DELETE', { id: p.id }, 'Best-for page deleted');
-                    }}
-                    onDeleteCountry={(c) => {
-                      if (window.confirm(`Remove the ${c.name} guide? Its public page will return 404.`))
-                        mutate('/api/countries', 'DELETE', { id: c.id }, `${c.name} removed`);
-                    }}
-                    contentDocs={contentDocs}
-                    onNewContentDoc={() => setEditingContentDoc('new')}
-                    onEditContentDoc={(d) => setEditingContentDoc(d)}
-                    onDeleteContentDoc={(d) => {
-                      if (window.confirm(`Delete the rich content document "${d.title || d.content_key}"?`))
-                        mutate('/api/content-documents', 'DELETE', { id: d.id }, 'Rich content deleted');
-                    }}
-                  />
-                )}
-                {activeTab === 'rankings' && <RankingManager countries={countries} intents={intents} brokers={brokers} token={session.access_token} />}
-                {activeTab === 'localization' && (
-                  <LocalizationManager
-                    countries={countries}
-                    languages={countryLanguages}
-                    pages={localizedPages}
-                    mutate={mutate}
-                    notify={notify}
-                    accessToken={session.access_token}
-                  />
-                )}
-                {activeTab === 'promos' && (
-                  <PromosTab token={session.access_token} brokers={brokers} notify={notify} />
+                {activeTab === 'commercial' && (
+                  <CommercialHub token={session.access_token} brokers={brokers} notify={notify} />
                 )}
                 {activeTab === 'team' && (
                   <TeamTab token={session.access_token} myEmail={(session.user.email ?? '').toLowerCase()} />
-                )}
-                {activeTab === 'affiliate' && (
-                  <AffiliateLinksTab token={session.access_token} brokers={brokers} notify={notify} />
-                )}
-                {activeTab === 'conversions' && (
-                  <ConversionsTab token={session.access_token} brokers={brokers} />
-                )}
-                {activeTab === 'subs' && (
-                  <SubsTab
-                    subs={subs}
-                    onDelete={(s) => {
-                      if (window.confirm(`Remove ${s.email} from the list?`))
-                        mutate('/api/newsletter', 'DELETE', { id: s.id }, 'Subscriber removed');
-                    }}
-                    onCopied={() => notify('Emails copied to clipboard')}
-                  />
                 )}
               </>
             )}
@@ -1077,6 +962,12 @@ const RANGES = [
 ] as const;
 
 
+
+function CommercialHub({ token, brokers, notify }: { token: string; brokers: Broker[]; notify: (msg: string) => void }) {
+  const [section, setSection] = useState<'affiliate' | 'promos' | 'conversions'>('affiliate');
+  return <div className="space-y-5"><div className="rounded-2xl border border-line bg-white p-4"><div className="flex flex-wrap gap-2">{(['affiliate','promos','conversions'] as const).map((key)=><button key={key} onClick={()=>setSection(key)} className={`rounded-xl px-4 py-2 text-xs font-bold transition ${section===key?'bg-ink-950 text-white':'bg-paper text-slate-500 hover:bg-white'}`}>{key==='affiliate'?'Affiliate links':key==='promos'?'Promotions':'Conversions'}</button>)}</div></div>{section==='affiliate'&&<AffiliateLinksTab token={token} brokers={brokers} notify={notify}/>} {section==='promos'&&<PromosTab token={token} brokers={brokers} notify={notify}/>} {section==='conversions'&&<ConversionsTab token={token} brokers={brokers}/>}</div>;
+}
+
 function CountryHub({ countries, brokers, countryBestFors, contentDocs, onNewCountry, onEditCountry, onEditCountryBestFor, onEditContentDoc }: { countries: CountryPage[]; brokers: Broker[]; countryBestFors: CountryBestFor[]; contentDocs: ContentDocument[]; onNewCountry: () => void; onEditCountry: (country: CountryPage) => void; onEditCountryBestFor: (page: CountryBestFor) => void; onEditContentDoc: (doc: ContentDocument) => void }) {
   const [query, setQuery] = useState('');
   const [selectedSlug, setSelectedSlug] = useState(() => countries[0]?.slug ?? '');
@@ -1362,6 +1253,7 @@ function BrokersTab({
   onNew,
   onEdit,
   onDuplicate,
+  onEditContent,
   onToggleFeatured,
   onDelete,
 }: {
@@ -1369,6 +1261,7 @@ function BrokersTab({
   onNew: () => void;
   onEdit: (b: Broker) => void;
   onDuplicate: (b: Broker) => void;
+  onEditContent: (b: Broker) => void;
   onToggleFeatured: (b: Broker) => void;
   onDelete: (b: Broker) => void;
 }) {
@@ -1405,7 +1298,7 @@ function BrokersTab({
         </div>
       </div>
       <p className="border-b border-line bg-paper/50 px-5 py-2.5 text-[11px] font-medium text-slate-400">
-        Tip: click any row to open the full editor — pricing, categories, editorial content, FAQs and lab results.
+        Tip: use the document icon to open the broker CMS — detailed content, rich profile sections, trading data and country eligibility are now managed from the broker row.
       </p>
       <div className="overflow-x-auto">
         <table className="min-w-full text-sm">
@@ -1474,6 +1367,13 @@ function BrokersTab({
                     >
                       <ArrowUpRight size={15} />
                     </Link>
+                    <button
+                      onClick={() => onEditContent(b)}
+                      className="rounded-lg p-2 text-slate-400 transition hover:bg-emerald-50 hover:text-emerald-700"
+                      title="Open broker CMS"
+                    >
+                      <FileText size={15} />
+                    </button>
                     <button
                       onClick={() => onDuplicate(b)}
                       className="rounded-lg p-2 text-slate-400 transition hover:bg-sky-50 hover:text-sky-700"
@@ -2937,8 +2837,9 @@ function CountryBestForEditor({ page, countries, intents = [], onClose, onSave }
 
 
 function SeoSectionsEditor({ label, hint, sections, onChange }: { label: string; hint?: string; sections: { heading: string; body: string[]; bullets?: string[] }[]; onChange: (sections: { heading: string; body: string[]; bullets?: string[] }[]) => void }) {
+  const safeSections = Array.isArray(sections) ? sections : [];
   const update = (index: number, patch: Partial<{ heading: string; bodyText: string; bulletsText: string }>) => {
-    onChange(sections.map((section, i) => {
+    onChange(safeSections.map((section, i) => {
       if (i !== index) return section;
       return {
         heading: patch.heading ?? section.heading,
@@ -2947,11 +2848,12 @@ function SeoSectionsEditor({ label, hint, sections, onChange }: { label: string;
       };
     }));
   };
-  return <div className="rounded-xl border border-line bg-paper p-4"><FieldLabel hint={hint}>{label}</FieldLabel><div className="mt-3 space-y-3">{sections.map((section, i) => <div key={i} className="rounded-xl border border-line bg-white p-3"><div className="flex items-center gap-2"><input value={section.heading} onChange={(e)=>update(i,{heading:e.target.value})} placeholder="Section heading" className="h-10 flex-1 rounded-xl border border-line bg-paper px-3 text-sm font-bold outline-none focus:border-emerald-500"/><IconRemove onClick={()=>onChange(sections.filter((_,x)=>x!==i))}/></div><textarea value={(section.body || []).join('\n')} onChange={(e)=>update(i,{bodyText:e.target.value})} rows={4} placeholder="One paragraph per line" className="mt-2 w-full rounded-xl border border-line bg-paper px-3 py-2.5 text-sm outline-none focus:border-emerald-500"/><textarea value={(section.bullets || []).join('\n')} onChange={(e)=>update(i,{bulletsText:e.target.value})} rows={3} placeholder="Optional bullets — one per line" className="mt-2 w-full rounded-xl border border-line bg-paper px-3 py-2.5 text-sm outline-none focus:border-emerald-500"/></div>)}<button type="button" onClick={()=>onChange([...sections,{heading:'',body:[],bullets:[]}])} className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-line px-3 py-2 text-xs font-bold text-slate-500 transition hover:border-emerald-500 hover:text-emerald-700"><Plus size={13}/> Add section</button></div></div>;
+  return <div className="rounded-xl border border-line bg-paper p-4"><FieldLabel hint={hint}>{label}</FieldLabel><div className="mt-3 space-y-3">{safeSections.map((section, i) => <div key={i} className="rounded-xl border border-line bg-white p-3"><div className="flex items-center gap-2"><input value={section.heading} onChange={(e)=>update(i,{heading:e.target.value})} placeholder="Section heading" className="h-10 flex-1 rounded-xl border border-line bg-paper px-3 text-sm font-bold outline-none focus:border-emerald-500"/><IconRemove onClick={()=>onChange(safeSections.filter((_,x)=>x!==i))}/></div><textarea value={(section.body || []).join('\n')} onChange={(e)=>update(i,{bodyText:e.target.value})} rows={4} placeholder="One paragraph per line" className="mt-2 w-full rounded-xl border border-line bg-paper px-3 py-2.5 text-sm outline-none focus:border-emerald-500"/><textarea value={(section.bullets || []).join('\n')} onChange={(e)=>update(i,{bulletsText:e.target.value})} rows={3} placeholder="Optional bullets — one per line" className="mt-2 w-full rounded-xl border border-line bg-paper px-3 py-2.5 text-sm outline-none focus:border-emerald-500"/></div>)}<button type="button" onClick={()=>onChange([...safeSections,{heading:'',body:[],bullets:[]}])} className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-line px-3 py-2 text-xs font-bold text-slate-500 transition hover:border-emerald-500 hover:text-emerald-700"><Plus size={13}/> Add section</button></div></div>;
 }
 
 function FaqListEditor({ label, hint, faqs, onChange }: { label: string; hint?: string; faqs: FAQ[]; onChange: (faqs: FAQ[]) => void }) {
-  return <div className="rounded-xl border border-line bg-paper p-4"><FieldLabel hint={hint}>{label}</FieldLabel><div className="mt-3 space-y-3">{faqs.map((faq, i) => <div key={i} className="rounded-xl border border-line bg-white p-3"><div className="flex items-center gap-2"><input value={faq.q} onChange={(e)=>onChange(faqs.map((f,x)=>x===i?{...f,q:e.target.value}:f))} placeholder="Question" className="h-10 flex-1 rounded-xl border border-line bg-paper px-3 text-sm font-bold outline-none focus:border-emerald-500"/><IconRemove onClick={()=>onChange(faqs.filter((_,x)=>x!==i))}/></div><textarea value={faq.a} onChange={(e)=>onChange(faqs.map((f,x)=>x===i?{...f,a:e.target.value}:f))} rows={3} placeholder="Answer" className="mt-2 w-full rounded-xl border border-line bg-paper px-3 py-2.5 text-sm outline-none focus:border-emerald-500"/></div>)}<button type="button" onClick={()=>onChange([...faqs,{q:'',a:''}])} className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-line px-3 py-2 text-xs font-bold text-slate-500 transition hover:border-emerald-500 hover:text-emerald-700"><Plus size={13}/> Add FAQ</button></div></div>;
+  const safeFaqs = Array.isArray(faqs) ? faqs : [];
+  return <div className="rounded-xl border border-line bg-paper p-4"><FieldLabel hint={hint}>{label}</FieldLabel><div className="mt-3 space-y-3">{safeFaqs.map((faq, i) => <div key={i} className="rounded-xl border border-line bg-white p-3"><div className="flex items-center gap-2"><input value={faq.q} onChange={(e)=>onChange(safeFaqs.map((f,x)=>x===i?{...f,q:e.target.value}:f))} placeholder="Question" className="h-10 flex-1 rounded-xl border border-line bg-paper px-3 text-sm font-bold outline-none focus:border-emerald-500"/><IconRemove onClick={()=>onChange(safeFaqs.filter((_,x)=>x!==i))}/></div><textarea value={faq.a} onChange={(e)=>onChange(safeFaqs.map((f,x)=>x===i?{...f,a:e.target.value}:f))} rows={3} placeholder="Answer" className="mt-2 w-full rounded-xl border border-line bg-paper px-3 py-2.5 text-sm outline-none focus:border-emerald-500"/></div>)}<button type="button" onClick={()=>onChange([...safeFaqs,{q:'',a:''}])} className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-line px-3 py-2 text-xs font-bold text-slate-500 transition hover:border-emerald-500 hover:text-emerald-700"><Plus size={13}/> Add FAQ</button></div></div>;
 }
 
 /* ============================ COUNTRY EDITOR ============================ */
