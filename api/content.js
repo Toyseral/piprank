@@ -157,6 +157,7 @@ async function handleCountries(req, res) {
       seo_intro: Array.isArray(body.seo_intro) ? body.seo_intro.filter(Boolean) : [],
       seo_sections: Array.isArray(body.seo_sections) ? body.seo_sections : [],
       seo_faqs: Array.isArray(body.seo_faqs) ? body.seo_faqs : [],
+      publishing_state: ['draft','published','closed'].includes(body.publishing_state) ? body.publishing_state : 'published',
     };
     const { data, error } = await supabase.from('countries').insert(payload).select().single();
     if (error) throw error;
