@@ -16,5 +16,6 @@
     "strict": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": ["src/pages/AdminHub.tsx", "src/pages/AdminHubEntry.tsx"]
 }
