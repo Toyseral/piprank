@@ -5,8 +5,16 @@ const CONTENT_ROLES = ['super_admin', 'admin', 'content_admin', 'brokers_admin']
 const SEO_ROLES = ['super_admin', 'admin', 'content_admin'];
 
 async function countries(req, res) {
-  const admin = req.query?.admin === '1';
+  const admin = req.query?.admin === '1' || req.method !== 'GET';
   if (admin && !(await requireRole(req, res, CONTENT_ROLES))) return;
+  if (req.method === 'PUT') {
+    const { id, ...fields } = req.body ?? {};
+    if (!id) return res.status(400).json({ error: 'id is required' });
+    if (fields.status && !['draft', 'published', 'closed'].includes(fields.status)) return res.status(400).json({ error: 'Invalid country status' });
+    const { data, error } = await supabase.from('countries').update(fields).eq('id', Number(id)).select().single();
+    if (error) throw error;
+    return res.status(200).json(data);
+  }
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
   let query = supabase.from('countries').select('*').order('id', { ascending: true });
   if (!admin) query = query.eq('status', 'published');
@@ -67,7 +75,7 @@ async function localized(req, res) {
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, PUT, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(204).end();
   try {
