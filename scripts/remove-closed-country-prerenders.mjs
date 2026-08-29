@@ -1,12 +1,12 @@
-import { existsSync, readdirSync, rmSync } from 'node:fs';
+import { existsSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { createClient } from '@supabase/supabase-js';
 
 const outDir = 'dist';
 if (!existsSync(outDir)) process.exit(0);
 
-const url = process.env.VITE_SUPABASE_URL;
-const key = process.env.VITE_SUPABASE_ANON_KEY;
+const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
 if (!url || !key) {
   if (process.env.VERCEL_ENV === 'production') throw new Error('Supabase environment is required to enforce country prerender visibility.');
   console.warn('[country-prerender] Supabase env missing; skipping cleanup for non-production build.');
@@ -26,5 +26,4 @@ for (const country of data ?? []) {
     removed.push(country.slug);
   }
 }
-
 if (removed.length) console.log(`[country-prerender] Removed ${removed.length} non-public country trees: ${removed.join(', ')}`);
