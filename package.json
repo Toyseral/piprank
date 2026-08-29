@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build && node scripts/check-function-count.mjs && node scripts/validate-country-seo-matrix.mjs && node scripts/generate-index-robots-meta.mjs && node scripts/generate-robots.mjs && node scripts/generate-sitemap.mjs && node scripts/prerender.mjs && node scripts/validate-seo.mjs",
+    "build": "tsc -b && vite build && node scripts/check-function-count.mjs && node scripts/validate-country-seo-matrix.mjs && node scripts/generate-index-robots-meta.mjs && node scripts/generate-robots.mjs && node scripts/generate-sitemap.mjs && node scripts/prerender.mjs && node scripts/remove-closed-country-prerenders.mjs && node scripts/validate-seo.mjs",
     "lint": "eslint .",
     "preview": "vite preview",
     "check:function-count": "node scripts/check-function-count.mjs",
