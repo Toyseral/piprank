@@ -1,0 +1,48 @@
+name: Wire Global Hub into Admin
+on:
+  push:
+    branches:
+      - feature/admin-global-hub-existing-architecture
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: github.event.head_commit.message != 'Wire Global Hub into existing Admin navigation'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch Admin.tsx
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('src/pages/Admin.tsx')
+          s = p.read_text()
+          original = s
+          s = s.replace("import PageBuilder, { blocksToHtml, type PageBlock } from '../components/PageBuilder';", "import PageBuilder, { blocksToHtml, type PageBlock } from '../components/PageBuilder';\nimport GlobalHub from '../components/admin/GlobalHub';")
+          s = s.replace("type Tab = 'overview' | 'brokers' | 'countries' | 'authors' | 'commercial' | 'analytics' | 'team';", "type Tab = 'overview' | 'brokers' | 'countries' | 'global' | 'authors' | 'commercial' | 'analytics' | 'team';")
+          s = s.replace("  countries: ['super_admin', 'admin', 'content_admin', 'brokers_admin'],", "  countries: ['super_admin', 'admin', 'content_admin', 'brokers_admin'],\n  global: ['super_admin', 'admin', 'content_admin'],")
+          s = s.replace("  { key: 'countries', label: 'Country Hub', icon: Globe2, desc: 'Manage country overview, publishing, SEO, brokers, best-for pages, guides, FAQs and internal links.' },", "  { key: 'countries', label: 'Country Hub', icon: Globe2, desc: 'Manage country overview, publishing, SEO, brokers, best-for pages, guides, FAQs and internal links.' },\n  { key: 'global', label: 'Global Hub', icon: Globe2, desc: 'Manage global SEO content and guides.' },")
+          s = s.replace("{activeTab === 'countries' && (", "{activeTab === 'global' && (\n                  <GlobalHub\n                    countries={countries}\n                    brokers={brokers}\n                    contentDocs={contentDocs}\n                    token={session.access_token}\n                    onSave={async (fields, isNew) => {\n                      await mutate('/api/content', isNew ? 'POST' : 'PUT', fields, isNew ? 'Global page created' : 'Global page saved');\n                    }}\n                    onDelete={(doc) => {\n                      if (window.confirm(`Delete ${doc.title || doc.content_key}? This cannot be undone.`))\n                        mutate('/api/content', 'DELETE', { id: doc.id }, 'Global page deleted');\n                    }}\n                  />\n                )}\n                {activeTab === 'countries' && (")
+          if s == original:
+              raise SystemExit('No Admin.tsx changes matched; aborting')
+          p.write_text(s)
+          PY
+      - name: Add Country Hub controls for new Best-For pages
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('src/pages/Admin.tsx')
+          s = p.read_text()
+          old = "onEditCountryBestFor={(p) => setEditingCountryBestFor(p)}"
+          new = old + ",\n                    onNewCountryBestFor={() => setEditingCountryBestFor('new')}"
+          if old in s and 'onNewCountryBestFor' not in s:
+              s = s.replace(old, new, 1)
+          p.write_text(s)
+          PY
+      - name: Commit changes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/pages/Admin.tsx
+          git diff --cached --quiet || git commit -m 'Wire Global Hub into existing Admin navigation'
+          git push
