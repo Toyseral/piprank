@@ -43,10 +43,11 @@ import Stars from '../components/Stars';
 import { fmtDate, timeAgo } from '../lib/format';
 import { INTENT_LABELS } from '../lib/score';
 import PageBuilder, { blocksToHtml, type PageBlock } from '../components/PageBuilder';
+import GlobalHub from '../components/admin/GlobalHub';
 
 /* =============================== TYPES =============================== */
 
-type Tab = 'overview' | 'brokers' | 'countries' | 'authors' | 'commercial' | 'analytics' | 'team';
+type Tab = 'overview' | 'brokers' | 'countries' | 'global' | 'authors' | 'commercial' | 'analytics' | 'team';
 
 interface Sub {
   id: number;
@@ -84,6 +85,7 @@ const ROLE_ACCESS: Record<string, string[]> = {
   overview: ['super_admin', 'admin', 'brokers_admin', 'content_admin', 'moderator'],
   brokers: ['super_admin', 'admin', 'brokers_admin'],
   countries: ['super_admin', 'admin', 'content_admin', 'brokers_admin'],
+  global: ['super_admin', 'admin', 'content_admin'],
   authors: ['super_admin', 'admin', 'content_admin'],
   commercial: ['super_admin', 'admin'],
   analytics: ['super_admin', 'admin', 'brokers_admin', 'content_admin', 'moderator'],
@@ -94,6 +96,7 @@ const TABS: { key: Tab; label: string; icon: typeof Landmark; desc: string }[] =
   { key: 'overview', label: 'Overview', icon: LayoutDashboard, desc: 'Operational tasks, gaps and admin shortcuts.' },
   { key: 'brokers', label: 'Broker Workspace', icon: Landmark, desc: 'Manage broker profile, rich content, trading data, countries, reviews, promotions and affiliate coverage.' },
   { key: 'countries', label: 'Country Hub', icon: Globe2, desc: 'Manage country overview, publishing, SEO, brokers, best-for pages, guides, FAQs and internal links.' },
+  { key: 'global', label: 'Global Hub', icon: Globe2, desc: 'Manage global SEO content and guides.' },
   { key: 'authors', label: 'Author Hub', icon: Users, desc: 'Manage public author profiles, bios, expertise, credentials, photos, links and attribution.' },
   { key: 'commercial', label: 'Commercial', icon: Link2, desc: 'Affiliate links, promotions and conversion reporting.' },
   { key: 'analytics', label: 'Analytics', icon: BarChart3, desc: 'CTA performance, quiz funnel, layouts and conversions by date range.' },
@@ -644,6 +647,9 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
                         mutate('/api/brokers', 'DELETE', { id: b.id }, `${b.name} deleted`);
                     }}
                   />
+                )}
+                {activeTab === 'global' && (
+                  <GlobalHub countries={countries} brokers={brokers} contentDocs={contentDocs} token={session.access_token} onSave={async (fields, isNew) => { await mutate('/api/content', isNew ? 'POST' : 'PUT', fields, isNew ? 'Global page created' : 'Global page saved'); }} onDelete={(doc) => { if (window.confirm(`Delete ${doc.title || doc.content_key}? This cannot be undone.`)) mutate('/api/content', 'DELETE', { id: doc.id }, 'Global page deleted'); }} />
                 )}
                 {activeTab === 'countries' && (
                   <CountryHub
