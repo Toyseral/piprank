@@ -12,11 +12,11 @@ import {
   Star,
   X,
 } from 'lucide-react';
-import { fetchCountries, fetchIntents } from '../lib/api';
+import { fetchBrokers, fetchCountries, fetchIntents } from '../lib/api';
 import { GEO_OPTIONS } from '../lib/geo';
 import { useGeo } from '../lib/GeoContext';
 import { btnCls } from './Button';
-import type { CountryPage, Intent } from '../lib/types';
+import type { Broker, CountryPage, Intent } from '../lib/types';
 
 let intentsCache: Promise<Intent[]> | null = null;
 const loadIntents = () => {
@@ -28,6 +28,12 @@ let countriesCache: Promise<CountryPage[]> | null = null;
 const loadCountries = () => {
   countriesCache ??= fetchCountries();
   return countriesCache;
+};
+
+let brokersCache: Promise<Broker[]> | null = null;
+const loadBrokers = () => {
+  brokersCache ??= fetchBrokers();
+  return brokersCache;
 };
 
 export function Logo({ light = false }: { light?: boolean }) {
@@ -60,7 +66,7 @@ const ABOUT_LINKS = [
 ];
 
 const TOOL_LINKS = [
-  { label: 'Find My Broker', to: '/quiz', note: 'Personalised broker match', icon: Sparkles },
+  { label: 'Get Matched to a Broker', to: '/quiz', note: 'Personalised broker match', icon: Sparkles },
   { label: 'Broker Signup Bonuses', to: '/promotions', note: 'Current broker promotions', icon: Gift },
   { label: 'Compare Brokers', to: '/compare', note: 'Compare brokers side by side', icon: CircleUserRound },
   { label: 'Position Size Calculator', to: '/tools?tab=position' },
@@ -76,6 +82,7 @@ export default function Navbar() {
   const [mobileSection, setMobileSection] = useState<MobileSection>('none');
   const [intents, setIntents] = useState<Intent[]>([]);
   const [countries, setCountries] = useState<CountryPage[]>([]);
+  const [brokers, setBrokers] = useState<Broker[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [mobileSearch, setMobileSearch] = useState('');
   const location = useLocation();
@@ -85,6 +92,7 @@ export default function Navbar() {
   useEffect(() => {
     loadIntents().then(setIntents).catch(() => {});
     loadCountries().then(setCountries).catch(() => {});
+    loadBrokers().then(setBrokers).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -103,7 +111,28 @@ export default function Navbar() {
   }, [countries]);
 
   // Keep the country menu useful even when the API contains a long list.
-  const majorCountries = countryList.slice(0, 10);
+  // Float the visitor's detected/selected country to the front of the list so
+  // the menu feels personalized instead of always showing the same static set.
+  const majorCountries = useMemo(() => {
+    const rest = countryList.filter((c) => c.slug !== activeGeo?.slug);
+    const pinned = activeGeo ? countryList.filter((c) => c.slug === activeGeo.slug) : [];
+    return [...pinned, ...rest].slice(0, 10);
+  }, [countryList, activeGeo]);
+
+  // Geo-personalized "top brokers" list for the Broker Reviews menu: prefer
+  // this country's curated recommendations, falling back to overall top-rated
+  // brokers when there's no geo match yet (first-time visitor, Global, etc).
+  const topBrokers = useMemo(() => {
+    const activeCountry = activeGeo ? countries.find((c) => c.slug === activeGeo.slug) : null;
+    if (activeCountry?.recommended?.length) {
+      const matched = activeCountry.recommended
+        .map((r) => brokers.find((b) => b.slug === r.slug))
+        .filter((b): b is Broker => Boolean(b));
+      if (matched.length) return { list: matched, label: `Top brokers in ${activeCountry.name}` };
+    }
+    const topRated = [...brokers].sort((a, b) => b.rating - a.rating);
+    return { list: topRated, label: 'Top-rated brokers' };
+  }, [activeGeo, countries, brokers]);
 
   const submitSearch = (value: string) => {
     const q = value.trim();
@@ -158,16 +187,30 @@ export default function Navbar() {
             </button>
             {openMenu === 'reviews' && (
               <div className="absolute left-0 top-full z-30 mt-2 w-[620px] rounded-2xl border border-line bg-white p-3 shadow-xl">
-                <div className="grid grid-cols-2 gap-2">
-                  <Link to="/brokers" className="rounded-xl bg-emerald-50 p-4 transition hover:bg-emerald-100">
-                    <Star size={18} className="text-emerald-700" />
-                    <p className="mt-2 text-sm font-bold text-ink-900">Top Broker Recommendations</p>
-                    <p className="mt-1 text-xs leading-5 text-slate-500">Our highest-rated brokers, ranked and reviewed.</p>
-                  </Link>
-                  <Link to="/brokers" className="rounded-xl p-4 transition hover:bg-paper">
+                <div className="grid grid-cols-[1.3fr_.7fr] gap-2">
+                  <div className="rounded-xl bg-emerald-50 p-4">
+                    <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-emerald-700">
+                      <Star size={13} /> {topBrokers.label}
+                    </p>
+                    <div className="mt-2.5 grid gap-0.5">
+                      {topBrokers.list.slice(0, 5).map((b) => (
+                        <Link
+                          key={b.slug}
+                          to={`/brokers/${b.slug}`}
+                          className="rounded-lg px-2 py-1.5 text-sm font-semibold text-ink-900 transition hover:bg-emerald-100"
+                        >
+                          {b.name}
+                        </Link>
+                      ))}
+                      {topBrokers.list.length === 0 && (
+                        <p className="px-2 py-1.5 text-xs text-slate-500">Loading recommendations…</p>
+                      )}
+                    </div>
+                  </div>
+                  <Link to="/brokers" className="flex flex-col rounded-xl p-4 transition hover:bg-paper">
                     <BookOpen size={18} className="text-emerald-700" />
-                    <p className="mt-2 text-sm font-bold text-ink-900">All Broker Reviews</p>
-                    <p className="mt-1 text-xs leading-5 text-slate-500">Browse broker profiles, scores, fees and platforms.</p>
+                    <p className="mt-2 text-sm font-bold text-ink-900">See all brokers</p>
+                    <p className="mt-1 text-xs leading-5 text-slate-500">Browse every broker profile, score, fees and platforms.</p>
                   </Link>
                 </div>
               </div>
@@ -252,7 +295,7 @@ export default function Navbar() {
                         </Link>
                       ))}
                     </div>
-                    <Link to="/guides" className="mt-2 inline-block px-3 text-xs font-bold text-emerald-700">See all guides →</Link>
+                    <Link to="/#categories" className="mt-2 inline-block px-3 text-xs font-bold text-emerald-700">See all categories →</Link>
                   </div>
                   <div className="border-l border-line pl-4">
                     <p className="px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Guides</p>
@@ -389,25 +432,18 @@ export default function Navbar() {
             </form>
           </div>
 
-          <div className="grid gap-1">
+          <div className="grid gap-1 pb-20">
             <MobileMenuButton label="Broker Reviews" open={mobileSection === 'reviews'} onClick={() => toggleMobile('reviews')} />
             {mobileSection === 'reviews' && (
               <div className="grid gap-1 border-l border-white/10 pl-2">
-                <MobileLink to="/brokers" onClick={closeMobile}>Top Broker Recommendations</MobileLink>
-                <MobileLink to="/brokers" onClick={closeMobile}>All Broker Reviews</MobileLink>
-              </div>
-            )}
-
-            <MobileMenuButton label="Country" open={mobileSection === 'country'} onClick={() => toggleMobile('country')} />
-            {mobileSection === 'country' && (
-              <div className="border-l border-white/10 pl-2">
-                <button onClick={() => { selectCountry(''); closeMobile(); }} className="w-full rounded-lg px-3 py-2.5 text-left text-sm text-slate-300 hover:bg-white/5">🌐 Global</button>
-                <div className="grid grid-cols-2 gap-1">
-                  {majorCountries.map((c) => (
-                    <MobileLink key={c.slug} to={`/${c.slug}`} onClick={closeMobile}>{c.flag} {c.label}</MobileLink>
-                  ))}
-                </div>
-                <MobileLink to="/countries" onClick={closeMobile}>See all countries →</MobileLink>
+                <p className="px-3 pt-1 text-[10px] font-bold uppercase tracking-[0.14em] text-emerald-400">{topBrokers.label}</p>
+                {topBrokers.list.slice(0, 3).map((b) => (
+                  <MobileLink key={b.slug} to={`/brokers/${b.slug}`} onClick={closeMobile}>{b.name}</MobileLink>
+                ))}
+                {topBrokers.list.length === 0 && (
+                  <p className="px-3 py-2 text-xs text-slate-500">Loading recommendations…</p>
+                )}
+                <MobileLink to="/brokers" onClick={closeMobile}>See all brokers →</MobileLink>
               </div>
             )}
 
@@ -423,10 +459,10 @@ export default function Navbar() {
               <div className="grid gap-1 border-l border-white/10 pl-2">
                 <MobileLink to="/guides" onClick={closeMobile}>Guides</MobileLink>
                 <MobileLink to="/compare" onClick={closeMobile}>Side-by-side broker comparisons</MobileLink>
-                {intents.slice(0, 10).map((i) => (
+                {intents.slice(0, 6).map((i) => (
                   <MobileLink key={i.slug} to={`/best/${i.slug}`} onClick={closeMobile}>{i.title.replace(/ \(\d{4}\)/, '')}</MobileLink>
                 ))}
-                <MobileLink to="/guides" onClick={closeMobile}>See all guides →</MobileLink>
+                <MobileLink to="/#categories" onClick={closeMobile}>See all categories →</MobileLink>
               </div>
             )}
 
@@ -437,17 +473,41 @@ export default function Navbar() {
               </div>
             )}
 
-            <Link to="/quiz" onClick={closeMobile} className="mt-2 flex min-h-12 items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-3 text-sm font-bold text-white shadow-soft">
-              <Sparkles size={16} /> Find My Broker
-            </Link>
-
-            <div className="mt-1 flex items-center justify-between rounded-xl border border-white/10 px-3 py-2.5">
-              <span className="text-xs font-semibold text-slate-400">Current country</span>
-              <button onClick={() => { toggleMobile('country'); }} className="text-sm font-semibold text-white">
+            {/* Single country control — was previously duplicated as both an
+                accordion entry above and a separate status bar down here. */}
+            <button
+              onClick={() => toggleMobile('country')}
+              className="mt-1 flex w-full items-center justify-between rounded-xl border border-white/10 px-3 py-2.5"
+              aria-expanded={mobileSection === 'country'}
+            >
+              <span className="text-xs font-semibold text-slate-400">Country</span>
+              <span className="flex items-center gap-1.5 text-sm font-semibold text-white">
                 {activeGeo ? `${activeGeo.flag} ${activeGeo.name}` : '🌐 Global'}
-              </button>
-            </div>
+                <ChevronDown size={14} className={`transition ${mobileSection === 'country' ? 'rotate-180' : ''}`} />
+              </span>
+            </button>
+            {mobileSection === 'country' && (
+              <div className="rounded-xl border border-white/10 bg-white/5 p-2">
+                <button onClick={() => { selectCountry(''); closeMobile(); }} className="w-full rounded-lg px-3 py-2.5 text-left text-sm text-slate-300 hover:bg-white/5">🌐 Global</button>
+                <div className="grid grid-cols-2 gap-1">
+                  {majorCountries.map((c) => (
+                    <MobileLink key={c.slug} to={`/${c.slug}`} onClick={closeMobile}>{c.flag} {c.label}</MobileLink>
+                  ))}
+                </div>
+                <MobileLink to="/countries" onClick={closeMobile}>See all countries →</MobileLink>
+              </div>
+            )}
           </div>
+        </div>
+      )}
+
+      {/* Persistent primary CTA, pinned to the viewport so it's reachable
+          without scrolling through the whole mobile menu. */}
+      {mobileOpen && (
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-ink-950 p-3 xl:hidden">
+          <Link to="/quiz" onClick={closeMobile} className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-3 text-sm font-bold text-white shadow-soft">
+            <Sparkles size={16} /> Find My Broker
+          </Link>
         </div>
       )}
     </header>

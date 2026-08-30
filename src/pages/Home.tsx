@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   ArrowRight,
@@ -67,6 +67,16 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const { country: activeGeo } = useGeo();
+  const location = useLocation();
+
+  // Smooth-scroll to an in-page anchor (e.g. /#categories) since client-side
+  // route changes don't trigger the browser's native hash-scroll behaviour.
+  useEffect(() => {
+    if (!location.hash) return;
+    const id = location.hash.replace(/^#/, '');
+    const el = document.getElementById(id);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [location.hash, loading]);
 
   useEffect(() => {
     Promise.all([fetchBrokers(), fetchIntents(), fetchGuides(), fetchCountries()])
@@ -261,7 +271,7 @@ export default function Home() {
       </section>
 
       {/* ============================= INTENTS ============================= */}
-      <section className="relative overflow-hidden border-y border-line bg-white">
+      <section id="categories" className="relative scroll-mt-24 overflow-hidden border-y border-line bg-white">
         <div className="absolute inset-0 bg-grid-light opacity-60" />
         <div className="relative mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-20">
           <Reveal>
