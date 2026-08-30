@@ -1,0 +1,46 @@
+name: Add Country Hub controls
+on:
+  push:
+    branches:
+      - feature/admin-global-hub-existing-architecture
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch Admin Country Hub
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('src/pages/Admin.tsx')
+          s = p.read_text()
+          s = s.replace("import GlobalHub from '../components/admin/GlobalHub';", "import GlobalHub from '../components/admin/GlobalHub';\nimport { LocalizationManager } from '../components/admin/LocalizationManager';")
+          s = s.replace("    commercial: null,\n    analytics: null,", "    commercial: null,\n    global: contentDocs.filter((d) => !d.country_slug && d.content_type !== 'author').length,\n    analytics: null,")
+          old_props = "                    onEditCountryBestFor={(p) => setEditingCountryBestFor(p)}\n                    onEditContentDoc={(d) => setEditingContentDoc(d)}"
+          new_props = "                    onEditCountryBestFor={(p) => setEditingCountryBestFor(p)}\n                    onNewCountryBestFor={() => setEditingCountryBestFor('new')}\n                    onEditContentDoc={(d) => setEditingContentDoc(d)}\n                    countryLanguages={countryLanguages}\n                    localizedPages={localizedPages}\n                    mutate={mutate}\n                    accessToken={session.access_token}"
+          if old_props in s:
+              s = s.replace(old_props, new_props, 1)
+          old_sig = "function CountryHub({ countries, brokers, countryBestFors, contentDocs, onNewCountry, onEditCountry, onEditCountryBestFor, onEditContentDoc }: { countries: CountryPage[]; brokers: Broker[]; countryBestFors: CountryBestFor[]; contentDocs: ContentDocument[]; onNewCountry: () => void; onEditCountry: (country: CountryPage) => void; onEditCountryBestFor: (page: CountryBestFor) => void; onEditContentDoc: (doc: ContentDocument) => void })"
+          new_sig = "function CountryHub({ countries, brokers, countryBestFors, contentDocs, onNewCountry, onEditCountry, onEditCountryBestFor, onNewCountryBestFor, onEditContentDoc, countryLanguages, localizedPages, mutate, accessToken }: { countries: CountryPage[]; brokers: Broker[]; countryBestFors: CountryBestFor[]; contentDocs: ContentDocument[]; onNewCountry: () => void; onEditCountry: (country: CountryPage) => void; onEditCountryBestFor: (page: CountryBestFor) => void; onNewCountryBestFor: () => void; onEditContentDoc: (doc: ContentDocument) => void; countryLanguages: CountryLanguage[]; localizedPages: LocalizedSeoPage[]; mutate: (path: string, method: string, body: unknown, msg: string) => Promise<void>; accessToken: string })"
+          if old_sig in s:
+              s = s.replace(old_sig, new_sig, 1)
+          old_heading = '<div className="rounded-2xl border border-line bg-white p-5"><h3 className="font-display text-lg font-bold text-ink-900">Best-For pages</h3>'
+          new_heading = '<div className="rounded-2xl border border-line bg-white p-5"><div className="flex flex-wrap items-center justify-between gap-3"><h3 className="font-display text-lg font-bold text-ink-900">Best-For pages</h3><button type="button" onClick={onNewCountryBestFor} className="inline-flex items-center gap-1.5 rounded-xl bg-ink-950 px-3 py-2 text-xs font-bold text-white"><Plus size={13}/> Add new page</button></div>'
+          if old_heading in s:
+              s = s.replace(old_heading, new_heading, 1)
+          marker = '</div></section>}</div>;\n\nfunction AuthorHub('
+          replacement = '</div><div className="rounded-2xl border border-line bg-white p-5"><div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-display text-lg font-bold text-ink-900">Languages</h3><p className="mt-1 text-xs text-slate-500">Select a country above, then add and manage its local languages without leaving Country Hub.</p></div></div><div className="mt-4"><LocalizationManager countries={countries} languages={countryLanguages} pages={localizedPages} mutate={mutate} accessToken={accessToken}/></div></div></section>}</div>;\n\nfunction AuthorHub('
+          if marker in s:
+              s = s.replace(marker, replacement, 1)
+          p.write_text(s)
+          PY
+      - name: Commit
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/pages/Admin.tsx
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'Add Country Hub Best-For and language controls'
+          git push
