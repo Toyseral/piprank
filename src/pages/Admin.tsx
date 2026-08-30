@@ -4,9 +4,7 @@ import type { Session } from '@supabase/supabase-js';
 import {
   AlertTriangle,
   ArrowUpRight,
-  BadgePercent,
   BarChart3,
-  BookOpen,
   CircleDollarSign,
   Copy,
   ExternalLink,
@@ -39,20 +37,16 @@ import {
 } from 'lucide-react';
 import AnalyticsPanel from './AnalyticsPanel';
 import supabase from '../lib/supabase';
-import LocalizationManager from '../components/admin/LocalizationManager';
-import RankingManager from '../components/admin/RankingManager';
 import type { Broker, BrokerContent, CountryBestFor, CountryPage, FAQ, Guide, GuideSection, Intent, Promotion, Regulation, Review, TestResult, ContentDocument, CountryLanguage, LocalizedSeoPage } from '../lib/types';
 import Monogram from '../components/Monogram';
 import Stars from '../components/Stars';
 import { fmtDate, timeAgo } from '../lib/format';
 import { INTENT_LABELS } from '../lib/score';
-import RichTextEditor from '../components/RichTextEditor';
 import PageBuilder, { blocksToHtml, type PageBlock } from '../components/PageBuilder';
-import PageManager from '../components/PageManager';
 
 /* =============================== TYPES =============================== */
 
-type Tab = 'overview' | 'analytics' | 'pages' | 'brokers' | 'reviews' | 'content' | 'rankings' | 'localization' | 'subs' | 'promos' | 'team' | 'affiliate' | 'conversions';
+type Tab = 'overview' | 'brokers' | 'countries' | 'authors' | 'commercial' | 'analytics' | 'team';
 
 interface Sub {
   id: number;
@@ -88,41 +82,34 @@ const ROLE_LABELS: Record<string, string> = {
 
 const ROLE_ACCESS: Record<string, string[]> = {
   overview: ['super_admin', 'admin', 'brokers_admin', 'content_admin', 'moderator'],
-  pages: ['super_admin', 'admin', 'content_admin', 'brokers_admin'],
-  analytics: ['super_admin', 'admin', 'brokers_admin', 'content_admin', 'moderator'],
   brokers: ['super_admin', 'admin', 'brokers_admin'],
-  reviews: ['super_admin', 'admin', 'moderator'],
-  content: ['super_admin', 'admin', 'content_admin'],
-  rankings: ['super_admin', 'admin', 'content_admin'],
-  localization: ['super_admin', 'admin', 'content_admin'],
-  promos: ['super_admin', 'admin', 'content_admin'],
-  subs: ['super_admin', 'admin', 'moderator'],
+  countries: ['super_admin', 'admin', 'content_admin', 'brokers_admin'],
+  authors: ['super_admin', 'admin', 'content_admin'],
+  commercial: ['super_admin', 'admin'],
+  analytics: ['super_admin', 'admin', 'brokers_admin', 'content_admin', 'moderator'],
   team: ['super_admin'],
-  // Commercially sensitive (CPA notes, routing) — admin/super_admin only,
-  // unlike most other tabs which extend to the broader staff roles.
-  affiliate: ['super_admin', 'admin'],
-  conversions: ['super_admin', 'admin'],
 };
 
 const TABS: { key: Tab; label: string; icon: typeof Landmark; desc: string }[] = [
-  { key: 'pages', label: 'Page Manager', icon: FileText, desc: 'Manage country SEO pages and broker profiles from one unified publishing workflow.' },
-  { key: 'overview', label: 'Overview', icon: LayoutDashboard, desc: 'Key numbers, data gaps and affiliate traffic at a glance.' },
+  { key: 'overview', label: 'Overview', icon: LayoutDashboard, desc: 'Operational tasks, gaps and admin shortcuts.' },
+  { key: 'brokers', label: 'Broker Workspace', icon: Landmark, desc: 'Manage broker profile, rich content, trading data, countries, reviews, promotions and affiliate coverage.' },
+  { key: 'countries', label: 'Country Hub', icon: Globe2, desc: 'Manage country overview, publishing, SEO, brokers, best-for pages, guides, FAQs and internal links.' },
+  { key: 'authors', label: 'Author Hub', icon: Users, desc: 'Manage public author profiles, bios, expertise, credentials, photos, links and attribution.' },
+  { key: 'commercial', label: 'Commercial', icon: Link2, desc: 'Affiliate links, promotions and conversion reporting.' },
   { key: 'analytics', label: 'Analytics', icon: BarChart3, desc: 'CTA performance, quiz funnel, layouts and conversions by date range.' },
-  { key: 'brokers', label: 'Brokers', icon: Landmark, desc: 'Edit data, assign categories and publish content per broker.' },
-  { key: 'reviews', label: 'Reviews', icon: MessageSquare, desc: 'Moderate trader reviews — verify or remove in one click.' },
-  { key: 'content', label: 'Content', icon: BookOpen, desc: 'Guides, SEO intent pages and country guides.' },
-  { key: 'rankings', label: 'Rankings', icon: BarChart3, desc: 'Manage country and intent-specific broker ranking overrides.' },
-  { key: 'localization', label: 'Localization', icon: Globe2, desc: 'Add country languages and manage localized SEO page drafts.' },
-  { key: 'promos', label: 'Promotions', icon: BadgePercent, desc: 'Manage live broker promotions, bonuses and expiry dates.' },
-  { key: 'subs', label: 'Subscribers', icon: Users, desc: 'Friday Spread list — export or clean up subscribers.' },
   { key: 'team', label: 'Team', icon: ShieldCheck, desc: 'Invite staff, assign roles and control access.' },
-  { key: 'affiliate', label: 'Affiliate Links', icon: Link2, desc: 'Per-broker and per-country affiliate URLs, tracking params and CPA notes.' },
-  { key: 'conversions', label: 'Conversions', icon: Globe2, desc: 'Click-through funnel by broker, country, source page and referrer.' },
 ];
 
 const ADMIN_ACTIVE_TAB_STORAGE_KEY = 'piprank-admin-active-tab';
 const DEFAULT_ADMIN_TAB: Tab = 'overview';
 const VALID_ADMIN_TAB_KEYS = new Set<Tab>(TABS.map((tab) => tab.key));
+
+function normalizeAdminTab(value: string | null): string | null {
+  if (value === 'pages' || value === 'content' || value === 'rankings' || value === 'localization') return 'countries';
+  if (value === 'reviews') return 'brokers';
+  if (value === 'promos' || value === 'affiliate' || value === 'conversions' || value === 'subs') return 'commercial';
+  return value;
+}
 
 function isAdminTab(value: string | null): value is Tab {
   return value !== null && VALID_ADMIN_TAB_KEYS.has(value as Tab);
@@ -132,6 +119,8 @@ function readSavedAdminTab(): Tab {
   if (typeof window === 'undefined') return DEFAULT_ADMIN_TAB;
 
   try {
+    const hashTab = normalizeAdminTab(new URLSearchParams(window.location.hash.replace(/^#/, '')).get('tab'));
+    if (isAdminTab(hashTab)) return hashTab;
     const savedTab = window.localStorage.getItem(ADMIN_ACTIVE_TAB_STORAGE_KEY);
     if (isAdminTab(savedTab)) return savedTab;
     if (savedTab !== null) window.localStorage.removeItem(ADMIN_ACTIVE_TAB_STORAGE_KEY);
@@ -147,6 +136,9 @@ function saveAdminTab(tab: Tab) {
 
   try {
     window.localStorage.setItem(ADMIN_ACTIVE_TAB_STORAGE_KEY, tab);
+    const params = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    params.set('tab', tab);
+    window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}#${params.toString()}`);
   } catch {
     // Ignore storage access failures; the in-memory tab state still updates.
   }
@@ -442,6 +434,15 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
     load();
   }, [load]);
 
+  useEffect(() => {
+    const onHashChange = () => {
+      const nextTab = normalizeAdminTab(new URLSearchParams(window.location.hash.replace(/^#/, '')).get('tab'));
+      if (isAdminTab(nextTab)) setTab(nextTab);
+    };
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
+
   const mutate = async (path: string, method: string, body: unknown, msg: string) => {
     const res = await fetch(path, { method, headers: headers(), body: JSON.stringify(body) });
     const data = await res.json().catch(() => ({}));
@@ -461,19 +462,13 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
 
   const counts: Record<string, number | null> = {
     overview: null,
-    analytics: null,
-    pages: contentDocs.length,
     brokers: brokers.length,
-    reviews: reviews.length,
-    content: guides.length + intents.length + countries.length + contentDocs.length,
-    localization: countryLanguages.length,
-    promos: null,
-    subs: subs.length,
+    countries: countries.length,
+    authors: contentDocs.filter((d) => d.content_type === 'author').length,
+    commercial: null,
+    analytics: null,
     team: null,
-    affiliate: null,
-    conversions: null,
   };
-
   const visibleTabs = TABS.filter((t) => (ROLE_ACCESS[t.key] ?? []).includes(role));
 
   const setActiveAdminTab = useCallback((nextTab: Tab) => {
@@ -600,12 +595,12 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
               </h1>
               <p className="mt-1 text-sm text-slate-500">{active.desc}</p>
             </div>
-            {activeTab === 'brokers' && (
+            {(activeTab === 'brokers' || activeTab === 'countries' || activeTab === 'authors') && (
               <button
-                onClick={() => setEditingBroker('new')}
+                onClick={() => activeTab === 'brokers' ? setEditingBroker('new') : activeTab === 'countries' ? setEditingCountry('new') : setEditingContentDoc({ id: 0, content_key: 'author:new-author', content_type: 'author', country_slug: null, topic_slug: null, slug: 'new-author', title: '', excerpt: '', html: '', blocks: [], seo_title: null, seo_description: null, indexable: false, published: false, updated_by: null, created_at: '', updated_at: '', settings: { role: '', short_bio: '', expertise: [], credentials: [], links: [], display_order: 0, photo_url: '' } } as ContentDocument)}
                 className="inline-flex items-center gap-1.5 rounded-xl bg-ink-950 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-ink-800"
               >
-                <Plus size={14} className="text-emerald-400" /> New broker
+                <Plus size={14} className="text-emerald-400" /> {activeTab === 'brokers' ? 'New broker' : activeTab === 'countries' ? 'New country' : 'New author'}
               </button>
             )}
           </div>
@@ -619,16 +614,6 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
               <div className="h-96 animate-pulse rounded-2xl border border-line bg-white" />
             ) : (
               <>
-                {activeTab === 'pages' && (
-                  <PageManager
-                    countries={countries}
-                    brokers={brokers}
-                    contentDocs={contentDocs}
-                    token={session.access_token}
-                    onSave={async (fields, isNew) => { await mutate('/api/content-documents', isNew ? 'POST' : 'PUT', fields, isNew ? 'Page published' : 'Page saved'); }}
-                    onDelete={(d) => { if (window.confirm(`Delete the page document "${d.title || d.content_key}"?`)) mutate('/api/content-documents', 'DELETE', { id: d.id }, 'Page deleted'); }}
-                  />
-                )}
                 {activeTab === 'overview' && (
                   <Overview
                     brokers={brokers}
@@ -645,6 +630,7 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
                     brokers={brokers}
                     onNew={() => setEditingBroker('new')}
                     onEdit={(b) => setEditingBroker(b)}
+                    onEditContent={(b) => setEditingBrokerContent(b)}
                     onDuplicate={(b) => {
                       const copy: BrokerForm = { ...b, name: `${b.name} (copy)`, slug: `${b.slug}-copy`, featured: false };
                       delete copy.id;
@@ -659,92 +645,31 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
                     }}
                   />
                 )}
-                {activeTab === 'reviews' && (
-                  <ReviewsTab
-                    reviews={reviews}
-                    brokerName={brokerName}
-                    onToggleVerified={(r) =>
-                      mutate('/api/reviews', 'PUT', { id: r.id, verified: !r.verified }, 'Review updated')
-                    }
-                    onDelete={(r) => {
-                      if (window.confirm('Delete this review permanently?'))
-                        mutate('/api/reviews', 'DELETE', { id: r.id }, 'Review deleted');
-                    }}
-                  />
-                )}
-                {activeTab === 'content' && (
-                  <ContentTab
-                    guides={guides}
-                    intents={intents}
+                {activeTab === 'countries' && (
+                  <CountryHub
                     countries={countries}
-                    countryBestFors={countryBestFors}
                     brokers={brokers}
-                    onNewGuide={() => setEditingGuide('new')}
-                    onEditGuide={(g) => setEditingGuide(g)}
-                    onDeleteGuide={(g) => {
-                      if (window.confirm(`Delete the guide "${g.title}"? Its public page will 404.`))
-                        mutate('/api/guides', 'DELETE', { id: g.id }, 'Guide deleted');
-                    }}
-                    onNewIntent={() => setEditingIntent('new')}
-                    onEditIntent={(i) => setEditingIntent(i)}
-                    onDeleteIntent={(i) => {
-                      if (window.confirm(`Delete the "${i.label}" intent page? Brokers keep their category, but the public page will 404.`))
-                        mutate('/api/intents', 'DELETE', { id: i.id }, 'Intent removed');
-                    }}
+                    countryBestFors={countryBestFors}
+                    contentDocs={contentDocs}
                     onNewCountry={() => setEditingCountry('new')}
                     onEditCountry={(c) => setEditingCountry(c)}
-                    onNewCountryBestFor={() => setEditingCountryBestFor('new')}
                     onEditCountryBestFor={(p) => setEditingCountryBestFor(p)}
-                    onEditBrokerContent={(b) => setEditingBrokerContent(b)}
-                    onDeleteCountryBestFor={(p) => {
-                      if (window.confirm(`Delete the ${p.title} page? Its public URL will 404.`))
-                        mutate('/api/country-best-for', 'DELETE', { id: p.id }, 'Best-for page deleted');
-                    }}
-                    onDeleteCountry={(c) => {
-                      if (window.confirm(`Remove the ${c.name} guide? Its public page will return 404.`))
-                        mutate('/api/countries', 'DELETE', { id: c.id }, `${c.name} removed`);
-                    }}
-                    contentDocs={contentDocs}
-                    onNewContentDoc={() => setEditingContentDoc('new')}
                     onEditContentDoc={(d) => setEditingContentDoc(d)}
-                    onDeleteContentDoc={(d) => {
-                      if (window.confirm(`Delete the rich content document "${d.title || d.content_key}"?`))
-                        mutate('/api/content-documents', 'DELETE', { id: d.id }, 'Rich content deleted');
-                    }}
                   />
                 )}
-                {activeTab === 'rankings' && <RankingManager countries={countries} intents={intents} brokers={brokers} token={session.access_token} />}
-                {activeTab === 'localization' && (
-                  <LocalizationManager
-                    countries={countries}
-                    languages={countryLanguages}
-                    pages={localizedPages}
-                    mutate={mutate}
-                    notify={notify}
-                    accessToken={session.access_token}
+                {activeTab === 'authors' && (
+                  <AuthorHub
+                    authors={contentDocs.filter((d) => d.content_type === 'author')}
+                    allContent={contentDocs}
+                    onNewAuthor={() => setEditingContentDoc({ id: 0, content_key: 'author:new-author', content_type: 'author', country_slug: null, topic_slug: null, slug: 'new-author', title: '', excerpt: '', html: '', blocks: [], seo_title: null, seo_description: null, indexable: false, published: false, updated_by: null, created_at: '', updated_at: '', settings: { role: '', short_bio: '', expertise: [], credentials: [], links: [], display_order: 0, photo_url: '' } } as ContentDocument)}
+                    onEditAuthor={(d) => setEditingContentDoc(d)}
                   />
                 )}
-                {activeTab === 'promos' && (
-                  <PromosTab token={session.access_token} brokers={brokers} notify={notify} />
+                {activeTab === 'commercial' && (
+                  <CommercialHub token={session.access_token} brokers={brokers} notify={notify} />
                 )}
                 {activeTab === 'team' && (
                   <TeamTab token={session.access_token} myEmail={(session.user.email ?? '').toLowerCase()} />
-                )}
-                {activeTab === 'affiliate' && (
-                  <AffiliateLinksTab token={session.access_token} brokers={brokers} notify={notify} />
-                )}
-                {activeTab === 'conversions' && (
-                  <ConversionsTab token={session.access_token} brokers={brokers} />
-                )}
-                {activeTab === 'subs' && (
-                  <SubsTab
-                    subs={subs}
-                    onDelete={(s) => {
-                      if (window.confirm(`Remove ${s.email} from the list?`))
-                        mutate('/api/newsletter', 'DELETE', { id: s.id }, 'Subscriber removed');
-                    }}
-                    onCopied={() => notify('Emails copied to clipboard')}
-                  />
                 )}
               </>
             )}
@@ -860,7 +785,8 @@ function BrokerContentEditor({ broker, token, onClose, onSave }: { broker: Broke
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [countries, setCountries] = useState<any[]>([]);
-  const [availability, setAvailability] = useState('[]');
+  const [availabilityRows, setAvailabilityRows] = useState<{ country_id: number; status: 'available' | 'restricted' | 'unavailable' | 'unknown'; note: string; priority: number }[]>([]);
+  const [countrySearch, setCountrySearch] = useState('');
   const [advanced, setAdvanced] = useState<Record<string,string>>({
     overview:'[]', verdict:'[]', why_recommend:'[]', best_for_detail:'[]', avoid_if:'[]', regulation_detail:'[]', fees_detail:'[]', platform_intro:'[]', accounts_intro:'[]', funding_intro:'[]', faqs:'[]', platforms:'[]', accounts:'[]', payments:'[]'
   });
@@ -879,7 +805,7 @@ function BrokerContentEditor({ broker, token, onClose, onSave }: { broker: Broke
       ]);
       const d=data??{};
       setAdvanced(Object.fromEntries(['overview','verdict','why_recommend','best_for_detail','avoid_if','regulation_detail','fees_detail','platform_intro','accounts_intro','funding_intro','faqs','platforms','accounts','payments'].map((k)=>[k,JSON.stringify(d[k]??[],null,2)])));
-      setAvailability(JSON.stringify((Array.isArray(av)?av:[]).map((r:any)=>({country_id:r.country_id,status:r.status,note:r.note??'',priority:r.priority??0})),null,2));
+      setAvailabilityRows((Array.isArray(av)?av:[]).map((r:any)=>({country_id:Number(r.country_id),status:r.status || 'unknown',note:r.note??'',priority:Number(r.priority??0)})));
       setCountries(Array.isArray(c)?c:[]);
       setRichDocs(Array.isArray(docs)?docs:[]);
     } catch(e) { setError(e instanceof Error?e.message:'Failed to load broker content'); }
@@ -893,11 +819,21 @@ function BrokerContentEditor({ broker, token, onClose, onSave }: { broker: Broke
       const parse=(k:string)=>{ const v=JSON.parse(advanced[k]??'[]'); if(!Array.isArray(v)) throw new Error(`${k} must be a JSON array.`); return v; };
       const content: BrokerContent = { broker_id: broker.id, overview:parse('overview'), verdict:parse('verdict'), why_recommend:parse('why_recommend'), best_for_detail:parse('best_for_detail'), avoid_if:parse('avoid_if'), regulation_detail:parse('regulation_detail'), fees_detail:parse('fees_detail'), platform_intro:parse('platform_intro'), accounts_intro:parse('accounts_intro'), funding_intro:parse('funding_intro'), faqs:parse('faqs'), platforms:parse('platforms'), accounts:parse('accounts'), payments:parse('payments') };
       await onSave(content);
-      const rows=JSON.parse(availability||'[]'); if(!Array.isArray(rows)) throw new Error('Country availability must be a JSON array.');
+      const rows=availabilityRows.filter((row)=>row.country_id).map((row)=>({ ...row, priority:Number(row.priority)||0 }));
       const r=await fetch('/api/broker-assets?resource=availability',{method:'PUT',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({broker_id:broker.id,rows})});
       const d=await r.json().catch(()=>({})); if(!r.ok) throw new Error(d.error||'Could not save country availability');
       setError('');
     } catch(e) { setError(e instanceof Error?e.message:'Could not save broker data'); }
+  };
+
+  const availabilityByCountry = useMemo(() => new Map(availabilityRows.map((row) => [row.country_id, row])), [availabilityRows]);
+  const visibleCountries = useMemo(() => countries.filter((c) => `${c.name} ${c.slug}`.toLowerCase().includes(countrySearch.toLowerCase().trim())), [countries, countrySearch]);
+  const updateAvailability = (countryId: number, patch: Partial<{ status: 'available' | 'restricted' | 'unavailable' | 'unknown'; note: string; priority: number }>) => {
+    setAvailabilityRows((rows) => {
+      const existing = rows.find((row) => row.country_id === countryId);
+      if (existing) return rows.map((row) => row.country_id === countryId ? { ...row, ...patch } : row);
+      return [...rows, { country_id: countryId, status: 'unknown', note: '', priority: 0, ...patch }];
+    });
   };
 
   const saveDoc = async (doc: any, isNew=false) => {
@@ -937,7 +873,7 @@ function BrokerContentEditor({ broker, token, onClose, onSave }: { broker: Broke
             {(['platforms','accounts','payments'] as const).map(k=><label key={k} className="mt-4 block"><FieldLabel>{k==='platforms'?'Platforms':k==='accounts'?'Account types':'Payment methods'}</FieldLabel><textarea value={advanced[k]} onChange={e=>setAdvanced(a=>({...a,[k]:e.target.value}))} rows={8} spellCheck={false} className="mt-1.5 w-full rounded-xl border border-line bg-paper px-3 py-3 font-mono text-xs leading-relaxed outline-none focus:border-emerald-500"/></label>)}
           </section>
 
-          <section><div className="flex items-center justify-between"><div><h2 className="font-display text-xl font-bold text-ink-900">Country availability</h2><p className="mt-1 text-xs text-slate-400">Verified availability controls which country pages can recommend this broker.</p></div><button onClick={saveAdvanced} className="rounded-xl bg-emerald-500 px-4 py-2 text-xs font-bold text-white">Save availability</button></div><div className="mt-3 max-h-40 overflow-auto rounded-xl border border-line bg-paper p-3 text-xs">{countries.map(c=><span key={c.id} className="mr-3 inline-block py-1"><strong>{c.id}</strong> = {c.name} ({c.slug})</span>)}</div><label className="mt-4 block"><FieldLabel hint='JSON: [{"country_id":1,"status":"available","note":"...","priority":1}]'>Availability records</FieldLabel><textarea value={availability} onChange={e=>setAvailability(e.target.value)} rows={10} spellCheck={false} className="mt-1.5 w-full rounded-xl border border-line bg-paper px-3 py-3 font-mono text-xs leading-relaxed outline-none focus:border-emerald-500"/></label></section>
+          <section><div className="flex items-center justify-between gap-3"><div><h2 className="font-display text-xl font-bold text-ink-900">Country eligibility</h2><p className="mt-1 text-xs text-slate-400">Search countries and set whether this broker is available, restricted or unavailable. No raw JSON required.</p></div><button onClick={saveAdvanced} className="rounded-xl bg-emerald-500 px-4 py-2 text-xs font-bold text-white">Save eligibility</button></div><div className="mt-3 flex items-center gap-2 rounded-xl border border-line bg-paper px-3"><Search size={14} className="text-slate-400"/><input value={countrySearch} onChange={e=>setCountrySearch(e.target.value)} placeholder="Search countries…" className="h-10 flex-1 bg-transparent text-sm outline-none"/></div><div className="mt-3 max-h-96 overflow-auto rounded-xl border border-line bg-white"><table className="w-full text-left text-xs"><thead className="sticky top-0 bg-paper text-slate-500"><tr><th className="px-3 py-2">Country</th><th className="px-3 py-2">Status</th><th className="px-3 py-2">Priority</th><th className="px-3 py-2">Note</th></tr></thead><tbody className="divide-y divide-line">{visibleCountries.map((c)=>{const row=availabilityByCountry.get(c.id) ?? { country_id:c.id, status:'unknown' as const, note:'', priority:0 }; return <tr key={c.id}><td className="px-3 py-2 font-bold text-ink-900">{c.flag} {c.name}<span className="ml-1 font-normal text-slate-400">/{c.slug}</span></td><td className="px-3 py-2"><select value={row.status} onChange={(e)=>updateAvailability(c.id,{status:e.target.value as any})} className="h-9 rounded-lg border border-line bg-paper px-2 text-xs font-bold outline-none"><option value="unknown">Unknown</option><option value="available">Available</option><option value="restricted">Restricted</option><option value="unavailable">Unavailable</option></select></td><td className="px-3 py-2"><input type="number" value={row.priority} onChange={(e)=>updateAvailability(c.id,{priority:Number(e.target.value)||0})} className="h-9 w-20 rounded-lg border border-line bg-paper px-2 text-xs outline-none"/></td><td className="px-3 py-2"><input value={row.note} onChange={(e)=>updateAvailability(c.id,{note:e.target.value})} placeholder="Eligibility, entity or affiliate note…" className="h-9 w-full min-w-56 rounded-lg border border-line bg-paper px-2 text-xs outline-none"/></td></tr>})}</tbody></table></div></section>
         </div>}
       </div>
       <div className="flex justify-end border-t border-line bg-white px-5 py-4"><button onClick={onClose} className="rounded-xl border border-line px-4 py-2 text-xs font-bold text-slate-600">Close</button></div>
@@ -1024,6 +960,34 @@ const RANGES = [
   { key: '30', label: '30 days' },
   { key: 'all', label: 'All time' },
 ] as const;
+
+
+
+function CommercialHub({ token, brokers, notify }: { token: string; brokers: Broker[]; notify: (msg: string) => void }) {
+  const [section, setSection] = useState<'affiliate' | 'promos' | 'conversions'>('affiliate');
+  return <div className="space-y-5"><div className="rounded-2xl border border-line bg-white p-4"><div className="flex flex-wrap gap-2">{(['affiliate','promos','conversions'] as const).map((key)=><button key={key} onClick={()=>setSection(key)} className={`rounded-xl px-4 py-2 text-xs font-bold transition ${section===key?'bg-ink-950 text-white':'bg-paper text-slate-500 hover:bg-white'}`}>{key==='affiliate'?'Affiliate links':key==='promos'?'Promotions':'Conversions'}</button>)}</div></div>{section==='affiliate'&&<AffiliateLinksTab token={token} brokers={brokers} notify={notify}/>} {section==='promos'&&<PromosTab token={token} brokers={brokers} notify={notify}/>} {section==='conversions'&&<ConversionsTab token={token} brokers={brokers}/>}</div>;
+}
+
+function CountryHub({ countries, brokers, countryBestFors, contentDocs, onNewCountry, onEditCountry, onEditCountryBestFor, onEditContentDoc }: { countries: CountryPage[]; brokers: Broker[]; countryBestFors: CountryBestFor[]; contentDocs: ContentDocument[]; onNewCountry: () => void; onEditCountry: (country: CountryPage) => void; onEditCountryBestFor: (page: CountryBestFor) => void; onEditContentDoc: (doc: ContentDocument) => void }) {
+  const [query, setQuery] = useState('');
+  const [selectedSlug, setSelectedSlug] = useState(() => countries[0]?.slug ?? '');
+  useEffect(() => { if (!selectedSlug && countries[0]) setSelectedSlug(countries[0].slug); }, [countries, selectedSlug]);
+  const filtered = countries.filter((country) => `${country.name} ${country.slug}`.toLowerCase().includes(query.toLowerCase()));
+  const selected = countries.find((country) => country.slug === selectedSlug) ?? filtered[0] ?? countries[0];
+  const bestFor = selected ? countryBestFors.filter((page) => page.country_id === selected.id || page.country_slug === selected.slug) : [];
+  const docs = selected ? contentDocs.filter((doc) => doc.country_slug === selected.slug || doc.content_key.includes(`:${selected.slug}:`) || doc.slug === selected.slug) : [];
+  const publishedState = String((selected as any)?.publishing_state ?? ((selected as any)?.status ?? 'published'));
+  return <div className="grid gap-5 lg:grid-cols-[300px_1fr]"><section className="rounded-2xl border border-line bg-white p-4"><div className="flex items-center justify-between"><h2 className="font-display text-lg font-bold text-ink-900">Countries</h2><button onClick={onNewCountry} className="rounded-lg bg-ink-950 px-3 py-1.5 text-xs font-bold text-white"><Plus size={13} className="inline"/> New</button></div><div className="mt-3 flex items-center gap-2 rounded-xl border border-line bg-paper px-3"><Search size={14} className="text-slate-400"/><input value={query} onChange={(e)=>setQuery(e.target.value)} placeholder="Search countries…" className="h-10 flex-1 bg-transparent text-sm outline-none"/></div><div className="mt-3 max-h-[560px] space-y-1 overflow-auto">{filtered.map((country)=><button key={country.id} onClick={()=>setSelectedSlug(country.slug)} className={`w-full rounded-xl px-3 py-2 text-left text-sm transition ${selected?.id===country.id?'bg-emerald-50 text-emerald-800':'hover:bg-paper'}`}><span className="font-bold">{country.flag} {country.name}</span><span className="block text-xs text-slate-400">/{country.slug}</span></button>)}</div></section>{selected&&<section className="space-y-5"><div className="rounded-2xl border border-line bg-white p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Country Workspace</p><h2 className="font-display text-2xl font-bold text-ink-900">{selected.flag} {selected.name}</h2><p className="mt-1 text-sm text-slate-500">Overview, publishing, SEO, brokers, best-for pages, guides, FAQs and internal links in one place.</p></div><button onClick={()=>onEditCountry(selected)} className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-4 py-2 text-xs font-bold text-white"><Pencil size={14}/> Edit country hub</button></div><div className="mt-4 grid gap-3 sm:grid-cols-3"><HubMetric label="Publishing" value={publishedState} sub="draft · published · closed"/><HubMetric label="Best-For" value={String(bestFor.length)} sub="country category pages"/><HubMetric label="Country content" value={String(docs.length)} sub="guides and SEO docs"/></div></div><div className="grid gap-5 xl:grid-cols-2"><EntityPanel title="SEO QA" items={[selected.seo_title?'SEO title present':'Missing SEO title',selected.seo_description?'Meta description present':'Missing meta description',(selected.seo_intro?.length||0)>0?'Intro present':'Missing SEO intro',(selected.seo_sections?.length||0)>0?'Structured sections present':'Missing sections',(selected.seo_faqs?.length||0)>0?'FAQs present':'Missing FAQs']}/><EntityPanel title="Broker coverage" items={[`${selected.recommended.length} recommended brokers`,`${selected.unavailable.length} unavailable broker flags`,`${brokers.length} brokers in database`,'Use Broker Workspace for searchable eligibility states']}/></div><div className="rounded-2xl border border-line bg-white p-5"><h3 className="font-display text-lg font-bold text-ink-900">Best-For pages</h3><div className="mt-3 divide-y divide-line rounded-xl border border-line">{bestFor.map((page)=><button key={page.id} onClick={()=>onEditCountryBestFor(page)} className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-paper"><span><span className="block text-sm font-bold text-ink-900">{page.label}</span><span className="text-xs text-slate-400">/{selected.slug}/{page.slug} · {page.indexable?'Indexable':'Noindex'}</span></span><Pencil size={14} className="text-slate-400"/></button>)}{!bestFor.length&&<p className="p-4 text-sm text-slate-400">No country best-for pages yet.</p>}</div></div><div className="rounded-2xl border border-line bg-white p-5"><h3 className="font-display text-lg font-bold text-ink-900">Country guides and SEO content</h3><div className="mt-3 divide-y divide-line rounded-xl border border-line">{docs.map((doc)=><button key={doc.id} onClick={()=>onEditContentDoc(doc)} className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-paper"><span><span className="block text-sm font-bold text-ink-900">{doc.title || doc.content_key}</span><span className="text-xs text-slate-400">{doc.content_type} · {doc.published?'Published':'Draft'} · {doc.indexable?'Indexable':'Noindex'}</span></span><Pencil size={14} className="text-slate-400"/></button>)}{!docs.length&&<p className="p-4 text-sm text-slate-400">No country-specific rich content found.</p>}</div></div></section>}</div>;
+}
+
+function AuthorHub({ authors, allContent, onNewAuthor, onEditAuthor }: { authors: ContentDocument[]; allContent: ContentDocument[]; onNewAuthor: () => void; onEditAuthor: (doc: ContentDocument) => void }) {
+  const sorted = [...authors].sort((a,b)=>Number(a.settings?.display_order ?? 0)-Number(b.settings?.display_order ?? 0));
+  return <div className="space-y-5"><div className="rounded-2xl border border-line bg-white p-5"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Author Hub</p><h2 className="font-display text-2xl font-bold text-ink-900">Editorial authors and reviewers</h2><p className="mt-1 text-sm text-slate-500">Manage public bios, roles, expertise, credentials, professional links, photos and attribution.</p></div><button onClick={onNewAuthor} className="inline-flex items-center gap-1.5 rounded-xl bg-ink-950 px-4 py-2 text-xs font-bold text-white"><Plus size={14}/> New author</button></div></div><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{sorted.map((author)=><button key={author.id || author.content_key} onClick={()=>onEditAuthor(author)} className="rounded-2xl border border-line bg-white p-5 text-left transition hover:-translate-y-0.5 hover:shadow-soft"><div className="flex items-center gap-3"><div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-emerald-50 text-sm font-bold text-emerald-700">{author.settings?.photo_url?<img src={String(author.settings.photo_url)} alt="" className="h-full w-full object-cover"/>:author.title.slice(0,2).toUpperCase()}</div><div><p className="font-display text-lg font-bold text-ink-900">{author.title || 'Untitled author'}</p><p className="text-xs text-slate-400">{String(author.settings?.role ?? 'Author')} · {author.published?'Published':'Draft'}</p></div></div><p className="mt-3 line-clamp-3 text-sm text-slate-600">{String(author.settings?.short_bio ?? author.excerpt ?? '')}</p><div className="mt-3 flex flex-wrap gap-1.5">{((author.settings?.expertise as string[] | undefined) ?? []).slice(0,4).map((x)=><span key={x} className="rounded-full bg-paper px-2 py-1 text-[11px] font-bold text-slate-500">{x}</span>)}</div></button>)}{!sorted.length&&<div className="rounded-2xl border border-dashed border-line bg-white p-8 text-center text-sm text-slate-500">No author profiles yet. Create the first author to enable written-by, reviewed-by and fact-checked-by attribution.</div>}</div><EntityPanel title="Attribution readiness" items={[`${authors.length} author records`,`${allContent.filter((d)=>d.settings?.written_by || d.settings?.reviewed_by || d.settings?.fact_checked_by).length} content documents with attribution metadata`,'Use author records for Written by, Reviewed by and Fact checked by roles']}/></div>;
+}
+
+function HubMetric({ label, value, sub }: { label: string; value: string; sub: string }) { return <div className="rounded-xl border border-line bg-paper p-3"><p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">{label}</p><p className="mt-1 font-display text-xl font-bold text-ink-900">{value}</p><p className="mt-0.5 text-xs text-slate-500">{sub}</p></div>; }
+
+function EntityPanel({ title, items }: { title: string; items: string[] }) { return <div className="rounded-2xl border border-line bg-white p-5"><h3 className="font-display text-lg font-bold text-ink-900">{title}</h3><ul className="mt-3 space-y-2">{items.map((item)=><li key={item} className="flex items-start gap-2 text-sm text-slate-600"><ShieldCheck size={14} className="mt-0.5 text-emerald-500"/><span>{item}</span></li>)}</ul></div>; }
 
 function Overview({
   brokers,
@@ -1289,6 +1253,7 @@ function BrokersTab({
   onNew,
   onEdit,
   onDuplicate,
+  onEditContent,
   onToggleFeatured,
   onDelete,
 }: {
@@ -1296,6 +1261,7 @@ function BrokersTab({
   onNew: () => void;
   onEdit: (b: Broker) => void;
   onDuplicate: (b: Broker) => void;
+  onEditContent: (b: Broker) => void;
   onToggleFeatured: (b: Broker) => void;
   onDelete: (b: Broker) => void;
 }) {
@@ -1332,7 +1298,7 @@ function BrokersTab({
         </div>
       </div>
       <p className="border-b border-line bg-paper/50 px-5 py-2.5 text-[11px] font-medium text-slate-400">
-        Tip: click any row to open the full editor — pricing, categories, editorial content, FAQs and lab results.
+        Tip: use the document icon to open the broker CMS — detailed content, rich profile sections, trading data and country eligibility are now managed from the broker row.
       </p>
       <div className="overflow-x-auto">
         <table className="min-w-full text-sm">
@@ -1401,6 +1367,13 @@ function BrokersTab({
                     >
                       <ArrowUpRight size={15} />
                     </Link>
+                    <button
+                      onClick={() => onEditContent(b)}
+                      className="rounded-lg p-2 text-slate-400 transition hover:bg-emerald-50 hover:text-emerald-700"
+                      title="Open broker CMS"
+                    >
+                      <FileText size={15} />
+                    </button>
                     <button
                       onClick={() => onDuplicate(b)}
                       className="rounded-lg p-2 text-slate-400 transition hover:bg-sky-50 hover:text-sky-700"
@@ -2695,27 +2668,38 @@ function ContentDocumentEditor({ document, countries, token, onClose, onSave }: 
   const [err, setErr] = useState('');
   const input = 'h-10 w-full rounded-xl border border-line bg-paper px-3 text-sm outline-none focus:border-emerald-500';
   const submit = async () => {
-    if (!form.content_key.trim()) return setErr('Content key is required. Example: country-topic:ghana:gold-forex-brokers');
+    if (form.content_type !== 'author' && !form.content_key.trim()) return setErr('Content key is required. Example: country-topic:ghana:gold-forex-brokers');
     setBusy(true); setErr('');
-    try { await onSave({ ...form, ...(document ? { id: document.id } : {}) }, !document); } catch (e) { setErr(e instanceof Error ? e.message : 'Could not save content'); } finally { setBusy(false); }
+    try { const isNewDoc = !document || Number((document as any).id) === 0; const nextForm = form.content_type === 'author' && !form.content_key.trim() ? { ...form, content_key: `author:${String(form.slug || form.title || 'author').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}` } : form; await onSave({ ...nextForm, ...(isNewDoc ? {} : { id: document.id }) }, isNewDoc); } catch (e) { setErr(e instanceof Error ? e.message : 'Could not save content'); } finally { setBusy(false); }
   };
   return <DrawerShell title={document ? 'Edit rich content' : 'New rich content'} onClose={onClose} wide>
     <div className="space-y-5">
       {err && <p className="rounded-xl bg-rose-50 px-4 py-2.5 text-sm text-rose-600">{err}</p>}
       <div className="grid gap-3 sm:grid-cols-2">
         <label><FieldLabel hint="Stable identifier used by the page renderer">Content key</FieldLabel><input value={form.content_key} onChange={e=>setForm({...form,content_key:e.target.value})} className={input} placeholder="country-topic:ghana:gold-forex-brokers" /></label>
-        <label><FieldLabel>Content type</FieldLabel><select value={form.content_type} onChange={e=>setForm({...form,content_type:e.target.value})} className={input}><option value="country-topic">Country topic</option><option value="country">Country</option><option value="guide">Guide</option><option value="broker">Broker</option><option value="page">Page</option><option value="section">Additional section</option></select></label>
+        <label><FieldLabel>Content type</FieldLabel><select value={form.content_type} onChange={e=>setForm({...form,content_type:e.target.value})} className={input}><option value="country-topic">Country topic</option><option value="country">Country</option><option value="guide">Guide</option><option value="broker">Broker</option><option value="page">Page</option><option value="section">Additional section</option><option value="author">Author profile</option></select></label>
         <label><FieldLabel>Country</FieldLabel><select value={form.country_slug || ''} onChange={e=>setForm({...form,country_slug:e.target.value})} className={input}><option value="">Global</option>{countries.map(c=><option key={c.id} value={c.slug}>{c.name}</option>)}</select></label>
         <label><FieldLabel hint="Topic slug from the SEO matrix">Topic slug</FieldLabel><input value={form.topic_slug || ''} onChange={e=>setForm({...form,topic_slug:e.target.value})} className={input} placeholder="gold-forex-brokers" /></label>
       </div>
       <label><FieldLabel>Section title</FieldLabel><input value={form.title} onChange={e=>setForm({...form,title:e.target.value})} className={input} placeholder="Why gold brokers differ for traders in Ghana" /></label>
       <label><FieldLabel>Short intro</FieldLabel><textarea value={form.excerpt} onChange={e=>setForm({...form,excerpt:e.target.value})} rows={3} className="w-full rounded-xl border border-line bg-paper px-3 py-2.5 text-sm outline-none focus:border-emerald-500" /></label>
+      {form.content_type === 'author' && <AuthorProfileFields form={form as ContentDocument} setForm={(next) => setForm(next as any)} input={input} />}
       <div><FieldLabel hint="Build the complete country SEO editorial page visually">Visual page builder</FieldLabel><div className="mt-1.5"><PageBuilder value={Array.isArray(form.blocks)&&form.blocks.length?form.blocks:(form.html?[{id:'legacy',type:'richtext',html:form.html}]:[])} onChange={blocks=>setForm({...form,blocks,html:blocksToHtml(blocks)})} onUploadImage={async (file) => { const reader = new FileReader(); const data = await new Promise<string>((resolve, reject) => { reader.onload=()=>resolve(String(reader.result)); reader.onerror=reject; reader.readAsDataURL(file); }); const res = await fetch('/api/content-assets', { method:'POST', headers:{'Content-Type':'application/json', Authorization:`Bearer ${token}`}, body:JSON.stringify({ filename:file.name, contentType:file.type, dataBase64:data }) }); const out=await res.json().catch(()=>({})); if(!res.ok) throw new Error(out.error || 'Image upload failed'); return out.url; }} /></div></div>
       <div className="grid gap-3 sm:grid-cols-2"><label><FieldLabel>SEO title (optional)</FieldLabel><input value={form.seo_title || ''} onChange={e=>setForm({...form,seo_title:e.target.value})} className={input}/></label><label><FieldLabel>SEO description (optional)</FieldLabel><textarea value={form.seo_description || ''} onChange={e=>setForm({...form,seo_description:e.target.value})} rows={2} className="w-full rounded-xl border border-line bg-paper px-3 py-2.5 text-sm outline-none focus:border-emerald-500"/></label></div>
       <div className="grid gap-3 sm:grid-cols-2"><label className="flex items-center justify-between rounded-xl border border-line bg-paper p-4"><span><span className="block text-sm font-bold">Publish</span><span className="text-xs text-slate-400">Show this content on the site.</span></span><Toggle on={!!form.published} onToggle={()=>setForm({...form,published:!form.published})}/></label><label className="flex items-center justify-between rounded-xl border border-line bg-paper p-4"><span><span className="block text-sm font-bold">Index page</span><span className="text-xs text-slate-400">Keep the page eligible for search indexing.</span></span><Toggle on={!!form.indexable} onToggle={()=>setForm({...form,indexable:!form.indexable})}/></label></div>
       <button onClick={submit} disabled={busy} className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-ink-950 text-sm font-bold text-white disabled:opacity-60">{busy&&<Loader2 size={15} className="animate-spin"/>}{document?'Save rich content':'Publish rich content'}</button>
     </div>
   </DrawerShell>;
+}
+
+
+function AuthorProfileFields({ form, setForm, input }: { form: ContentDocument; setForm: (form: ContentDocument) => void; input: string }) {
+  const settings = (form.settings ?? {}) as Record<string, any>;
+  const setSetting = (key: string, value: unknown) => setForm({ ...form, settings: { ...settings, [key]: value } });
+  const expertise = Array.isArray(settings.expertise) ? settings.expertise as string[] : [];
+  const credentials = Array.isArray(settings.credentials) ? settings.credentials as string[] : [];
+  const links = Array.isArray(settings.links) ? settings.links as { label: string; url: string }[] : [];
+  return <div className="rounded-2xl border border-emerald-200 bg-emerald-50/40 p-4"><p className="text-sm font-bold text-ink-900">Author profile details</p><p className="mt-1 text-xs text-slate-500">Public author data and attribution metadata — no raw JSON required.</p><div className="mt-4 grid gap-3 sm:grid-cols-2"><label><FieldLabel>Role</FieldLabel><input value={String(settings.role ?? '')} onChange={(e)=>setSetting('role', e.target.value)} className={input} placeholder="Senior broker analyst"/></label><label><FieldLabel>Photo URL</FieldLabel><input value={String(settings.photo_url ?? '')} onChange={(e)=>setSetting('photo_url', e.target.value)} className={input} placeholder="https://…"/></label><label><FieldLabel>Display order</FieldLabel><input type="number" value={Number(settings.display_order ?? 0)} onChange={(e)=>setSetting('display_order', Number(e.target.value)||0)} className={input}/></label><label><FieldLabel>Short bio</FieldLabel><input value={String(settings.short_bio ?? '')} onChange={(e)=>setSetting('short_bio', e.target.value)} className={input} placeholder="One-line author summary"/></label></div><StringList label="Expertise" items={expertise} onChange={(v)=>setSetting('expertise', v)} placeholder="Broker regulation"/><StringList label="Credentials" items={credentials} onChange={(v)=>setSetting('credentials', v)} placeholder="CFA Level I"/><div className="mt-4 rounded-xl border border-line bg-white p-3"><FieldLabel>Professional links</FieldLabel><div className="mt-2 space-y-2">{links.map((link,i)=><div key={i} className="flex gap-2"><input value={link.label} onChange={(e)=>setSetting('links', links.map((x,xi)=>xi===i?{...x,label:e.target.value}:x))} placeholder="LinkedIn" className="h-10 w-32 rounded-xl border border-line bg-paper px-3 text-sm outline-none"/><input value={link.url} onChange={(e)=>setSetting('links', links.map((x,xi)=>xi===i?{...x,url:e.target.value}:x))} placeholder="https://…" className="h-10 flex-1 rounded-xl border border-line bg-paper px-3 text-sm outline-none"/><IconRemove onClick={()=>setSetting('links', links.filter((_,xi)=>xi!==i))}/></div>)}<button type="button" onClick={()=>setSetting('links',[...links,{label:'',url:''}])} className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-line px-3 py-2 text-xs font-bold text-slate-500"><Plus size={13}/> Add link</button></div></div><div className="mt-4 grid gap-3 sm:grid-cols-3"><label><FieldLabel>Written by</FieldLabel><input value={String(settings.written_by ?? '')} onChange={(e)=>setSetting('written_by', e.target.value)} className={input} placeholder="author slug"/></label><label><FieldLabel>Reviewed by</FieldLabel><input value={String(settings.reviewed_by ?? '')} onChange={(e)=>setSetting('reviewed_by', e.target.value)} className={input} placeholder="reviewer slug"/></label><label><FieldLabel>Fact checked by</FieldLabel><input value={String(settings.fact_checked_by ?? '')} onChange={(e)=>setSetting('fact_checked_by', e.target.value)} className={input} placeholder="fact-checker slug"/></label></div></div>;
 }
 
 /* ======================= COUNTRY BEST-FOR EDITOR ======================= */
@@ -2838,8 +2822,8 @@ function CountryBestForEditor({ page, countries, intents = [], onClose, onSave }
         <label><FieldLabel hint="Unique 140–160 character search description">Meta description</FieldLabel><textarea value={form.meta_description} onChange={(e) => setForm({ ...form, meta_description: e.target.value })} rows={3} className="w-full rounded-xl border border-line bg-paper px-3 py-2.5 text-sm outline-none focus:border-emerald-500" /></label>
         <StringList label="Intro paragraphs" hint="Country-specific opening copy" items={form.intro} onChange={(v) => setForm({ ...form, intro: v })} textarea />
         <StringList label="Ranking criteria" items={form.criteria} onChange={(v) => setForm({ ...form, criteria: v })} placeholder="Explain what qualifies a broker for this category" />
-        <label><FieldLabel hint="JSON array: [{heading, body: string[], bullets?: string[]}]">SEO sections</FieldLabel><textarea value={jsonSections} onChange={(e) => { try { const v = JSON.parse(e.target.value); if (Array.isArray(v)) setForm({ ...form, sections: v }); } catch {} }} rows={12} className="w-full rounded-xl border border-line bg-paper px-3 py-2.5 font-mono text-xs outline-none focus:border-emerald-500" /></label>
-        <label><FieldLabel hint="JSON array: [{q, a}]">FAQs</FieldLabel><textarea value={jsonFaqs} onChange={(e) => { try { const v = JSON.parse(e.target.value); if (Array.isArray(v)) setForm({ ...form, faqs: v }); } catch {} }} rows={10} className="w-full rounded-xl border border-line bg-paper px-3 py-2.5 font-mono text-xs outline-none focus:border-emerald-500" /></label>
+        <SeoSectionsEditor label="SEO sections" hint="Structured sections shown on the country best-for page." sections={form.sections} onChange={(sections) => setForm({ ...form, sections })} />
+        <FaqListEditor label="FAQs" hint="Structured FAQ editor for normal admins." faqs={form.faqs} onChange={(faqs) => setForm({ ...form, faqs })} />
         <div className="flex items-center justify-between rounded-xl border border-line bg-paper p-4">
           <div><p className="text-sm font-bold text-ink-900">Index this page</p><p className="text-xs text-slate-500">Only enable when the page has enough unique content and commercial value.</p></div>
           <Toggle on={form.indexable} onToggle={() => setForm({ ...form, indexable: !form.indexable })} />
@@ -2849,6 +2833,27 @@ function CountryBestForEditor({ page, countries, intents = [], onClose, onSave }
       </div>
     </DrawerShell>
   );
+}
+
+
+function SeoSectionsEditor({ label, hint, sections, onChange }: { label: string; hint?: string; sections: { heading: string; body: string[]; bullets?: string[] }[]; onChange: (sections: { heading: string; body: string[]; bullets?: string[] }[]) => void }) {
+  const safeSections = Array.isArray(sections) ? sections : [];
+  const update = (index: number, patch: Partial<{ heading: string; bodyText: string; bulletsText: string }>) => {
+    onChange(safeSections.map((section, i) => {
+      if (i !== index) return section;
+      return {
+        heading: patch.heading ?? section.heading,
+        body: patch.bodyText !== undefined ? patch.bodyText.split('\n').map((x) => x.trim()).filter(Boolean) : section.body,
+        bullets: patch.bulletsText !== undefined ? patch.bulletsText.split('\n').map((x) => x.trim()).filter(Boolean) : (section.bullets ?? []),
+      };
+    }));
+  };
+  return <div className="rounded-xl border border-line bg-paper p-4"><FieldLabel hint={hint}>{label}</FieldLabel><div className="mt-3 space-y-3">{safeSections.map((section, i) => <div key={i} className="rounded-xl border border-line bg-white p-3"><div className="flex items-center gap-2"><input value={section.heading} onChange={(e)=>update(i,{heading:e.target.value})} placeholder="Section heading" className="h-10 flex-1 rounded-xl border border-line bg-paper px-3 text-sm font-bold outline-none focus:border-emerald-500"/><IconRemove onClick={()=>onChange(safeSections.filter((_,x)=>x!==i))}/></div><textarea value={(section.body || []).join('\n')} onChange={(e)=>update(i,{bodyText:e.target.value})} rows={4} placeholder="One paragraph per line" className="mt-2 w-full rounded-xl border border-line bg-paper px-3 py-2.5 text-sm outline-none focus:border-emerald-500"/><textarea value={(section.bullets || []).join('\n')} onChange={(e)=>update(i,{bulletsText:e.target.value})} rows={3} placeholder="Optional bullets — one per line" className="mt-2 w-full rounded-xl border border-line bg-paper px-3 py-2.5 text-sm outline-none focus:border-emerald-500"/></div>)}<button type="button" onClick={()=>onChange([...safeSections,{heading:'',body:[],bullets:[]}])} className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-line px-3 py-2 text-xs font-bold text-slate-500 transition hover:border-emerald-500 hover:text-emerald-700"><Plus size={13}/> Add section</button></div></div>;
+}
+
+function FaqListEditor({ label, hint, faqs, onChange }: { label: string; hint?: string; faqs: FAQ[]; onChange: (faqs: FAQ[]) => void }) {
+  const safeFaqs = Array.isArray(faqs) ? faqs : [];
+  return <div className="rounded-xl border border-line bg-paper p-4"><FieldLabel hint={hint}>{label}</FieldLabel><div className="mt-3 space-y-3">{safeFaqs.map((faq, i) => <div key={i} className="rounded-xl border border-line bg-white p-3"><div className="flex items-center gap-2"><input value={faq.q} onChange={(e)=>onChange(safeFaqs.map((f,x)=>x===i?{...f,q:e.target.value}:f))} placeholder="Question" className="h-10 flex-1 rounded-xl border border-line bg-paper px-3 text-sm font-bold outline-none focus:border-emerald-500"/><IconRemove onClick={()=>onChange(safeFaqs.filter((_,x)=>x!==i))}/></div><textarea value={faq.a} onChange={(e)=>onChange(safeFaqs.map((f,x)=>x===i?{...f,a:e.target.value}:f))} rows={3} placeholder="Answer" className="mt-2 w-full rounded-xl border border-line bg-paper px-3 py-2.5 text-sm outline-none focus:border-emerald-500"/></div>)}<button type="button" onClick={()=>onChange([...safeFaqs,{q:'',a:''}])} className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-line px-3 py-2 text-xs font-bold text-slate-500 transition hover:border-emerald-500 hover:text-emerald-700"><Plus size={13}/> Add FAQ</button></div></div>;
 }
 
 /* ============================ COUNTRY EDITOR ============================ */
@@ -2868,6 +2873,7 @@ interface CountryForm {
   seo_intro: string[];
   seo_sections: { heading: string; body: string[]; bullets?: string[] }[];
   seo_faqs: { q: string; a: string }[];
+  publishing_state: 'draft' | 'published' | 'closed';
 }
 
 const EMPTY_COUNTRY: CountryForm = {
@@ -2883,6 +2889,7 @@ const EMPTY_COUNTRY: CountryForm = {
   seo_intro: [],
   seo_sections: [],
   seo_faqs: [],
+  publishing_state: 'published',
 };
 
 function CountryEditor({
@@ -2953,6 +2960,8 @@ function CountryEditor({
             </button>
           ))}
         </div>
+
+        <label className="block"><FieldLabel hint="Country-level publishing state">Publishing state</FieldLabel><select value={form.publishing_state} onChange={(e) => setForm({ ...form, publishing_state: e.target.value as 'draft' | 'published' | 'closed' })} className="h-11 w-full rounded-xl border border-line bg-paper px-3 text-sm font-bold outline-none focus:border-emerald-500"><option value="draft">Draft</option><option value="published">Published</option><option value="closed">Closed</option></select></label>
 
         <label className="block">
           <FieldLabel hint="bold line under the page title">Subtitle</FieldLabel>
@@ -3095,8 +3104,8 @@ function CountryEditor({
         <label><FieldLabel hint="Optional unique title, e.g. Best Forex Brokers in Malaysia 2026 | PipRank">SEO title</FieldLabel><input value={form.seo_title} onChange={(e) => setForm({ ...form, seo_title: e.target.value })} className="w-full rounded-xl border border-line bg-paper px-3 py-2.5 text-sm outline-none focus:border-emerald-500" /></label>
         <label><FieldLabel hint="Unique 140–160 character description written specifically for this country">SEO meta description</FieldLabel><textarea value={form.seo_description} onChange={(e) => setForm({ ...form, seo_description: e.target.value })} rows={3} className="w-full rounded-xl border border-line bg-paper px-3 py-2.5 text-sm outline-none focus:border-emerald-500" /></label>
         <StringList label="Unique SEO introduction" hint="Country-specific search-intent context, market considerations and broker-selection guidance." items={form.seo_intro} onChange={(v) => setForm({ ...form, seo_intro: v })} textarea />
-        <label><FieldLabel hint="JSON array: [{heading, body: string[], bullets?: string[]}]">Unique SEO sections</FieldLabel><textarea value={JSON.stringify(form.seo_sections, null, 2)} onChange={(e) => { try { const v = JSON.parse(e.target.value); if (Array.isArray(v)) setForm({ ...form, seo_sections: v }); } catch {} }} rows={14} className="w-full rounded-xl border border-line bg-paper px-3 py-2.5 font-mono text-xs outline-none focus:border-emerald-500" /></label>
-        <label><FieldLabel hint="JSON array: [{q, a}] — answers must be specific to this country">Unique country FAQs</FieldLabel><textarea value={JSON.stringify(form.seo_faqs, null, 2)} onChange={(e) => { try { const v = JSON.parse(e.target.value); if (Array.isArray(v)) setForm({ ...form, seo_faqs: v }); } catch {} }} rows={12} className="w-full rounded-xl border border-line bg-paper px-3 py-2.5 font-mono text-xs outline-none focus:border-emerald-500" /></label>
+        <SeoSectionsEditor label="Unique SEO sections" hint="Add, edit and reorder structured country sections without JSON." sections={form.seo_sections} onChange={(seo_sections) => setForm({ ...form, seo_sections })} />
+        <FaqListEditor label="Unique country FAQs" hint="Answers must be specific to this country." faqs={form.seo_faqs} onChange={(seo_faqs) => setForm({ ...form, seo_faqs })} />
 
         <button
           onClick={submit}
@@ -4046,8 +4055,8 @@ function IntentEditor({
           onChange={(v) => setForm({ ...form, criteria: v })}
           placeholder="e.g. Observed spreads below 0.3 pips"
         />
-        <label><FieldLabel hint="JSON array: [{heading, body: string[], bullets?: string[]}]">SEO sections</FieldLabel><textarea value={JSON.stringify(form.sections, null, 2)} onChange={(e) => { try { const v = JSON.parse(e.target.value); if (Array.isArray(v)) setForm({ ...form, sections: v }); } catch {} }} rows={10} className="w-full rounded-xl border border-line bg-paper px-3 py-2.5 font-mono text-xs outline-none focus:border-emerald-500" /></label>
-        <label><FieldLabel hint="JSON array: [{q, a}]">FAQs</FieldLabel><textarea value={JSON.stringify(form.faqs, null, 2)} onChange={(e) => { try { const v = JSON.parse(e.target.value); if (Array.isArray(v)) setForm({ ...form, faqs: v }); } catch {} }} rows={8} className="w-full rounded-xl border border-line bg-paper px-3 py-2.5 font-mono text-xs outline-none focus:border-emerald-500" /></label>
+        <SeoSectionsEditor label="SEO sections" hint="Structured sections for this SEO page." sections={form.sections} onChange={(sections) => setForm({ ...form, sections })} />
+        <FaqListEditor label="FAQs" hint="Structured FAQ editor." faqs={form.faqs} onChange={(faqs) => setForm({ ...form, faqs })} />
         <div className="flex items-center justify-between rounded-xl border border-line bg-paper p-4"><div><p className="text-sm font-bold text-ink-900">Index this page</p><p className="text-xs text-slate-500">Disable for drafts or pages without sufficient unique content.</p></div><Toggle on={form.indexable} onToggle={() => setForm({ ...form, indexable: !form.indexable })} /></div>
         <p className="rounded-xl bg-paper px-3.5 py-2.5 text-xs leading-relaxed text-slate-500">
           Brokers join this page when an admin assigns them the matching category in the broker editor
