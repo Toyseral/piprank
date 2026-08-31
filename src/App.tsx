@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { BrowserRouter, Route, Routes, useLocation } from 'react-router-dom';
 import Footer from './components/Footer';
 import Navbar from './components/Navbar';
@@ -6,6 +6,8 @@ import ScrollToTop from './components/ScrollToTop';
 import Home from './pages/Home';
 import NotFound from './pages/NotFound';
 import { GeoProvider } from './lib/GeoContext';
+import supabase from './lib/supabase';
+import type { Session } from '@supabase/supabase-js';
 
 const SmartCTA = lazy(() => import('./components/SmartCTA'));
 const About = lazy(() => import('./pages/About'));
@@ -31,6 +33,32 @@ const Tools = lazy(() => import('./pages/Tools'));
 
 function RouteLoader() {
   return <div className="flex min-h-[60vh] items-center justify-center"><div className="h-9 w-9 animate-spin rounded-full border-2 border-line border-t-emerald-500" /></div>;
+}
+
+function AdminEntry() {
+  const [session, setSession] = useState<Session | null>(null);
+  const [checking, setChecking] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    supabase.auth.getSession().then(({ data }) => {
+      if (!mounted) return;
+      setSession(data.session);
+      setChecking(false);
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      if (!mounted) return;
+      setSession(nextSession);
+      setChecking(false);
+    });
+    return () => {
+      mounted = false;
+      sub.subscription.unsubscribe();
+    };
+  }, []);
+
+  if (checking) return <RouteLoader />;
+  return session ? <AdminWorkspace /> : <Admin />;
 }
 
 export function Shell() {
@@ -60,7 +88,7 @@ export function Shell() {
             <Route path="/countries" element={<Countries />} />
             <Route path="/countries/:slug" element={<CountryDetail />} />
             <Route path="/promotions" element={<Promotions />} />
-            <Route path="/archypage" element={<AdminWorkspace />} />
+            <Route path="/archypage" element={<AdminEntry />} />
             <Route path="/archypage-legacy" element={<Admin />} />
             <Route path="/:countrySlug/:locale/:topicSlug" element={<LocalizedCountrySeoTopic />} />
             <Route path="/:countrySlug/:topicSlug" element={<CountrySeoTopic />} />
