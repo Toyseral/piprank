@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ArrowLeft, ArrowUpRight, BookOpen, Check, ChevronDown, ChevronUp, Globe2, Languages, Loader2, Pencil, Plus, Search, Settings2, ShieldCheck, Trash2, X } from 'lucide-react';
 import type { Session } from '@supabase/supabase-js';
-import type { Broker, ContentDocument, CountryBestFor, CountryLanguage, CountryPage, FAQ, LocalizedSeoPage } from '../lib/types';
+import type { Broker, ContentDocument, CountryBestFor, CountryLanguage, CountryPage, LocalizedSeoPage } from '../lib/types';
 import supabase from '../lib/supabase';
 import PageBuilder, { blocksToHtml, type PageBlock } from '../components/PageBuilder';
 
@@ -9,8 +9,7 @@ const CONTENT_ROLES = ['super_admin', 'admin', 'content_admin', 'brokers_admin']
 const input = 'h-10 w-full rounded-xl border border-line bg-paper px-3 text-sm outline-none focus:border-emerald-500';
 const textarea = 'w-full rounded-xl border border-line bg-paper px-3 py-2.5 text-sm outline-none focus:border-emerald-500';
 
-type ApiInit = RequestInit & { body?: string };
-async function api<T>(url: string, token: string, init: ApiInit = {}): Promise<T> {
+async function api<T>(url: string, token: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
   headers.set('Authorization', `Bearer ${token}`);
   if (init.body) headers.set('Content-Type', 'application/json');
@@ -44,338 +43,62 @@ export default function AdminCountryWorkspace({ session, role }: { session: Sess
 
   useEffect(() => { void loadCountries(); }, [loadCountries]);
 
-  if (legacy) {
-    return <LegacyAdmin onBack={() => setLegacy(false)} />;
-  }
-
-  if (selected) {
-    return (
-      <CountryWorkspace
-        country={selected}
-        token={session.access_token}
-        role={role}
-        onBack={() => setSelected(null)}
-        onSaved={loadCountries}
-      />
-    );
-  }
+  if (legacy) return <LegacyAdmin onBack={() => setLegacy(false)} />;
+  if (selected) return <CountryWorkspace country={selected} token={session.access_token} role={role} onBack={() => setSelected(null)} onSaved={loadCountries} />;
 
   const filtered = countries.filter((c) => `${c.name} ${c.slug}`.toLowerCase().includes(query.toLowerCase()));
   const published = countries.filter((c) => c.status === 'published' || !c.status).length;
   const closed = countries.filter((c) => c.status === 'closed').length;
   const drafts = countries.filter((c) => c.status === 'draft').length;
 
-  return (
-    <div className="min-h-screen bg-paper">
-      <Header onLegacy={() => setLegacy(true)} />
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Country Hub</p>
-            <h1 className="mt-1 font-display text-3xl font-bold tracking-tight text-ink-950">Manage countries</h1>
-            <p className="mt-1 text-sm text-slate-500">Select a country to open its complete content and publishing workspace.</p>
-          </div>
-          <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
-            <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-emerald-700">{published} published</span>
-            <span className="rounded-full bg-amber-50 px-3 py-1.5 text-amber-700">{drafts} drafts</span>
-            <span className="rounded-full bg-slate-100 px-3 py-1.5 text-slate-600">{closed} closed</span>
-          </div>
-        </div>
-
-        {error && <div className="mt-5 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{error}</div>}
-
-        <div className="mt-6 flex h-11 items-center gap-2 rounded-xl border border-line bg-white px-3 shadow-sm">
-          <Search size={16} className="text-slate-400" />
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search countries…" className="w-full bg-transparent text-sm outline-none" />
-        </div>
-
-        {loading ? (
-          <div className="mt-5 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-            {Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-28 animate-pulse rounded-2xl border border-line bg-white" />)}
-          </div>
-        ) : (
-          <div className="mt-5 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-            {filtered.map((country) => (
-              <button key={country.id} onClick={() => setSelected(country)} className="group rounded-2xl border border-line bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md">
-                <div className="flex items-start gap-3">
-                  <span className="text-3xl">{country.flag}</span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <h2 className="truncate font-display text-lg font-bold text-ink-950">{country.name}</h2>
-                      <StatusBadge status={country.status ?? 'published'} />
-                    </div>
-                    <p className="mt-1 truncate text-xs text-slate-400">/{country.slug}</p>
-                  </div>
-                  <ArrowUpRight size={16} className="mt-1 text-slate-300 transition group-hover:text-emerald-600" />
-                </div>
-                <p className="mt-4 line-clamp-2 text-sm text-slate-500">{country.subtitle || country.intro?.[0] || 'Open country workspace'}</p>
-              </button>
-            ))}
-          </div>
-        )}
-      </main>
-    </div>
-  );
+  return <div className="min-h-screen bg-paper"><Header onLegacy={() => setLegacy(true)} /><main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+    <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Country Hub</p><h1 className="mt-1 font-display text-3xl font-bold tracking-tight text-ink-950">Manage countries</h1><p className="mt-1 text-sm text-slate-500">Select a country to open its complete content and publishing workspace.</p></div><div className="flex items-center gap-2 text-xs font-semibold"><span className="rounded-full bg-emerald-50 px-3 py-1.5 text-emerald-700">{published} published</span><span className="rounded-full bg-amber-50 px-3 py-1.5 text-amber-700">{drafts} drafts</span><span className="rounded-full bg-slate-100 px-3 py-1.5 text-slate-600">{closed} closed</span></div></div>
+    {error && <div className="mt-5 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{error}</div>}
+    <div className="mt-6 flex h-11 items-center gap-2 rounded-xl border border-line bg-white px-3 shadow-sm"><Search size={16} className="text-slate-400" /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search countries…" className="w-full bg-transparent text-sm outline-none" /></div>
+    {loading ? <div className="mt-5 grid gap-3 md:grid-cols-2 lg:grid-cols-3">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-28 animate-pulse rounded-2xl border border-line bg-white" />)}</div> : <div className="mt-5 grid gap-3 md:grid-cols-2 lg:grid-cols-3">{filtered.map((country) => <button key={country.id} onClick={() => setSelected(country)} className="group rounded-2xl border border-line bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md"><div className="flex items-start gap-3"><span className="text-3xl">{country.flag}</span><div className="min-w-0 flex-1"><div className="flex items-center gap-2"><h2 className="truncate font-display text-lg font-bold text-ink-950">{country.name}</h2><StatusBadge status={country.status ?? 'published'} /></div><p className="mt-1 truncate text-xs text-slate-400">/{country.slug}</p></div><ArrowUpRight size={16} className="mt-1 text-slate-300 transition group-hover:text-emerald-600" /></div><p className="mt-4 line-clamp-2 text-sm text-slate-500">{country.subtitle || country.intro?.[0] || 'Open country workspace'}</p></button>)}</div>}
+  </main></div>;
 }
 
-function Header({ onLegacy }: { onLegacy: () => void }) {
-  return (
-    <header className="sticky top-0 z-40 border-b border-line bg-white/95 backdrop-blur">
-      <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-3 sm:px-6">
-        <div className="font-display text-lg font-bold text-ink-950">PipRank <span className="text-emerald-600">Admin</span></div>
-        <span className="hidden text-xs font-semibold text-slate-400 sm:inline">Country Hub</span>
-        <button onClick={onLegacy} className="ml-auto inline-flex items-center gap-2 rounded-xl border border-line px-3 py-2 text-xs font-bold text-slate-600 hover:border-ink-900 hover:text-ink-950">
-          <Settings2 size={14} /> Full Admin
-        </button>
-        <a href="/" className="text-xs font-bold text-slate-500 hover:text-ink-950">View site</a>
-        <button onClick={() => supabase.auth.signOut()} className="rounded-lg p-2 text-slate-400 hover:bg-paper hover:text-rose-600" title="Sign out">×</button>
-      </div>
-    </header>
-  );
-}
+function Header({ onLegacy }: { onLegacy: () => void }) { return <header className="sticky top-0 z-40 border-b border-line bg-white/95 backdrop-blur"><div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-3 sm:px-6"><div className="font-display text-lg font-bold text-ink-950">PipRank <span className="text-emerald-600">Admin</span></div><span className="hidden text-xs font-semibold text-slate-400 sm:inline">Country Hub</span><button onClick={onLegacy} className="ml-auto inline-flex items-center gap-2 rounded-xl border border-line px-3 py-2 text-xs font-bold text-slate-600 hover:border-ink-900 hover:text-ink-950"><Settings2 size={14} /> Full Admin</button><a href="/" className="text-xs font-bold text-slate-500 hover:text-ink-950">View site</a><button onClick={() => supabase.auth.signOut()} className="rounded-lg p-2 text-slate-400 hover:bg-paper hover:text-rose-600" title="Sign out">×</button></div></header>; }
 
 function CountryWorkspace({ country, token, role, onBack, onSaved }: { country: CountryPage; token: string; role: string; onBack: () => void; onSaved: () => Promise<void> }) {
   const [tab, setTab] = useState<'overview' | 'content' | 'brokers' | 'best' | 'publishing' | 'seo'>('overview');
   const [current, setCurrent] = useState(country);
-  const [error, setError] = useState('');
   const canEdit = CONTENT_ROLES.includes(role);
-
-  const saveCountry = async (fields: Record<string, unknown>) => {
-    const updated = await api<CountryPage>('/api/countries', token, { method: 'PUT', body: JSON.stringify({ id: current.id, ...fields }) });
-    setCurrent(updated);
-    await onSaved();
-  };
-
-  const closeCountry = async () => {
-    if (!window.confirm(`Close ${current.name}? Its public pages will be hidden and removed from the sitemap. Existing content will be retained.`)) return;
-    await saveCountry({ status: 'closed' });
-  };
-
+  const saveCountry = async (fields: Record<string, unknown>) => { const updated = await api<CountryPage>('/api/countries', token, { method: 'PUT', body: JSON.stringify({ id: current.id, ...fields }) }); setCurrent(updated); await onSaved(); };
+  const closeCountry = async () => { if (!window.confirm(`Close ${current.name}? Its public pages will be hidden and removed from the sitemap. Existing content will be retained.`)) return; await saveCountry({ status: 'closed' }); };
   const reopenCountry = async () => saveCountry({ status: 'published' });
-
-  return (
-    <div className="min-h-screen bg-paper">
-      <Header onLegacy={() => { window.location.href = '/archypage?legacy=1'; }} />
-      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
-        <button onClick={onBack} className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-ink-950"><ArrowLeft size={14} /> Country Hub</button>
-        <div className="mt-4 rounded-3xl bg-ink-950 p-6 text-white shadow-soft-lg sm:p-7">
-          <div className="flex flex-wrap items-center gap-4">
-            <span className="text-4xl">{current.flag}</span>
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-bold uppercase tracking-widest text-emerald-300">Country Workspace</p>
-              <h1 className="mt-1 font-display text-3xl font-bold">{current.name}</h1>
-              <p className="mt-1 text-sm text-slate-400">/{current.slug}</p>
-            </div>
-            <StatusBadge status={current.status ?? 'published'} dark />
-          </div>
-        </div>
-
-        {error && <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{error}</div>}
-
-        <div className="mt-5 flex gap-1 overflow-x-auto rounded-2xl border border-line bg-white p-1 shadow-sm">
-          {[
-            ['overview', 'Overview'], ['content', 'Content'], ['brokers', 'Brokers'], ['best', 'Best-For'], ['publishing', 'Publishing'], ['seo', 'SEO QA'],
-          ].map(([key, label]) => <button key={key} onClick={() => setTab(key as typeof tab)} className={`shrink-0 rounded-xl px-4 py-2.5 text-xs font-bold ${tab === key ? 'bg-ink-950 text-white' : 'text-slate-500 hover:bg-paper'}`}>{label}</button>)}
-        </div>
-
-        <div className="mt-5">
-          {tab === 'overview' && <CountryOverview country={current} token={token} onOpenContent={() => setTab('content')} onOpenPublishing={() => setTab('publishing')} />}
-          {tab === 'content' && <CountryContent country={current} token={token} canEdit={canEdit} onSaved={onSaved} />}
-          {tab === 'brokers' && <CountryBrokers country={current} token={token} />}
-          {tab === 'best' && <CountryBest country={current} token={token} />}
-          {tab === 'publishing' && <Publishing country={current} canEdit={canEdit} onClose={closeCountry} onReopen={reopenCountry} onSave={saveCountry} />}
-          {tab === 'seo' && <SeoQa country={current} token={token} />}
-        </div>
-      </main>
-    </div>
-  );
+  return <div className="min-h-screen bg-paper"><Header onLegacy={() => { window.location.href = '/archypage?legacy=1'; }} /><main className="mx-auto max-w-7xl px-4 py-6 sm:px-6"><button onClick={onBack} className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-ink-950"><ArrowLeft size={14} /> Country Hub</button><div className="mt-4 rounded-3xl bg-ink-950 p-6 text-white shadow-soft-lg sm:p-7"><div className="flex flex-wrap items-center gap-4"><span className="text-4xl">{current.flag}</span><div className="min-w-0 flex-1"><p className="text-xs font-bold uppercase tracking-widest text-emerald-300">Country Workspace</p><h1 className="mt-1 font-display text-3xl font-bold">{current.name}</h1><p className="mt-1 text-sm text-slate-400">/{current.slug}</p></div><StatusBadge status={current.status ?? 'published'} dark /></div></div><div className="mt-5 flex gap-1 overflow-x-auto rounded-2xl border border-line bg-white p-1 shadow-sm">{[['overview','Overview'],['content','Content'],['brokers','Brokers'],['best','Best-For'],['publishing','Publishing'],['seo','SEO QA']].map(([key,label]) => <button key={key} onClick={() => setTab(key as typeof tab)} className={`shrink-0 rounded-xl px-4 py-2.5 text-xs font-bold ${tab === key ? 'bg-ink-950 text-white' : 'text-slate-500 hover:bg-paper'}`}>{label}</button>)}</div><div className="mt-5">{tab === 'overview' && <CountryOverview country={current} token={token} onOpenContent={() => setTab('content')} onOpenPublishing={() => setTab('publishing')} />}{tab === 'content' && <CountryContent country={current} token={token} canEdit={canEdit} onSaved={onSaved} />}{tab === 'brokers' && <CountryBrokers country={current} token={token} />}{tab === 'best' && <CountryBest country={current} token={token} />}{tab === 'publishing' && <Publishing country={current} canEdit={canEdit} onClose={closeCountry} onReopen={reopenCountry} onSave={saveCountry} />}{tab === 'seo' && <SeoQa country={current} token={token} />}</div></main></div>;
 }
 
-function CountryOverview({ country, token, onOpenContent, onOpenPublishing }: { country: CountryPage; token: string; onOpenContent: () => void; onOpenPublishing: () => void }) {
-  const [docs, setDocs] = useState<ContentDocument[]>([]);
-  const [languages, setLanguages] = useState<CountryLanguage[]>([]);
-  const [best, setBest] = useState<CountryBestFor[]>([]);
-  useEffect(() => {
-    Promise.all([
-      api<ContentDocument[]>(`/api/content-documents?country=${country.slug}`, token),
-      api<CountryLanguage[]>(`/api/country-languages?country=${country.slug}&admin=true`, token),
-      api<CountryBestFor[]>(`/api/country-best-for?country=${country.slug}&admin=1`, token),
-    ]).then(([d, l, b]) => { setDocs(d); setLanguages(l); setBest(b); }).catch(() => {});
-  }, [country.id, country.slug, token]);
-  return (
-    <div className="space-y-5">
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="Content pages" value={docs.length} />
-        <Stat label="Languages" value={languages.length} />
-        <Stat label="Best-For pages" value={best.length} />
-        <Stat label="Public status" value={(country.status ?? 'published') === 'published' ? 'Live' : 'Hidden'} />
-      </div>
-      <div className="grid gap-5 lg:grid-cols-2">
-        <button onClick={onOpenContent} className="rounded-2xl border border-line bg-white p-6 text-left shadow-sm hover:border-emerald-300">
-          <BookOpen className="text-emerald-600" size={22} />
-          <h2 className="mt-4 font-display text-xl font-bold">Country Guides &amp; SEO Content</h2>
-          <p className="mt-1 text-sm leading-6 text-slate-500">Add new pages, edit existing pages in the visual builder, and manage their sections without leaving the country workspace.</p>
-          <span className="mt-4 inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700">Open content <ArrowUpRight size={13} /></span>
-        </button>
-        <button onClick={onOpenPublishing} className="rounded-2xl border border-line bg-white p-6 text-left shadow-sm hover:border-emerald-300">
-          <ShieldCheck className="text-emerald-600" size={22} />
-          <h2 className="mt-4 font-display text-xl font-bold">Publishing &amp; visibility</h2>
-          <p className="mt-1 text-sm leading-6 text-slate-500">Control whether this country is live. Closing a country hides its public content and sitemap URLs while retaining the data.</p>
-          <span className="mt-4 inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700">Manage publishing <ArrowUpRight size={13} /></span>
-        </button>
-      </div>
-    </div>
-  );
-}
+function CountryOverview({ country, token, onOpenContent, onOpenPublishing }: { country: CountryPage; token: string; onOpenContent: () => void; onOpenPublishing: () => void }) { const [docs,setDocs]=useState<ContentDocument[]>([]),[languages,setLanguages]=useState<CountryLanguage[]>([]),[best,setBest]=useState<CountryBestFor[]>([]); useEffect(()=>{Promise.all([api<ContentDocument[]>(`/api/content-documents?country=${country.slug}`,token),api<CountryLanguage[]>(`/api/country-languages?country=${country.slug}&admin=true`,token),api<CountryBestFor[]>(`/api/country-best-for?country=${country.slug}&admin=1`,token)]).then(([d,l,b])=>{setDocs(d);setLanguages(l);setBest(b)}).catch(()=>{})},[country.id,country.slug,token]); return <div className="space-y-5"><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><Stat label="Content pages" value={docs.length}/><Stat label="Languages" value={languages.length}/><Stat label="Best-For pages" value={best.length}/><Stat label="Public status" value={(country.status??'published')==='published'?'Live':'Hidden'}/></div><div className="grid gap-5 lg:grid-cols-2"><button onClick={onOpenContent} className="rounded-2xl border border-line bg-white p-6 text-left shadow-sm hover:border-emerald-300"><BookOpen className="text-emerald-600" size={22}/><h2 className="mt-4 font-display text-xl font-bold">Country Guides &amp; SEO Content</h2><p className="mt-1 text-sm leading-6 text-slate-500">Add new pages, edit existing pages in the visual builder, and manage their sections without leaving the country workspace.</p><span className="mt-4 inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700">Open content <ArrowUpRight size={13}/></span></button><button onClick={onOpenPublishing} className="rounded-2xl border border-line bg-white p-6 text-left shadow-sm hover:border-emerald-300"><ShieldCheck className="text-emerald-600" size={22}/><h2 className="mt-4 font-display text-xl font-bold">Publishing &amp; visibility</h2><p className="mt-1 text-sm leading-6 text-slate-500">Control whether this country is live. Closing a country hides its public content and sitemap URLs while retaining the data.</p><span className="mt-4 inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700">Manage publishing <ArrowUpRight size={13}/></span></button></div></div>; }
 
 function CountryContent({ country, token, canEdit, onSaved }: { country: CountryPage; token: string; canEdit: boolean; onSaved: () => Promise<void> }) {
-  const [docs, setDocs] = useState<ContentDocument[]>([]);
-  const [languages, setLanguages] = useState<CountryLanguage[]>([]);
-  const [pages, setPages] = useState<LocalizedSeoPage[]>([]);
-  const [editing, setEditing] = useState<ContentDocument | 'new' | null>(null);
-  const [languageOpen, setLanguageOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const reload = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [d, l, p] = await Promise.all([
-        api<ContentDocument[]>(`/api/content-documents?country=${country.slug}`, token),
-        api<CountryLanguage[]>(`/api/country-languages?country=${country.slug}&admin=true`, token),
-        api<LocalizedSeoPage[]>(`/api/localized-seo-pages?country=${country.slug}&admin=true`, token),
-      ]);
-      setDocs(d); setLanguages(l); setPages(p);
-    } finally { setLoading(false); }
-  }, [country.slug, token]);
-  useEffect(() => { void reload(); }, [reload]);
-
-  return (
-    <div className="space-y-5">
-      <section className="rounded-2xl border border-line bg-white shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Country Guides &amp; SEO Content</p>
-            <h2 className="mt-1 font-display text-xl font-bold text-ink-950">Pages for {country.name}</h2>
-            <p className="mt-1 text-xs text-slate-500">Existing content opens in the same visual builder used to create new pages.</p>
-          </div>
-          {canEdit && <button onClick={() => setEditing('new')} className="inline-flex items-center gap-1.5 rounded-xl bg-ink-950 px-4 py-2.5 text-xs font-bold text-white"><Plus size={14} /> Add new page</button>}
-        </div>
-        {loading ? <div className="h-40 animate-pulse" /> : docs.length ? (
-          <div className="divide-y divide-line">
-            {docs.map((doc) => <ContentRow key={doc.id} doc={doc} onEdit={() => setEditing(doc)} onDelete={async () => { if (!window.confirm(`Delete “${doc.title || doc.content_key}”?`)) return; await api('/api/content-documents', token, { method: 'DELETE', body: JSON.stringify({ id: doc.id }) }); await reload(); await onSaved(); }} canEdit={canEdit} />)}
-          </div>
-        ) : <div className="p-8 text-center text-sm text-slate-500">No country content pages yet. Create the first page above.</div>}
-      </section>
-
-      <section className="rounded-2xl border border-line bg-white shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Languages</p>
-            <h2 className="mt-1 font-display text-xl font-bold text-ink-950">Local languages for {country.name}</h2>
-            <p className="mt-1 text-xs text-slate-500">Languages here apply only to this country.</p>
-          </div>
-          <button onClick={() => setLanguageOpen((v) => !v)} className="inline-flex items-center gap-1.5 rounded-xl border border-line px-3.5 py-2 text-xs font-bold text-ink-950 hover:border-emerald-400"><Languages size={14} /> {languageOpen ? 'Hide form' : 'Add language'}</button>
-        </div>
-        {languageOpen && <LanguageForm country={country} token={token} onSaved={async () => { await reload(); }} />}
-        <div className="divide-y divide-line">
-          {!languages.length && <p className="px-5 py-6 text-sm text-slate-500">No local languages configured yet.</p>}
-          {languages.map((language) => <LanguageRow key={language.id} language={language} pages={pages.filter((p) => p.language_id === language.id)} token={token} canEdit={canEdit} onSaved={reload} />)}
-        </div>
-      </section>
-
-      {editing && <ContentEditor document={editing === 'new' ? null : editing} country={country} token={token} onClose={() => setEditing(null)} onSaved={async () => { setEditing(null); await reload(); await onSaved(); }} />}
-    </div>
-  );
+  const [docs,setDocs]=useState<ContentDocument[]>([]),[languages,setLanguages]=useState<CountryLanguage[]>([]),[pages,setPages]=useState<LocalizedSeoPage[]>([]),[editing,setEditing]=useState<ContentDocument|'new'|null>(null),[languageOpen,setLanguageOpen]=useState(false),[loading,setLoading]=useState(true);
+  const reload=useCallback(async()=>{setLoading(true);try{const[d,l,p]=await Promise.all([api<ContentDocument[]>(`/api/content-documents?country=${country.slug}`,token),api<CountryLanguage[]>(`/api/country-languages?country=${country.slug}&admin=true`,token),api<LocalizedSeoPage[]>(`/api/localized-seo-pages?country=${country.slug}&admin=true`,token)]);setDocs(d);setLanguages(l);setPages(p)}finally{setLoading(false)}},[country.slug,token]); useEffect(()=>{void reload()},[reload]);
+  return <div className="space-y-5"><section className="rounded-2xl border border-line bg-white shadow-sm"><div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4"><div><p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Country Guides &amp; SEO Content</p><h2 className="mt-1 font-display text-xl font-bold text-ink-950">Pages for {country.name}</h2><p className="mt-1 text-xs text-slate-500">Existing content opens in the same visual builder used to create new pages.</p></div>{canEdit&&<button onClick={()=>setEditing('new')} className="inline-flex items-center gap-1.5 rounded-xl bg-ink-950 px-4 py-2.5 text-xs font-bold text-white"><Plus size={14}/> Add new page</button>}</div>{loading?<div className="h-40 animate-pulse"/>:docs.length?<div className="divide-y divide-line">{docs.map(doc=><ContentRow key={doc.id} doc={doc} onEdit={()=>setEditing(doc)} onDelete={async()=>{if(!window.confirm(`Delete “${doc.title||doc.content_key}”?`))return;await api('/api/content-documents',token,{method:'DELETE',body:JSON.stringify({id:doc.id})});await reload();await onSaved()}} canEdit={canEdit}/>)}</div>:<div className="p-8 text-center text-sm text-slate-500">No country content pages yet. Create the first page above.</div>}</section><section className="rounded-2xl border border-line bg-white shadow-sm"><div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4"><div><p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Languages</p><h2 className="mt-1 font-display text-xl font-bold text-ink-950">Local languages for {country.name}</h2><p className="mt-1 text-xs text-slate-500">Languages here apply only to this country.</p></div><button onClick={()=>setLanguageOpen(v=>!v)} className="inline-flex items-center gap-1.5 rounded-xl border border-line px-3.5 py-2 text-xs font-bold text-ink-950 hover:border-emerald-400"><Languages size={14}/> {languageOpen?'Hide form':'Add language'}</button></div>{languageOpen&&<LanguageForm country={country} token={token} onSaved={async()=>{await reload()}}/>}<div className="divide-y divide-line">{!languages.length&&<p className="px-5 py-6 text-sm text-slate-500">No local languages configured yet.</p>}{languages.map(language=><LanguageRow key={language.id} language={language} pages={pages.filter(p=>p.language_id===language.id)} token={token} canEdit={canEdit} onSaved={reload}/>)}</div></section>{editing&&<ContentEditor document={editing==='new'?null:editing} country={country} token={token} onClose={()=>setEditing(null)} onSaved={async()=>{setEditing(null);await reload();await onSaved()}}/>}</div>;
 }
 
-function ContentRow({ doc, onEdit, onDelete, canEdit }: { doc: ContentDocument; onEdit: () => void; onDelete: () => Promise<void>; canEdit: boolean }) {
-  const live = doc.published && (doc.indexable || doc.content_type === 'page');
-  return <div className="flex flex-wrap items-center gap-3 px-5 py-4"><div className="min-w-0 flex-1"><p className="truncate text-sm font-bold text-ink-950">{doc.title || doc.content_key}</p><p className="mt-0.5 truncate text-xs text-slate-400">{doc.topic_slug || doc.slug || doc.content_key} · {live ? 'Published' : 'Draft'} · updated {new Date(doc.updated_at).toLocaleDateString()}</p></div><span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${live ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{live ? 'Live' : 'Draft'}</span>{canEdit && <><button onClick={onEdit} className="rounded-lg p-2 text-slate-400 hover:bg-emerald-50 hover:text-emerald-700" title="Edit"><Pencil size={15} /></button><button onClick={onDelete} className="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600" title="Delete"><Trash2 size={15} /></button></>}</div>;
-}
+function ContentRow({doc,onEdit,onDelete,canEdit}:{doc:ContentDocument;onEdit:()=>void;onDelete:()=>Promise<void>;canEdit:boolean}){const live=doc.published&&(doc.indexable||doc.content_type==='page');return <div className="flex flex-wrap items-center gap-3 px-5 py-4"><div className="min-w-0 flex-1"><p className="truncate text-sm font-bold text-ink-950">{doc.title||doc.content_key}</p><p className="mt-0.5 truncate text-xs text-slate-400">{doc.topic_slug||doc.slug||doc.content_key} · {live?'Published':'Draft'} · updated {new Date(doc.updated_at).toLocaleDateString()}</p></div><span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${live?'bg-emerald-50 text-emerald-700':'bg-amber-50 text-amber-700'}`}>{live?'Live':'Draft'}</span>{canEdit&&<><button onClick={onEdit} className="rounded-lg p-2 text-slate-400 hover:bg-emerald-50 hover:text-emerald-700" title="Edit"><Pencil size={15}/></button><button onClick={onDelete} className="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600" title="Delete"><Trash2 size={15}/></button></>}</div>}
 
-function ContentEditor({ document, country, token, onClose, onSaved }: { document: ContentDocument | null; country: CountryPage; token: string; onClose: () => void; onSaved: () => Promise<void> }) {
-  const [form, setForm] = useState<any>(() => document ? { ...document } : { content_key: `country-topic:${country.slug}:`, content_type: 'country-topic', country_slug: country.slug, topic_slug: '', slug: '', title: '', excerpt: '', html: '', blocks: [], seo_title: '', seo_description: '', indexable: true, published: true });
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  const blocks = Array.isArray(form.blocks) && form.blocks.length ? form.blocks as PageBlock[] : (form.html ? [{ id: 'legacy', type: 'richtext', html: form.html }] as PageBlock[] : []);
+function ContentEditor({document,country,token,onClose,onSaved}:{document:ContentDocument|null;country:CountryPage;token:string;onClose:()=>void;onSaved:()=>Promise<void>}){const[form,setForm]=useState<any>(()=>document?{...document}:{content_key:`country-topic:${country.slug}:`,content_type:'country-topic',country_slug:country.slug,topic_slug:'',slug:'',title:'',excerpt:'',html:'',blocks:[],seo_title:'',seo_description:'',indexable:true,published:true});const[busy,setBusy]=useState(false);const[error,setError]=useState('');const blocks=Array.isArray(form.blocks)&&form.blocks.length?form.blocks as PageBlock[]:(form.html?[{id:'legacy',type:'richtext',html:form.html}] as PageBlock[]:[]);const save=async()=>{if(!String(form.title||'').trim())return setError('Page title is required.');if(!String(form.content_key||'').trim())return setError('Content key is required.');setBusy(true);setError('');try{const payload={...form,country_slug:country.slug,blocks,html:blocksToHtml(blocks)};if(document)await api('/api/content-documents',token,{method:'PUT',body:JSON.stringify({...payload,id:document.id})});else await api('/api/content-documents',token,{method:'POST',body:JSON.stringify(payload)});await onSaved()}catch(e){setError(e instanceof Error?e.message:'Could not save page')}finally{setBusy(false)}};return <div className="fixed inset-0 z-50 bg-ink-950/40 p-3 sm:p-6"><div className="mx-auto flex h-full max-w-6xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl"><div className="flex items-center gap-3 border-b border-line px-5 py-4"><div className="min-w-0 flex-1"><p className="text-xs font-bold uppercase tracking-widest text-emerald-700">{document?'Edit page':'New page'}</p><h2 className="truncate font-display text-xl font-bold">{form.title||'Country SEO page'}</h2></div><button onClick={onClose} className="rounded-xl p-2 text-slate-400 hover:bg-paper"><X size={18}/></button></div><div className="flex-1 overflow-y-auto p-5 sm:p-7"><div className="space-y-5">{error&&<div className="rounded-xl bg-rose-50 p-3 text-sm text-rose-700">{error}</div>}<div className="grid gap-3 sm:grid-cols-2"><label className="text-xs font-bold">Page title<input value={form.title} onChange={e=>setForm({...form,title:e.target.value})} className={input}/></label><label className="text-xs font-bold">Topic slug<input value={form.topic_slug||''} onChange={e=>setForm({...form,topic_slug:e.target.value})} className={input} placeholder="gold-forex-brokers"/></label><label className="text-xs font-bold">URL slug<input value={form.slug||''} onChange={e=>setForm({...form,slug:e.target.value})} className={input}/></label><label className="text-xs font-bold">Content key<input value={form.content_key} onChange={e=>setForm({...form,content_key:e.target.value})} className={input}/></label></div><label className="block text-xs font-bold">Short intro<textarea value={form.excerpt||''} onChange={e=>setForm({...form,excerpt:e.target.value})} rows={3} className={textarea}/></label><div><p className="text-xs font-bold text-ink-950">Visual page builder</p><p className="mt-1 text-xs text-slate-400">Add, edit and reorder sections below. Existing blocks are loaded into the builder.</p><div className="mt-2"><PageBuilder value={blocks} onChange={next=>setForm({...form,blocks:next,html:blocksToHtml(next)})} onUploadImage={async(file)=>{const reader=new FileReader();const data=await new Promise<string>((resolve,reject)=>{reader.onload=()=>resolve(String(reader.result));reader.onerror=reject;reader.readAsDataURL(file)});const out=await api<{url:string}>('/api/content-assets',token,{method:'POST',body:JSON.stringify({filename:file.name,contentType:file.type,dataBase64:data})});return out.url}}/></div></div><div className="grid gap-3 sm:grid-cols-2"><label className="text-xs font-bold">SEO title<input value={form.seo_title||''} onChange={e=>setForm({...form,seo_title:e.target.value})} className={input}/></label><label className="text-xs font-bold">SEO description<textarea value={form.seo_description||''} onChange={e=>setForm({...form,seo_description:e.target.value})} rows={2} className={textarea}/></label></div><div className="grid gap-3 sm:grid-cols-2"><label className="flex items-center justify-between rounded-xl border border-line bg-paper p-4"><span><b className="block text-sm">Publish page</b><span className="text-xs text-slate-400">Visible on the public site.</span></span><Toggle on={!!form.published} onToggle={()=>setForm({...form,published:!form.published})}/></label><label className="flex items-center justify-between rounded-xl border border-line bg-paper p-4"><span><b className="block text-sm">Index in search</b><span className="text-xs text-slate-400">Allow the page to be indexable.</span></span><Toggle on={!!form.indexable} onToggle={()=>setForm({...form,indexable:!form.indexable})}/></label></div></div></div><div className="flex items-center gap-3 border-t border-line bg-white px-5 py-4"><button onClick={onClose} className="ml-auto rounded-xl border border-line px-5 py-2.5 text-sm font-bold text-slate-600">Cancel</button><button onClick={save} disabled={busy} className="inline-flex items-center gap-2 rounded-xl bg-ink-950 px-6 py-2.5 text-sm font-bold text-white disabled:opacity-60">{busy&&<Loader2 size={15} className="animate-spin"/>}{document?'Save page':'Create page'}</button></div></div></div>}
 
-  const save = async () => {
-    if (!String(form.title || '').trim()) return setError('Page title is required.');
-    if (!String(form.content_key || '').trim()) return setError('Content key is required.');
-    setBusy(true); setError('');
-    try {
-      const payload = { ...form, country_slug: country.slug, blocks, html: blocksToHtml(blocks) };
-      if (document) await api('/api/content-documents', token, { method: 'PUT', body: JSON.stringify({ ...payload, id: document.id }) });
-      else await api('/api/content-documents', token, { method: 'POST', body: JSON.stringify(payload) });
-      await onSaved();
-    } catch (e) { setError(e instanceof Error ? e.message : 'Could not save page'); } finally { setBusy(false); }
-  };
+function LanguageForm({country,token,onSaved}:{country:CountryPage;token:string;onSaved:()=>Promise<void>}){const[form,setForm]=useState({name:'',native_name:'',code:'',locale:'',url_prefix:''});const[busy,setBusy]=useState(false);const[error,setError]=useState('');const submit=async()=>{if(!form.name||!form.native_name||!form.code||!form.locale)return setError('Language name, native name, code and locale are required.');setBusy(true);setError('');try{await api('/api/country-languages',token,{method:'POST',body:JSON.stringify({country_id:country.id,...form,url_prefix:form.url_prefix||form.code})});await onSaved();setForm({name:'',native_name:'',code:'',locale:'',url_prefix:''})}catch(e){setError(e instanceof Error?e.message:'Could not add language')}finally{setBusy(false)}};return <div className="border-b border-line bg-paper/60 px-5 py-5"><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5"><input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="Language name" className={input}/><input value={form.native_name} onChange={e=>setForm({...form,native_name:e.target.value})} placeholder="Native name" className={input}/><input value={form.code} onChange={e=>setForm({...form,code:e.target.value})} placeholder="Code: vi" className={input}/><input value={form.locale} onChange={e=>setForm({...form,locale:e.target.value})} placeholder="Locale: vi-VN" className={input}/><input value={form.url_prefix} onChange={e=>setForm({...form,url_prefix:e.target.value})} placeholder="URL prefix" className={input}/></div>{error&&<p className="mt-2 text-xs text-rose-600">{error}</p>}<button onClick={submit} disabled={busy} className="mt-3 inline-flex items-center gap-2 rounded-xl bg-ink-950 px-4 py-2.5 text-xs font-bold text-white disabled:opacity-60">{busy&&<Loader2 size={14} className="animate-spin"/>}<Plus size={14}/> Create language</button></div>}
 
-  return <div className="fixed inset-0 z-50 bg-ink-950/40 p-3 sm:p-6"><div className="mx-auto flex h-full max-w-6xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl"><div className="flex items-center gap-3 border-b border-line px-5 py-4"><div className="min-w-0 flex-1"><p className="text-xs font-bold uppercase tracking-widest text-emerald-700">{document ? 'Edit page' : 'New page'}</p><h2 className="truncate font-display text-xl font-bold">{form.title || 'Country SEO page'}</h2></div><button onClick={onClose} className="rounded-xl p-2 text-slate-400 hover:bg-paper"><X size={18} /></button></div><div className="flex-1 overflow-y-auto p-5 sm:p-7"><div className="space-y-5">{error && <div className="rounded-xl bg-rose-50 p-3 text-sm text-rose-700">{error}</div>}<div className="grid gap-3 sm:grid-cols-2"><label className="text-xs font-bold">Page title<input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className={input} /></label><label className="text-xs font-bold">Topic slug<input value={form.topic_slug || ''} onChange={(e) => setForm({ ...form, topic_slug: e.target.value })} className={input} placeholder="gold-forex-brokers" /></label><label className="text-xs font-bold">URL slug<input value={form.slug || ''} onChange={(e) => setForm({ ...form, slug: e.target.value })} className={input} /></label><label className="text-xs font-bold">Content key<input value={form.content_key} onChange={(e) => setForm({ ...form, content_key: e.target.value })} className={input} /></label></div><label className="block text-xs font-bold">Short intro<textarea value={form.excerpt || ''} onChange={(e) => setForm({ ...form, excerpt: e.target.value })} rows={3} className={textarea} /></label><div><p className="text-xs font-bold text-ink-950">Visual page builder</p><p className="mt-1 text-xs text-slate-400">Add, edit and reorder sections below. Existing blocks are loaded into the builder.</p><div className="mt-2"><PageBuilder value={blocks} onChange={(next) => setForm({ ...form, blocks: next, html: blocksToHtml(next) })} onUploadImage={async (file) => { const reader = new FileReader(); const data = await new Promise<string>((resolve, reject) => { reader.onload = () => resolve(String(reader.result)); reader.onerror = reject; reader.readAsDataURL(file); }); const out = await api<{ url: string }>('/api/content-assets', token, { method: 'POST', body: JSON.stringify({ filename: file.name, contentType: file.type, dataBase64: data }) }); return out.url; }} /></div></div><div className="grid gap-3 sm:grid-cols-2"><label className="text-xs font-bold">SEO title<input value={form.seo_title || ''} onChange={(e) => setForm({ ...form, seo_title: e.target.value })} className={input} /></label><label className="text-xs font-bold">SEO description<textarea value={form.seo_description || ''} onChange={(e) => setForm({ ...form, seo_description: e.target.value })} rows={2} className={textarea} /></label></div><div className="grid gap-3 sm:grid-cols-2"><label className="flex items-center justify-between rounded-xl border border-line bg-paper p-4"><span><b className="block text-sm">Publish page</b><span className="text-xs text-slate-400">Visible on the public site.</span></span><Toggle on={!!form.published} onToggle={() => setForm({ ...form, published: !form.published })} /></label><label className="flex items-center justify-between rounded-xl border border-line bg-paper p-4"><span><b className="block text-sm">Index in search</b><span className="text-xs text-slate-400">Allow the page to be indexable.</span></span><Toggle on={!!form.indexable} onToggle={() => setForm({ ...form, indexable: !form.indexable })} /></label></div></div></div><div className="flex items-center gap-3 border-t border-line bg-white px-5 py-4"><button onClick={onClose} className="ml-auto rounded-xl border border-line px-5 py-2.5 text-sm font-bold text-slate-600">Cancel</button><button onClick={save} disabled={busy} className="inline-flex items-center gap-2 rounded-xl bg-ink-950 px-6 py-2.5 text-sm font-bold text-white disabled:opacity-60">{busy && <Loader2 size={15} className="animate-spin" />}{document ? 'Save page' : 'Create page'}</button></div></div></div>;
-}
+function LanguageRow({language,pages,token,canEdit,onSaved}:{language:CountryLanguage;pages:LocalizedSeoPage[];token:string;canEdit:boolean;onSaved:()=>Promise<void>}){const[open,setOpen]=useState(false);return <div className="px-5 py-4"><div className="flex flex-wrap items-center gap-3"><Globe2 size={18} className="text-emerald-600"/><div className="min-w-0 flex-1"><p className="text-sm font-bold text-ink-950">{language.native_name} <span className="font-normal text-slate-400">({language.name})</span></p><p className="text-xs text-slate-400">{language.code} · {language.locale} · /{language.url_prefix}/ · {language.active?'Active':'Inactive'}</p></div><button onClick={()=>setOpen(v=>!v)} className="inline-flex items-center gap-1 rounded-lg border border-line px-3 py-2 text-xs font-bold">{open?<ChevronUp size={14}/>:<ChevronDown size={14}/>} {open?'Hide pages':`${pages.length} pages`}</button>{canEdit&&<button onClick={async()=>{await api('/api/country-languages',token,{method:'PUT',body:JSON.stringify({id:language.id,active:!language.active})});await onSaved()}} className="rounded-lg border border-line px-3 py-2 text-xs font-bold">{language.active?'Disable':'Enable'}</button>}</div>{open&&<div className="mt-4 space-y-2 border-t border-line pt-4">{pages.length?pages.map(p=><LocalizedPage key={p.id} page={p} language={language} token={token} canEdit={canEdit} onSaved={onSaved}/>):<p className="text-sm text-slate-500">No localized pages yet.</p>}</div>}</div>}
 
-function LanguageForm({ country, token, onSaved }: { country: CountryPage; token: string; onSaved: () => Promise<void> }) {
-  const [form, setForm] = useState({ name: '', native_name: '', code: '', locale: '', url_prefix: '' });
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  const submit = async () => {
-    if (!form.name || !form.native_name || !form.code || !form.locale) return setError('Language name, native name, code and locale are required.');
-    setBusy(true); setError('');
-    try { await api('/api/country-languages', token, { method: 'POST', body: JSON.stringify({ country_id: country.id, ...form, url_prefix: form.url_prefix || form.code }) }); await onSaved(); setForm({ name: '', native_name: '', code: '', locale: '', url_prefix: '' }); } catch (e) { setError(e instanceof Error ? e.message : 'Could not add language'); } finally { setBusy(false); }
-  };
-  return <div className="border-b border-line bg-paper/60 px-5 py-5"><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5"><input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Language name" className={input} /><input value={form.native_name} onChange={(e) => setForm({ ...form, native_name: e.target.value })} placeholder="Native name" className={input} /><input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="Code: vi" className={input} /><input value={form.locale} onChange={(e) => setForm({ ...form, locale: e.target.value })} placeholder="Locale: vi-VN" className={input} /><input value={form.url_prefix} onChange={(e) => setForm({ ...form, url_prefix: e.target.value })} placeholder="URL prefix" className={input} /></div>{error && <p className="mt-2 text-xs text-rose-600">{error}</p>}<button onClick={submit} disabled={busy} className="mt-3 inline-flex items-center gap-2 rounded-xl bg-ink-950 px-4 py-2.5 text-xs font-bold text-white disabled:opacity-60">{busy && <Loader2 size={14} className="animate-spin" />}<Plus size={14} /> Create language</button></div>;
-}
+function LocalizedPage({page,language,token,canEdit,onSaved}:{page:LocalizedSeoPage;language:CountryLanguage;token:string;canEdit:boolean;onSaved:()=>Promise<void>}){const[editing,setEditing]=useState(false);const[form,setForm]=useState({title:page.title,slug:page.slug,meta_description:page.meta_description||'',h1:page.h1||'',content:page.content||'',indexable:page.indexable,published:page.published});const save=async()=>{await api('/api/localized-seo-pages',token,{method:'PUT',body:JSON.stringify({id:page.id,country_id:page.country_id,language_id:page.language_id,topic_key:page.topic_key,...form})});setEditing(false);await onSaved()};return <div className="rounded-xl border border-line bg-white p-4"><div className="flex items-center gap-3"><div className="min-w-0 flex-1"><p className="truncate text-sm font-bold">{page.title}</p><p className="text-xs text-slate-400">{page.topic_key} · {page.published?'Published':'Draft'} · {language.code}</p></div>{canEdit&&<button onClick={()=>setEditing(v=>!v)} className="rounded-lg p-2 text-slate-400 hover:bg-paper"><Pencil size={14}/></button>}</div>{editing&&<div className="mt-4 space-y-3"><input value={form.title} onChange={e=>setForm({...form,title:e.target.value})} className={input} placeholder="Title"/><input value={form.slug} onChange={e=>setForm({...form,slug:e.target.value})} className={input} placeholder="Slug"/><input value={form.h1} onChange={e=>setForm({...form,h1:e.target.value})} className={input} placeholder="H1"/><textarea value={form.meta_description} onChange={e=>setForm({...form,meta_description:e.target.value})} rows={2} className={textarea} placeholder="Meta description"/><textarea value={form.content} onChange={e=>setForm({...form,content:e.target.value})} rows={7} className={textarea} placeholder="Localized content"/><div className="flex gap-2"><button onClick={()=>setForm({...form,published:!form.published})} className={`rounded-xl px-3 py-2 text-xs font-bold ${form.published?'bg-emerald-600 text-white':'bg-paper text-slate-600'}`}>{form.published?'Published':'Draft'}</button><button onClick={()=>setForm({...form,indexable:!form.indexable})} className={`rounded-xl px-3 py-2 text-xs font-bold ${form.indexable?'bg-ink-950 text-white':'bg-paper text-slate-600'}`}>{form.indexable?'Indexable':'Noindex'}</button><button onClick={save} className="ml-auto rounded-xl bg-ink-950 px-4 py-2 text-xs font-bold text-white">Save</button></div></div>}</div>}
 
-function LanguageRow({ language, pages, token, canEdit, onSaved }: { language: CountryLanguage; pages: LocalizedSeoPage[]; token: string; canEdit: boolean; onSaved: () => Promise<void> }) {
-  const [open, setOpen] = useState(false);
-  return <div className="px-5 py-4"><div className="flex flex-wrap items-center gap-3"><Globe2 size={18} className="text-emerald-600" /><div className="min-w-0 flex-1"><p className="text-sm font-bold text-ink-950">{language.native_name} <span className="font-normal text-slate-400">({language.name})</span></p><p className="text-xs text-slate-400">{language.code} · {language.locale} · /{language.url_prefix}/ · {language.active ? 'Active' : 'Inactive'}</p></div><button onClick={() => setOpen((v) => !v)} className="inline-flex items-center gap-1 rounded-lg border border-line px-3 py-2 text-xs font-bold">{open ? <ChevronUp size={14} /> : <ChevronDown size={14} />} {open ? 'Hide pages' : `${pages.length} pages`}</button>{canEdit && <button onClick={async () => { await api('/api/country-languages', token, { method: 'PUT', body: JSON.stringify({ id: language.id, active: !language.active }) }); await onSaved(); }} className="rounded-lg border border-line px-3 py-2 text-xs font-bold">{language.active ? 'Disable' : 'Enable'}</button>}</div>{open && <div className="mt-4 space-y-2 border-t border-line pt-4">{pages.length ? pages.map((p) => <LocalizedPage key={p.id} page={p} language={language} token={token} canEdit={canEdit} onSaved={onSaved} />) : <p className="text-sm text-slate-500">No localized pages yet.</p>}</div>}</div>;
-}
+function CountryBrokers({ country, token }: { country: CountryPage; token: string }) { const [brokers,setBrokers]=useState<Broker[]>([]); useEffect(()=>{api<Broker[]>('/api/brokers',token).then(setBrokers).catch(()=>{})},[token]); return <div className="rounded-2xl border border-line bg-white p-6"><h2 className="font-display text-xl font-bold">Brokers in {country.name}</h2><p className="mt-1 text-sm text-slate-500">Broker-country availability remains managed separately from country editorial content.</p><div className="mt-5 divide-y divide-line">{brokers.map(b=><div key={b.id} className="flex items-center gap-3 py-3"><div className="min-w-0 flex-1"><p className="text-sm font-bold">{b.name}</p><p className="text-xs text-slate-400">{b.best_for?.length||0} categories</p></div><span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-500">Existing relationship</span></div>)}</div></div>; }
 
-function LocalizedPage({ page, language, token, canEdit, onSaved }: { page: LocalizedSeoPage; language: CountryLanguage; token: string; canEdit: boolean; onSaved: () => Promise<void> }) {
-  const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({ title: page.title, slug: page.slug, meta_description: page.meta_description || '', h1: page.h1 || '', content: page.content || '', indexable: page.indexable, published: page.published });
-  const save = async () => { await api('/api/localized-seo-pages', token, { method: 'PUT', body: JSON.stringify({ id: page.id, country_id: page.country_id, language_id: page.language_id, topic_key: page.topic_key, ...form }) }); setEditing(false); await onSaved(); };
-  return <div className="rounded-xl border border-line bg-white p-4"><div className="flex items-center gap-3"><div className="min-w-0 flex-1"><p className="truncate text-sm font-bold">{page.title}</p><p className="text-xs text-slate-400">{page.topic_key} · {page.published ? 'Published' : 'Draft'} · {language.code}</p></div>{canEdit && <button onClick={() => setEditing((v) => !v)} className="rounded-lg p-2 text-slate-400 hover:bg-paper"><Pencil size={14} /></button>}</div>{editing && <div className="mt-4 space-y-3"><input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className={input} placeholder="Title" /><input value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} className={input} placeholder="Slug" /><input value={form.h1} onChange={(e) => setForm({ ...form, h1: e.target.value })} className={input} placeholder="H1" /><textarea value={form.meta_description} onChange={(e) => setForm({ ...form, meta_description: e.target.value })} rows={2} className={textarea} placeholder="Meta description" /><textarea value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} rows={7} className={textarea} placeholder="Localized content" /><div className="flex gap-2"><button onClick={() => setForm({ ...form, published: !form.published })} className={`rounded-xl px-3 py-2 text-xs font-bold ${form.published ? 'bg-emerald-600 text-white' : 'bg-paper text-slate-600'}`}>{form.published ? 'Published' : 'Draft'}</button><button onClick={() => setForm({ ...form, indexable: !form.indexable })} className={`rounded-xl px-3 py-2 text-xs font-bold ${form.indexable ? 'bg-ink-950 text-white' : 'bg-paper text-slate-600'}`}>{form.indexable ? 'Indexable' : 'Noindex'}</button><button onClick={save} className="ml-auto rounded-xl bg-ink-950 px-4 py-2 text-xs font-bold text-white">Save</button></div></div>}</div>;
-}
+function CountryBest({ country, token }: { country: CountryPage; token: string }) { const [rows,setRows]=useState<CountryBestFor[]>([]); useEffect(()=>{api<CountryBestFor[]>(`/api/country-best-for?country=${country.slug}&admin=1`,token).then(setRows).catch(()=>{})},[country.slug,token]); return <div className="rounded-2xl border border-line bg-white shadow-sm"><div className="border-b border-line px-5 py-4"><h2 className="font-display text-xl font-bold">Country Best-For</h2><p className="mt-1 text-sm text-slate-500">Existing country-specific commercial pages.</p></div>{rows.length?<div className="divide-y divide-line">{rows.map(r=><div key={r.id} className="flex items-center gap-3 px-5 py-4"><div className="min-w-0 flex-1"><p className="truncate text-sm font-bold">{r.title}</p><p className="text-xs text-slate-400">/{country.slug}/{r.slug}</p></div><span className={`rounded-full px-2 py-1 text-[10px] font-bold ${r.indexable?'bg-emerald-50 text-emerald-700':'bg-slate-100 text-slate-500'}`}>{r.indexable?'Indexable':'Noindex'}</span></div>)}</div>:<p className="p-8 text-center text-sm text-slate-500">No Best-For pages yet.</p>}</div>; }
 
-function CountryBrokers({ country, token }: { country: CountryPage; token: string }) {
-  const [brokers, setBrokers] = useState<Broker[]>([]);
-  const [rows, setRows] = useState<Record<number, string>>({});
-  useEffect(() => { api<Broker[]>('/api/brokers', token).then((all) => setBrokers(all)).catch(() => {}); }, [token]);
-  return <div className="rounded-2xl border border-line bg-white p-6"><h2 className="font-display text-xl font-bold">Brokers in {country.name}</h2><p className="mt-1 text-sm text-slate-500">Broker-country availability remains managed separately from country editorial content.</p><div className="mt-5 divide-y divide-line">{brokers.map((b) => <div key={b.id} className="flex items-center gap-3 py-3"><div className="min-w-0 flex-1"><p className="text-sm font-bold">{b.name}</p><p className="text-xs text-slate-400">{b.best_for?.length || 0} categories</p></div><span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-500">Existing relationship</span></div>)}</div></div>;
-}
+function Publishing({country,canEdit,onClose,onReopen,onSave}:{country:CountryPage;canEdit:boolean;onClose:()=>Promise<void>;onReopen:()=>Promise<void>;onSave:(fields:Record<string,unknown>)=>Promise<void>}){const[status,setStatus]=useState(country.status??'published');useEffect(()=>setStatus(country.status??'published'),[country.status]);return <div className="rounded-2xl border border-line bg-white p-6 shadow-sm"><p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Country publishing</p><h2 className="mt-1 font-display text-xl font-bold">Visibility control</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">Closing a country hides the country and its associated public content from the website and sitemap. The underlying content is retained for later reopening.</p><div className="mt-5 grid gap-4 sm:grid-cols-2"><label className="text-xs font-bold">Status<select disabled={!canEdit} value={status} onChange={e=>setStatus(e.target.value as typeof status)} className={input}><option value="draft">Draft</option><option value="published">Published</option><option value="closed">Closed</option></select></label><div className="rounded-xl bg-paper p-4"><p className="text-xs font-bold text-slate-500">Current public state</p><p className="mt-1 text-lg font-display font-bold">{status==='published'?'Live':'Hidden'}</p></div></div><div className="mt-5 flex flex-wrap gap-2">{status==='closed'?<button disabled={!canEdit} onClick={onReopen} className="rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white disabled:opacity-50">Reopen country</button>:<button disabled={!canEdit} onClick={onClose} className="rounded-xl bg-rose-600 px-4 py-2.5 text-xs font-bold text-white disabled:opacity-50">Close country</button>}<button disabled={!canEdit} onClick={()=>onSave({status})} className="rounded-xl bg-ink-950 px-4 py-2.5 text-xs font-bold text-white disabled:opacity-50">Save status</button></div></div>; }
 
-function CountryBest({ country, token }: { country: CountryPage; token: string }) {
-  const [rows, setRows] = useState<CountryBestFor[]>([]);
-  useEffect(() => { api<CountryBestFor[]>(`/api/country-best-for?country=${country.slug}&admin=1`, token).then(setRows).catch(() => {}); }, [country.slug, token]);
-  return <div className="rounded-2xl border border-line bg-white shadow-sm"><div className="border-b border-line px-5 py-4"><h2 className="font-display text-xl font-bold">Country Best-For</h2><p className="mt-1 text-sm text-slate-500">Existing country-specific commercial pages.</p></div>{rows.length ? <div className="divide-y divide-line">{rows.map((r) => <div key={r.id} className="flex items-center gap-3 px-5 py-4"><div className="min-w-0 flex-1"><p className="truncate text-sm font-bold">{r.title}</p><p className="text-xs text-slate-400">/{country.slug}/{r.slug}</p></div><span className={`rounded-full px-2 py-1 text-[10px] font-bold ${r.indexable ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{r.indexable ? 'Indexable' : 'Noindex'}</span></div>)}</div> : <p className="p-8 text-center text-sm text-slate-500">No Best-For pages yet.</p>}</div>;
-}
+function SeoQa({country,token}:{country:CountryPage;token:string}){const[docs,setDocs]=useState<ContentDocument[]>([]);useEffect(()=>{api<ContentDocument[]>(`/api/content-documents?country=${country.slug}`,token).then(setDocs).catch(()=>{})},[country.slug,token]);const checks:[string,boolean][]=[['Country published',(country.status??'published')==='published'],['SEO title',!!country.seo_title],['Meta description',!!country.seo_description],['Country intro',!!country.seo_intro?.length||!!country.intro?.length],['SEO content pages',docs.length>0]];return <div className="rounded-2xl border border-line bg-white p-6"><p className="text-xs font-bold uppercase tracking-widest text-emerald-700">SEO QA</p><h2 className="mt-1 font-display text-xl font-bold">Country readiness</h2><div className="mt-5 divide-y divide-line">{checks.map(([label,ok])=><div key={label} className="flex items-center gap-3 py-3"><span className={`flex h-7 w-7 items-center justify-center rounded-full ${ok?'bg-emerald-50 text-emerald-700':'bg-amber-50 text-amber-700'}`}>{ok?<Check size={15}/>: '!'}</span><span className="text-sm font-semibold">{label}</span></div>)}</div></div>; }
 
-function Publishing({ country, canEdit, onClose, onReopen, onSave }: { country: CountryPage; canEdit: boolean; onClose: () => Promise<void>; onReopen: () => Promise<void>; onSave: (fields: Record<string, unknown>) => Promise<void> }) {
-  const [status, setStatus] = useState(country.status ?? 'published');
-  useEffect(() => setStatus(country.status ?? 'published'), [country.status]);
-  return <div className="rounded-2xl border border-line bg-white p-6 shadow-sm"><p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Country publishing</p><h2 className="mt-1 font-display text-xl font-bold">Visibility control</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">Closing a country hides the country and its associated public content from the website and sitemap. The underlying content is retained for later reopening.</p><div className="mt-5 grid gap-4 sm:grid-cols-2"><label className="text-xs font-bold">Status<select disabled={!canEdit} value={status} onChange={(e) => setStatus(e.target.value as typeof status)} className={input}><option value="draft">Draft</option><option value="published">Published</option><option value="closed">Closed</option></select></label><div className="rounded-xl bg-paper p-4"><p className="text-xs font-bold text-slate-500">Current public state</p><p className="mt-1 text-lg font-display font-bold">{status === 'published' ? 'Live' : 'Hidden'}</p></div></div><div className="mt-5 flex flex-wrap gap-2">{status === 'closed' ? <button disabled={!canEdit} onClick={onReopen} className="rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white disabled:opacity-50">Reopen country</button> : <button disabled={!canEdit} onClick={onClose} className="rounded-xl bg-rose-600 px-4 py-2.5 text-xs font-bold text-white disabled:opacity-50">Close country</button>}<button disabled={!canEdit} onClick={() => onSave({ status })} className="rounded-xl bg-ink-950 px-4 py-2.5 text-xs font-bold text-white disabled:opacity-50">Save status</button></div></div>;
-}
+function Stat({label,value}:{label:string;value:string|number}){return <div className="rounded-2xl border border-line bg-white p-5 shadow-sm"><p className="text-xs font-bold uppercase tracking-widest text-slate-400">{label}</p><p className="mt-2 font-display text-2xl font-bold text-ink-950">{value}</p></div>}
+function StatusBadge({status,dark=false}:{status:string;dark?:boolean}){const styles:Record<string,string>={published:dark?'bg-emerald-400/15 text-emerald-200':'bg-emerald-50 text-emerald-700',draft:dark?'bg-amber-400/15 text-amber-200':'bg-amber-50 text-amber-700',closed:dark?'bg-white/10 text-slate-300':'bg-slate-100 text-slate-600'};return <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${styles[status]||styles.draft}`}>{status}</span>}
+function Toggle({on,onToggle}:{on:boolean;onToggle:()=>void}){return <button type="button" onClick={onToggle} className={`relative h-6 w-10 rounded-full transition ${on?'bg-emerald-500':'bg-slate-300'}`}><span className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow-sm transition ${on?'left-5':'left-1'}`}/></button>}
 
-function SeoQa({ country, token }: { country: CountryPage; token: string }) {
-  const [docs, setDocs] = useState<ContentDocument[]>([]);
-  useEffect(() => { api<ContentDocument[]>(`/api/content-documents?country=${country.slug}`, token).then(setDocs).catch(() => {}); }, [country.slug, token]);
-  const checks = [
-    ['Country published', (country.status ?? 'published') === 'published'],
-    ['SEO title', !!country.seo_title],
-    ['Meta description', !!country.seo_description],
-    ['Country intro', !!country.seo_intro?.length || !!country.intro?.length],
-    ['SEO content pages', docs.length > 0],
-  ];
-  return <div className="rounded-2xl border border-line bg-white p-6"><p className="text-xs font-bold uppercase tracking-widest text-emerald-700">SEO QA</p><h2 className="mt-1 font-display text-xl font-bold">Country readiness</h2><div className="mt-5 divide-y divide-line">{checks.map(([label, ok]) => <div key={String(label)} className="flex items-center gap-3 py-3"><span className={`flex h-7 w-7 items-center justify-center rounded-full ${ok ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{ok ? <Check size={15} /> : '!'}</span><span className="text-sm font-semibold">{label}</span></div>)}</div></div>;
-}
-
-function Stat({ label, value }: { label: string; value: string | number }) { return <div className="rounded-2xl border border-line bg-white p-5 shadow-sm"><p className="text-xs font-bold uppercase tracking-widest text-slate-400">{label}</p><p className="mt-2 font-display text-2xl font-bold text-ink-950">{value}</p></div>; }
-function StatusBadge({ status, dark = false }: { status: string; dark?: boolean }) { const styles: Record<string, string> = { published: dark ? 'bg-emerald-400/15 text-emerald-200' : 'bg-emerald-50 text-emerald-700', draft: dark ? 'bg-amber-400/15 text-amber-200' : 'bg-amber-50 text-amber-700', closed: dark ? 'bg-white/10 text-slate-300' : 'bg-slate-100 text-slate-600' }; return <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${styles[status] || styles.draft}`}>{status}</span>; }
-function Toggle({ on, onToggle }: { on: boolean; onToggle: () => void }) { return <button type="button" onClick={onToggle} className={`relative h-6 w-10 rounded-full transition ${on ? 'bg-emerald-500' : 'bg-slate-300'}`}><span className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow-sm transition ${on ? 'left-5' : 'left-1'}`} /></button>; }
-
-function LegacyAdmin({ onBack }: { onBack: () => void }) {
-  const [Component, setComponent] = useState<React.ComponentType | null>(null);
-  useEffect(() => { import('./AdminHubNew').then((m) => setComponent(() => m.default)); }, []);
-  if (!Component) return <div className="flex min-h-screen items-center justify-center bg-paper"><Loader2 className="animate-spin text-emerald-600" /></div>;
-  return <div className="relative"><button onClick={onBack} className="fixed bottom-5 left-5 z-[60] rounded-full bg-ink-950 px-4 py-2.5 text-xs font-bold text-white shadow-lg">← Country Hub</button><Component /></div>;
-}
+function LegacyAdmin({onBack}:{onBack:()=>void}){const[Component,setComponent]=useState<any>(null);useEffect(()=>{import('./AdminHubNew').then((m)=>setComponent(()=>m.default))},[]);if(!Component)return <div className="flex min-h-screen items-center justify-center bg-paper"><Loader2 className="animate-spin text-emerald-600"/></div>;return <div className="relative"><button onClick={onBack} className="fixed bottom-5 left-5 z-[60] rounded-full bg-ink-950 px-4 py-2.5 text-xs font-bold text-white shadow-lg">← Country Hub</button><Component/></div>}
