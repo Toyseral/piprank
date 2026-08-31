@@ -60,7 +60,7 @@ export function Shell() {
             <Route path="/countries" element={<Countries />} />
             <Route path="/countries/:slug" element={<CountryDetail />} />
             <Route path="/promotions" element={<Promotions />} />
-            <Route path="/archypage" element={<AdminWorkspaceRoute />} />
+            <Route path="/archypage" element={<AdminWorkspace />} />
             <Route path="/archypage-legacy" element={<Admin />} />
             <Route path="/:countrySlug/:locale/:topicSlug" element={<LocalizedCountrySeoTopic />} />
             <Route path="/:countrySlug/:topicSlug" element={<CountrySeoTopic />} />
@@ -73,11 +73,6 @@ export function Shell() {
       {!bare && <Suspense fallback={null}><SmartCTA /></Suspense>}
     </div>
   );
-}
-
-function AdminWorkspaceRoute() {
-  const Component = AdminWorkspace;
-  return <Component />;
 }
 
 export default function App() {
