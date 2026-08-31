@@ -14,8 +14,8 @@ import {
   Zap,
   type LucideIcon,
 } from 'lucide-react';
-import type { Broker, CountryBestFor, CountryPage, Intent } from '../lib/types';
-import { fetchBrokers, fetchCountries, fetchCountry, fetchCountryBestFor, fetchCountryBestFors, fetchCountryIntentRankings, fetchIntent } from '../lib/api';
+import type { Broker, ContentDocument, CountryBestFor, CountryPage, Intent } from '../lib/types';
+import { fetchBrokers, fetchContentDocument, fetchCountries, fetchCountry, fetchCountryBestFor, fetchCountryBestFors, fetchCountryIntentRankings, fetchIntent } from '../lib/api';
 import { useGeo } from '../lib/GeoContext';
 import { track } from '../lib/track';
 
@@ -40,6 +40,7 @@ import Monogram from '../components/Monogram';
 import Stars from '../components/Stars';
 import VisitButton from '../components/VisitButton';
 import Reveal from '../components/Reveal';
+import { blocksToHtml } from '../components/PageBuilder';
 import { fmtMoney } from '../lib/format';
 import { useSEO } from '../hooks/useSEO';
 import { buildBreadcrumbJsonLd, buildFAQPageJsonLd, buildItemListJsonLd, intentSeo, countryBestForSeo, type SeoInput } from '../lib/seo';
@@ -97,6 +98,7 @@ export default function BestFor() {
   const [error, setError] = useState('');
   const { country: activeGeo } = useGeo();
   const [localizedCountry, setLocalizedCountry] = useState<CountryPage | null>(null);
+  const [richContent, setRichContent] = useState<ContentDocument | null>(null);
 
   useEffect(() => {
     if (countrySlug || !activeGeo) { setLocalizedCountry(null); return; }
@@ -108,6 +110,7 @@ export default function BestFor() {
     setLoading(true);
     setMissing(false);
     setError('');
+    setRichContent(null);
 
     const request = countrySlug
       ? Promise.all([
@@ -137,6 +140,8 @@ export default function BestFor() {
         setCountryRankingIds((rankingRows ?? []).map((r: any) => Number(r.broker_id)));
         document.title = `${i.title} | PipRank`;
         track('intent_view', { intent: i.slug, country: countrySlug ?? 'global' });
+        const richKey = countrySlug ? `best-for:${countrySlug}:${i.slug}` : `best-for:${i.slug}`;
+        fetchContentDocument(richKey).then((content) => setRichContent(content?.published ? content : null)).catch(() => setRichContent(null));
       })
       .catch((e) => {
         setError(e instanceof Error ? e.message : 'Unable to load this page');
@@ -286,16 +291,20 @@ export default function BestFor() {
       </div>
       )}
 
-      {'sections' in intent && Array.isArray(intent.sections) && intent.sections.length > 0 && (
-        <div className="mt-10 space-y-6">
-          {intent.sections.map((section, i) => (
-            <section key={`${section.heading}-${i}`} className="rounded-2xl border border-line bg-white p-6">
-              <h2 className="font-display text-xl font-bold text-ink-900">{section.heading}</h2>
-              {section.body?.map((p, pi) => <p key={pi} className="mt-3 text-sm leading-7 text-slate-600">{p}</p>)}
-              {section.bullets?.length ? <ul className="mt-4 list-disc space-y-2 pl-5 text-sm leading-6 text-slate-600">{section.bullets.map((b, bi) => <li key={bi}>{b}</li>)}</ul> : null}
-            </section>
-          ))}
-        </div>
+      {richContent?.published && (richContent.html || (Array.isArray(richContent.blocks) && richContent.blocks.length)) ? (
+        <div className="prose prose-slate mt-10 max-w-none prose-headings:font-display prose-img:rounded-2xl prose-table:w-full prose-th:border prose-th:border-line prose-th:bg-paper prose-th:px-3 prose-th:py-2 prose-td:border prose-td:border-line prose-td:px-3 prose-td:py-2" dangerouslySetInnerHTML={{ __html: Array.isArray(richContent.blocks) && richContent.blocks.length ? blocksToHtml(richContent.blocks as any) : richContent.html }} />
+      ) : (
+        'sections' in intent && Array.isArray(intent.sections) && intent.sections.length > 0 && (
+          <div className="mt-10 space-y-6">
+            {intent.sections.map((section, i) => (
+              <section key={`${section.heading}-${i}`} className="rounded-2xl border border-line bg-white p-6">
+                <h2 className="font-display text-xl font-bold text-ink-900">{section.heading}</h2>
+                {section.body?.map((p, pi) => <p key={pi} className="mt-3 text-sm leading-7 text-slate-600">{p}</p>)}
+                {section.bullets?.length ? <ul className="mt-4 list-disc space-y-2 pl-5 text-sm leading-6 text-slate-600">{section.bullets.map((b, bi) => <li key={bi}>{b}</li>)}</ul> : null}
+              </section>
+            ))}
+          </div>
+        )
       )}
 
       {'faqs' in intent && Array.isArray(intent.faqs) && intent.faqs.length > 0 && (

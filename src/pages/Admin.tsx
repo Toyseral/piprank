@@ -24,6 +24,8 @@ import {
   Newspaper,
   Pencil,
   Plus,
+  Sparkles,
+  BookOpen,
   Search,
   ShieldAlert,
   ShieldCheck,
@@ -38,6 +40,7 @@ import {
 import AnalyticsPanel from './AnalyticsPanel';
 import supabase from '../lib/supabase';
 import type { Broker, BrokerContent, CountryBestFor, CountryPage, FAQ, Guide, GuideSection, Intent, Promotion, Regulation, Review, TestResult, ContentDocument, CountryLanguage, LocalizedSeoPage } from '../lib/types';
+import { legacySectionsToBlocks, brokerContentToLegacySections, guideSectionsToLegacySections, introCriteriaToLegacySections, faqsToBlocks } from '../lib/contentBlocks';
 import Monogram from '../components/Monogram';
 import Stars from '../components/Stars';
 import { fmtDate, timeAgo } from '../lib/format';
@@ -46,7 +49,7 @@ import PageBuilder, { blocksToHtml, type PageBlock } from '../components/PageBui
 
 /* =============================== TYPES =============================== */
 
-type Tab = 'overview' | 'brokers' | 'countries' | 'authors' | 'commercial' | 'analytics' | 'team';
+type Tab = 'overview' | 'brokers' | 'countries' | 'global' | 'authors' | 'commercial' | 'analytics' | 'team';
 
 interface Sub {
   id: number;
@@ -84,6 +87,7 @@ const ROLE_ACCESS: Record<string, string[]> = {
   overview: ['super_admin', 'admin', 'brokers_admin', 'content_admin', 'moderator'],
   brokers: ['super_admin', 'admin', 'brokers_admin'],
   countries: ['super_admin', 'admin', 'content_admin', 'brokers_admin'],
+  global: ['super_admin', 'admin', 'content_admin'],
   authors: ['super_admin', 'admin', 'content_admin'],
   commercial: ['super_admin', 'admin'],
   analytics: ['super_admin', 'admin', 'brokers_admin', 'content_admin', 'moderator'],
@@ -94,6 +98,7 @@ const TABS: { key: Tab; label: string; icon: typeof Landmark; desc: string }[] =
   { key: 'overview', label: 'Overview', icon: LayoutDashboard, desc: 'Operational tasks, gaps and admin shortcuts.' },
   { key: 'brokers', label: 'Broker Workspace', icon: Landmark, desc: 'Manage broker profile, rich content, trading data, countries, reviews, promotions and affiliate coverage.' },
   { key: 'countries', label: 'Country Hub', icon: Globe2, desc: 'Manage country overview, publishing, SEO, brokers, best-for pages, guides, FAQs and internal links.' },
+  { key: 'global', label: 'Global Hub', icon: BookOpen, desc: 'Manage guides and best-for pages that are not country-specific.' },
   { key: 'authors', label: 'Author Hub', icon: Users, desc: 'Manage public author profiles, bios, expertise, credentials, photos, links and attribution.' },
   { key: 'commercial', label: 'Commercial', icon: Link2, desc: 'Affiliate links, promotions and conversion reporting.' },
   { key: 'analytics', label: 'Analytics', icon: BarChart3, desc: 'CTA performance, quiz funnel, layouts and conversions by date range.' },
@@ -380,6 +385,7 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
   const [editingBrokerContent, setEditingBrokerContent] = useState<Broker | null>(null);
   const [contentDocs, setContentDocs] = useState<ContentDocument[]>([]);
   const [editingContentDoc, setEditingContentDoc] = useState<ContentDocument | 'new' | null>(null);
+  const [newDocDefaultCountry, setNewDocDefaultCountry] = useState<string | undefined>(undefined);
   const [countryLanguages, setCountryLanguages] = useState<CountryLanguage[]>([]);
   const [localizedPages, setLocalizedPages] = useState<LocalizedSeoPage[]>([]);
 
@@ -651,9 +657,47 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
                     brokers={brokers}
                     countryBestFors={countryBestFors}
                     contentDocs={contentDocs}
+                    countryLanguages={countryLanguages}
+                    localizedPages={localizedPages}
+                    token={session.access_token}
+                    notify={notify}
+                    reloadLocalization={() => {
+                      fetch('/api/country-languages?admin=true', { headers: headers() }).then((x) => x.json()).then((cl) => { if (Array.isArray(cl)) setCountryLanguages(cl); }).catch(() => {});
+                      fetch('/api/localized-seo-pages?admin=true', { headers: headers() }).then((x) => x.json()).then((lp) => { if (Array.isArray(lp)) setLocalizedPages(lp); }).catch(() => {});
+                    }}
                     onNewCountry={() => setEditingCountry('new')}
                     onEditCountry={(c) => setEditingCountry(c)}
                     onEditCountryBestFor={(p) => setEditingCountryBestFor(p)}
+                    onEditContentDoc={(d) => setEditingContentDoc(d)}
+                    onNewCountryContentDoc={(slug) => { setNewDocDefaultCountry(slug); setEditingContentDoc('new'); }}
+                    onSeedCountryBestFor={async (key, page, blocks) => {
+                      try {
+                        const res = await fetch('/api/content-documents', {
+                          method: 'POST',
+                          headers: headers(),
+                          body: JSON.stringify({ content_key: key, content_type: 'country-best-for', country_slug: page.country_slug ?? null, topic_slug: page.slug, slug: page.slug, title: page.title || page.label, excerpt: '', html: '', blocks, seo_title: page.meta_title || '', seo_description: page.meta_description || '', indexable: true, published: true }),
+                        });
+                        const doc = await res.json().catch(() => null);
+                        if (!res.ok) throw new Error((doc as { error?: string })?.error || 'Could not create rich content');
+                        notify('Existing content loaded into the visual builder');
+                        setEditingContentDoc(doc as ContentDocument);
+                      } catch (e) {
+                        notify(e instanceof Error ? e.message : 'Could not open visual builder');
+                      }
+                    }}
+                  />
+                )}
+                {activeTab === 'global' && (
+                  <GlobalHub
+                    guides={guides}
+                    intents={intents}
+                    contentDocs={contentDocs}
+                    token={session.access_token}
+                    notify={notify}
+                    onNewGuide={() => setEditingGuide('new')}
+                    onEditGuide={(g) => setEditingGuide(g)}
+                    onNewIntent={() => setEditingIntent('new')}
+                    onEditIntent={(i) => setEditingIntent(i)}
                     onEditContentDoc={(d) => setEditingContentDoc(d)}
                   />
                 )}
@@ -767,10 +811,12 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
           document={editingContentDoc === 'new' ? null : editingContentDoc}
           countries={countries}
           token={session.access_token}
-          onClose={() => setEditingContentDoc(null)}
+          defaultCountrySlug={editingContentDoc === 'new' ? newDocDefaultCountry : undefined}
+          onClose={() => { setEditingContentDoc(null); setNewDocDefaultCountry(undefined); }}
           onSave={async (fields, isNew) => {
             await mutate('/api/content-documents', isNew ? 'POST' : 'PUT', fields, isNew ? 'Rich content published' : 'Rich content saved');
             setEditingContentDoc(null);
+            setNewDocDefaultCountry(undefined);
           }}
         />
       )}
@@ -793,6 +839,19 @@ function BrokerContentEditor({ broker, token, onClose, onSave }: { broker: Broke
   const [richDocs, setRichDocs] = useState<ContentDocument[]>([]);
   const [editingDoc, setEditingDoc] = useState<ContentDocument | null>(null);
   const [newDoc, setNewDoc] = useState(false);
+  const [seedNewDoc, setSeedNewDoc] = useState(false);
+
+  const hasMainDoc = richDocs.some((d) => (d.slug || 'main') === 'main');
+  const legacySeedBlocks = useMemo(() => {
+    const parse = (k: string) => { try { const v = JSON.parse(advanced[k] ?? '[]'); return Array.isArray(v) ? v : []; } catch { return []; } };
+    const content: BrokerContent = {
+      broker_id: broker.id, overview: parse('overview'), verdict: parse('verdict'), why_recommend: parse('why_recommend'),
+      best_for_detail: parse('best_for_detail'), avoid_if: parse('avoid_if'), regulation_detail: parse('regulation_detail'),
+      fees_detail: parse('fees_detail'), platform_intro: parse('platform_intro'), accounts_intro: parse('accounts_intro'),
+      funding_intro: parse('funding_intro'), platforms: [], accounts: [], payments: [],
+    };
+    return [...legacySectionsToBlocks(brokerContentToLegacySections(content)), ...faqsToBlocks(parse('faqs'))];
+  }, [advanced, broker.id]);
 
   const load = useCallback(async () => {
     setLoading(true); setError('');
@@ -862,7 +921,7 @@ function BrokerContentEditor({ broker, token, onClose, onSave }: { broker: Broke
         {error&&<p className="mb-5 rounded-xl bg-rose-50 px-4 py-2.5 text-sm text-rose-600">{error}</p>}
         {loading?<p className="text-sm text-slate-500">Loading…</p>:<div className="space-y-7">
           <section className="rounded-2xl border border-emerald-200 bg-emerald-50/50 p-5">
-            <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="font-display text-xl font-bold text-ink-900">Broker profile content</h2><p className="mt-1 text-xs leading-relaxed text-slate-500">Use the same rich editor as country SEO pages. Add headings, links, images and comparison tables. These documents render inside the public broker profile.</p></div><button onClick={()=>setNewDoc(true)} className="inline-flex items-center gap-1.5 rounded-xl bg-ink-950 px-3.5 py-2 text-xs font-bold text-white"><Plus size={13}/> Add section</button></div>
+            <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="font-display text-xl font-bold text-ink-900">Broker profile content</h2><p className="mt-1 text-xs leading-relaxed text-slate-500">Use the same rich editor as country SEO pages. Add headings, links, images and comparison tables. These documents render inside the public broker profile.</p></div><div className="flex shrink-0 flex-wrap gap-2">{!hasMainDoc && legacySeedBlocks.length > 0 && <button onClick={()=>{setSeedNewDoc(true);setNewDoc(true);}} className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3.5 py-2 text-xs font-bold text-white" title="Converts the existing overview, verdict, fees and other written content into editable builder sections"><Sparkles size={13}/> Load existing content into builder</button>}<button onClick={()=>{setSeedNewDoc(false);setNewDoc(true);}} className="inline-flex items-center gap-1.5 rounded-xl bg-ink-950 px-3.5 py-2 text-xs font-bold text-white"><Plus size={13}/> Add section</button></div></div>
             <div className="mt-4 divide-y divide-line overflow-hidden rounded-xl border border-line bg-white">
               {richDocs.map(d=><div key={d.id} className="flex items-center gap-3 px-4 py-3"><div className="min-w-0 flex-1"><p className="truncate text-sm font-bold text-ink-900">{d.title || d.content_key}</p><p className="truncate text-[11px] text-slate-400">{d.slug} · {d.published?'Published':'Draft'} · {d.indexable?'Indexable':'Noindex'}</p></div><Link to={`/brokers/${broker.slug}`} target="_blank" className="rounded-lg p-2 text-slate-400 hover:bg-paper hover:text-ink-900" title="View live"><Eye size={15}/></Link><button onClick={()=>setEditingDoc(d)} className="rounded-lg p-2 text-slate-400 hover:bg-emerald-50 hover:text-emerald-700" title="Edit"><Pencil size={15}/></button><button onClick={()=>deleteDoc(d)} className="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600" title="Delete"><Trash2 size={15}/></button></div>)}
               {!richDocs.length&&<p className="p-5 text-sm text-slate-400">No rich broker sections yet. Add the main review first, then add sections such as Fees, Platforms, Safety, Best For or FAQs.</p>}
@@ -878,12 +937,12 @@ function BrokerContentEditor({ broker, token, onClose, onSave }: { broker: Broke
       </div>
       <div className="flex justify-end border-t border-line bg-white px-5 py-4"><button onClick={onClose} className="rounded-xl border border-line px-4 py-2 text-xs font-bold text-slate-600">Close</button></div>
     </div>
-    {(editingDoc || newDoc) && <BrokerRichDocEditor broker={broker} token={token} document={editingDoc} onClose={()=>{setEditingDoc(null);setNewDoc(false)}} onSave={saveDoc}/>} 
+    {(editingDoc || newDoc) && <BrokerRichDocEditor broker={broker} token={token} document={editingDoc} seedBlocks={!editingDoc && seedNewDoc ? legacySeedBlocks : undefined} seedTitle={!editingDoc && seedNewDoc ? `${broker.name} — Full Profile` : undefined} onClose={()=>{setEditingDoc(null);setNewDoc(false);setSeedNewDoc(false)}} onSave={saveDoc}/>} 
   </div>;
 }
 
-function BrokerRichDocEditor({ broker, token, document, onClose, onSave }: { broker: Broker; token: string; document: ContentDocument | null; onClose:()=>void; onSave:(doc:any,isNew:boolean)=>Promise<void> }) {
-  const [form,setForm]=useState<any>(()=>document ? {...document} : {content_key:`broker:${broker.slug}:main`,content_type:'broker',slug:'main',title:`${broker.name} Review`,excerpt:'',html:'',blocks:[],seo_title:`${broker.name} Review 2026 | PipRank`,seo_description:`Read the PipRank ${broker.name} review, including costs, platforms, regulation and who it may suit.`,indexable:true,published:true});
+function BrokerRichDocEditor({ broker, token, document, seedBlocks, seedTitle, onClose, onSave }: { broker: Broker; token: string; document: ContentDocument | null; seedBlocks?: PageBlock[]; seedTitle?: string; onClose:()=>void; onSave:(doc:any,isNew:boolean)=>Promise<void> }) {
+  const [form,setForm]=useState<any>(()=>document ? {...document} : {content_key:`broker:${broker.slug}:main`,content_type:'broker',slug:'main',title:seedTitle||`${broker.name} Review`,excerpt:'',html:'',blocks:seedBlocks&&seedBlocks.length?seedBlocks:[],seo_title:`${broker.name} Review 2026 | PipRank`,seo_description:`Read the PipRank ${broker.name} review, including costs, platforms, regulation and who it may suit.`,indexable:true,published:true});
   const [busy,setBusy]=useState(false); const [err,setErr]=useState('');
   const [builderBlocks,setBuilderBlocks]=useState<any[]>(()=>Array.isArray(form.blocks)&&form.blocks.length?form.blocks:(form.html?[{id:'legacy',type:'richtext',html:form.html}]:[]));
   const uploadImage=async(file:File)=>{const reader=new FileReader(); const data=await new Promise<string>((resolve,reject)=>{reader.onload=()=>resolve(String(reader.result));reader.onerror=reject;reader.readAsDataURL(file)}); const res=await fetch('/api/content-assets',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({filename:file.name,contentType:file.type,dataBase64:data})}); const out=await res.json().catch(()=>({})); if(!res.ok) throw new Error(out.error||'Image upload failed'); return out.url;};
@@ -968,7 +1027,7 @@ function CommercialHub({ token, brokers, notify }: { token: string; brokers: Bro
   return <div className="space-y-5"><div className="rounded-2xl border border-line bg-white p-4"><div className="flex flex-wrap gap-2">{(['affiliate','promos','conversions'] as const).map((key)=><button key={key} onClick={()=>setSection(key)} className={`rounded-xl px-4 py-2 text-xs font-bold transition ${section===key?'bg-ink-950 text-white':'bg-paper text-slate-500 hover:bg-white'}`}>{key==='affiliate'?'Affiliate links':key==='promos'?'Promotions':'Conversions'}</button>)}</div></div>{section==='affiliate'&&<AffiliateLinksTab token={token} brokers={brokers} notify={notify}/>} {section==='promos'&&<PromosTab token={token} brokers={brokers} notify={notify}/>} {section==='conversions'&&<ConversionsTab token={token} brokers={brokers}/>}</div>;
 }
 
-function CountryHub({ countries, brokers, countryBestFors, contentDocs, onNewCountry, onEditCountry, onEditCountryBestFor, onEditContentDoc }: { countries: CountryPage[]; brokers: Broker[]; countryBestFors: CountryBestFor[]; contentDocs: ContentDocument[]; onNewCountry: () => void; onEditCountry: (country: CountryPage) => void; onEditCountryBestFor: (page: CountryBestFor) => void; onEditContentDoc: (doc: ContentDocument) => void }) {
+function CountryHub({ countries, brokers, countryBestFors, contentDocs, countryLanguages, localizedPages, token, notify, reloadLocalization, onNewCountry, onEditCountry, onEditCountryBestFor, onEditContentDoc, onNewCountryContentDoc, onSeedCountryBestFor }: { countries: CountryPage[]; brokers: Broker[]; countryBestFors: CountryBestFor[]; contentDocs: ContentDocument[]; countryLanguages: CountryLanguage[]; localizedPages: LocalizedSeoPage[]; token: string; notify: (msg: string) => void; reloadLocalization: () => void; onNewCountry: () => void; onEditCountry: (country: CountryPage) => void; onEditCountryBestFor: (page: CountryBestFor) => void; onEditContentDoc: (doc: ContentDocument) => void; onNewCountryContentDoc: (countrySlug: string) => void; onSeedCountryBestFor: (key: string, page: CountryBestFor, blocks: PageBlock[]) => void }) {
   const [query, setQuery] = useState('');
   const [selectedSlug, setSelectedSlug] = useState(() => countries[0]?.slug ?? '');
   useEffect(() => { if (!selectedSlug && countries[0]) setSelectedSlug(countries[0].slug); }, [countries, selectedSlug]);
@@ -977,7 +1036,359 @@ function CountryHub({ countries, brokers, countryBestFors, contentDocs, onNewCou
   const bestFor = selected ? countryBestFors.filter((page) => page.country_id === selected.id || page.country_slug === selected.slug) : [];
   const docs = selected ? contentDocs.filter((doc) => doc.country_slug === selected.slug || doc.content_key.includes(`:${selected.slug}:`) || doc.slug === selected.slug) : [];
   const publishedState = String((selected as any)?.publishing_state ?? ((selected as any)?.status ?? 'published'));
-  return <div className="grid gap-5 lg:grid-cols-[300px_1fr]"><section className="rounded-2xl border border-line bg-white p-4"><div className="flex items-center justify-between"><h2 className="font-display text-lg font-bold text-ink-900">Countries</h2><button onClick={onNewCountry} className="rounded-lg bg-ink-950 px-3 py-1.5 text-xs font-bold text-white"><Plus size={13} className="inline"/> New</button></div><div className="mt-3 flex items-center gap-2 rounded-xl border border-line bg-paper px-3"><Search size={14} className="text-slate-400"/><input value={query} onChange={(e)=>setQuery(e.target.value)} placeholder="Search countries…" className="h-10 flex-1 bg-transparent text-sm outline-none"/></div><div className="mt-3 max-h-[560px] space-y-1 overflow-auto">{filtered.map((country)=><button key={country.id} onClick={()=>setSelectedSlug(country.slug)} className={`w-full rounded-xl px-3 py-2 text-left text-sm transition ${selected?.id===country.id?'bg-emerald-50 text-emerald-800':'hover:bg-paper'}`}><span className="font-bold">{country.flag} {country.name}</span><span className="block text-xs text-slate-400">/{country.slug}</span></button>)}</div></section>{selected&&<section className="space-y-5"><div className="rounded-2xl border border-line bg-white p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Country Workspace</p><h2 className="font-display text-2xl font-bold text-ink-900">{selected.flag} {selected.name}</h2><p className="mt-1 text-sm text-slate-500">Overview, publishing, SEO, brokers, best-for pages, guides, FAQs and internal links in one place.</p></div><button onClick={()=>onEditCountry(selected)} className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-4 py-2 text-xs font-bold text-white"><Pencil size={14}/> Edit country hub</button></div><div className="mt-4 grid gap-3 sm:grid-cols-3"><HubMetric label="Publishing" value={publishedState} sub="draft · published · closed"/><HubMetric label="Best-For" value={String(bestFor.length)} sub="country category pages"/><HubMetric label="Country content" value={String(docs.length)} sub="guides and SEO docs"/></div></div><div className="grid gap-5 xl:grid-cols-2"><EntityPanel title="SEO QA" items={[selected.seo_title?'SEO title present':'Missing SEO title',selected.seo_description?'Meta description present':'Missing meta description',(selected.seo_intro?.length||0)>0?'Intro present':'Missing SEO intro',(selected.seo_sections?.length||0)>0?'Structured sections present':'Missing sections',(selected.seo_faqs?.length||0)>0?'FAQs present':'Missing FAQs']}/><EntityPanel title="Broker coverage" items={[`${selected.recommended.length} recommended brokers`,`${selected.unavailable.length} unavailable broker flags`,`${brokers.length} brokers in database`,'Use Broker Workspace for searchable eligibility states']}/></div><div className="rounded-2xl border border-line bg-white p-5"><h3 className="font-display text-lg font-bold text-ink-900">Best-For pages</h3><div className="mt-3 divide-y divide-line rounded-xl border border-line">{bestFor.map((page)=><button key={page.id} onClick={()=>onEditCountryBestFor(page)} className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-paper"><span><span className="block text-sm font-bold text-ink-900">{page.label}</span><span className="text-xs text-slate-400">/{selected.slug}/{page.slug} · {page.indexable?'Indexable':'Noindex'}</span></span><Pencil size={14} className="text-slate-400"/></button>)}{!bestFor.length&&<p className="p-4 text-sm text-slate-400">No country best-for pages yet.</p>}</div></div><div className="rounded-2xl border border-line bg-white p-5"><h3 className="font-display text-lg font-bold text-ink-900">Country guides and SEO content</h3><div className="mt-3 divide-y divide-line rounded-xl border border-line">{docs.map((doc)=><button key={doc.id} onClick={()=>onEditContentDoc(doc)} className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-paper"><span><span className="block text-sm font-bold text-ink-900">{doc.title || doc.content_key}</span><span className="text-xs text-slate-400">{doc.content_type} · {doc.published?'Published':'Draft'} · {doc.indexable?'Indexable':'Noindex'}</span></span><Pencil size={14} className="text-slate-400"/></button>)}{!docs.length&&<p className="p-4 text-sm text-slate-400">No country-specific rich content found.</p>}</div></div></section>}</div>;
+  return <div className="grid gap-5 lg:grid-cols-[300px_1fr]"><section className="rounded-2xl border border-line bg-white p-4"><div className="flex items-center justify-between"><h2 className="font-display text-lg font-bold text-ink-900">Countries</h2><button onClick={onNewCountry} className="rounded-lg bg-ink-950 px-3 py-1.5 text-xs font-bold text-white"><Plus size={13} className="inline"/> New</button></div><div className="mt-3 flex items-center gap-2 rounded-xl border border-line bg-paper px-3"><Search size={14} className="text-slate-400"/><input value={query} onChange={(e)=>setQuery(e.target.value)} placeholder="Search countries…" className="h-10 flex-1 bg-transparent text-sm outline-none"/></div><div className="mt-3 max-h-[560px] space-y-1 overflow-auto">{filtered.map((country)=><button key={country.id} onClick={()=>setSelectedSlug(country.slug)} className={`w-full rounded-xl px-3 py-2 text-left text-sm transition ${selected?.id===country.id?'bg-emerald-50 text-emerald-800':'hover:bg-paper'}`}><span className="font-bold">{country.flag} {country.name}</span><span className="block text-xs text-slate-400">/{country.slug}</span></button>)}</div></section>{selected&&<section className="space-y-5"><div className="rounded-2xl border border-line bg-white p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Country Workspace</p><h2 className="font-display text-2xl font-bold text-ink-900">{selected.flag} {selected.name}</h2><p className="mt-1 text-sm text-slate-500">Overview, publishing, SEO, brokers, best-for pages, guides, FAQs and internal links in one place.</p></div><button onClick={()=>onEditCountry(selected)} className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-4 py-2 text-xs font-bold text-white"><Pencil size={14}/> Edit country hub</button></div><div className="mt-4 grid gap-3 sm:grid-cols-3"><HubMetric label="Publishing" value={publishedState} sub="draft · published · closed"/><HubMetric label="Best-For" value={String(bestFor.length)} sub="country category pages"/><HubMetric label="Country content" value={String(docs.length)} sub="guides and SEO docs"/></div></div><div className="grid gap-5 xl:grid-cols-2"><EntityPanel title="SEO QA" items={[selected.seo_title?'SEO title present':'Missing SEO title',selected.seo_description?'Meta description present':'Missing meta description',(selected.seo_intro?.length||0)>0?'Intro present':'Missing SEO intro',(selected.seo_sections?.length||0)>0?'Structured sections present':'Missing sections',(selected.seo_faqs?.length||0)>0?'FAQs present':'Missing FAQs']}/><EntityPanel title="Broker coverage" items={[`${selected.recommended.length} recommended brokers`,`${selected.unavailable.length} unavailable broker flags`,`${brokers.length} brokers in database`,'Use Broker Workspace for searchable eligibility states']}/></div><div className="rounded-2xl border border-line bg-white p-5"><h3 className="font-display text-lg font-bold text-ink-900">Best-For pages</h3><div className="mt-3 divide-y divide-line rounded-xl border border-line">{bestFor.map((page)=>{const key=`best-for:${selected.slug}:${page.slug}`;const existingDoc=contentDocs.find((d)=>d.content_key===key);const seedBlocks=legacySectionsToBlocks(introCriteriaToLegacySections(page.intro,page.criteria,page.sections));return <div key={page.id} className="flex items-center justify-between px-4 py-3"><button onClick={()=>onEditCountryBestFor(page)} className="min-w-0 flex-1 text-left"><span className="block text-sm font-bold text-ink-900">{page.label}</span><span className="text-xs text-slate-400">/{selected.slug}/{page.slug} · {page.indexable?'Indexable':'Noindex'}</span></button><div className="flex shrink-0 items-center gap-1">{existingDoc?<button onClick={()=>onEditContentDoc(existingDoc)} className="rounded-lg p-2 text-slate-400 hover:bg-emerald-50 hover:text-emerald-700" title="Edit in visual builder"><Sparkles size={14}/></button>:seedBlocks.length>0?<button onClick={()=>onSeedCountryBestFor(key,page,seedBlocks)} className="rounded-lg p-2 text-slate-400 hover:bg-emerald-50 hover:text-emerald-700" title="Load existing content into builder"><Sparkles size={14}/></button>:null}<button onClick={()=>onEditCountryBestFor(page)} className="rounded-lg p-2 text-slate-400 hover:bg-paper"><Pencil size={14}/></button></div></div>;})}{!bestFor.length&&<p className="p-4 text-sm text-slate-400">No country best-for pages yet.</p>}</div></div><div className="rounded-2xl border border-line bg-white p-5"><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-display text-lg font-bold text-ink-900">Country guides and SEO content</h3><button onClick={()=>onNewCountryContentDoc(selected.slug)} className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3.5 py-1.5 text-xs font-bold text-white"><Plus size={13}/> Add new page</button></div><div className="mt-3 divide-y divide-line rounded-xl border border-line">{docs.map((doc)=><button key={doc.id} onClick={()=>onEditContentDoc(doc)} className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-paper"><span><span className="block text-sm font-bold text-ink-900">{doc.title || doc.content_key}</span><span className="text-xs text-slate-400">{doc.content_type} · {doc.published?'Published':'Draft'} · {doc.indexable?'Indexable':'Noindex'}</span></span><Pencil size={14} className="text-slate-400"/></button>)}{!docs.length&&<p className="p-4 text-sm text-slate-400">No country-specific rich content found.</p>}</div></div><CountryLanguagesPanel country={selected} countryLanguages={countryLanguages} localizedPages={localizedPages} token={token} notify={notify} reload={reloadLocalization} onEditContentDoc={onEditContentDoc}/></section>}</div>;
+}
+
+function CountryLanguagesPanel({ country, countryLanguages, localizedPages, token, notify, reload, onEditContentDoc }: { country: CountryPage; countryLanguages: CountryLanguage[]; localizedPages: LocalizedSeoPage[]; token: string; notify: (msg: string) => void; reload: () => void; onEditContentDoc: (doc: ContentDocument) => void }) {
+  const [adding, setAdding] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [editingLang, setEditingLang] = useState<CountryLanguage | null>(null);
+  const [newLang, setNewLang] = useState({ name: '', native_name: '', code: '', locale: '', url_prefix: '', is_default: false });
+  const [editingPage, setEditingPage] = useState<LocalizedSeoPage | null>(null);
+
+  const languages = countryLanguages.filter((l) => l.country_slug === country.slug);
+  const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
+  const input = 'h-9 w-full rounded-lg border border-line bg-paper px-2.5 text-xs font-medium outline-none focus:border-emerald-500';
+
+  const addLanguage = async () => {
+    if (!newLang.name.trim() || !newLang.native_name.trim() || !newLang.code.trim() || !newLang.locale.trim()) {
+      notify('Name, native name, code and locale are required');
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await fetch('/api/country-languages', { method: 'POST', headers, body: JSON.stringify({ ...newLang, country_id: country.id }) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Could not add language');
+      notify(`${newLang.name} added — draft localized pages created`);
+      setAdding(false);
+      setNewLang({ name: '', native_name: '', code: '', locale: '', url_prefix: '', is_default: false });
+      reload();
+    } catch (e) {
+      notify(e instanceof Error ? e.message : 'Could not add language');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const saveLanguage = async () => {
+    if (!editingLang) return;
+    setBusy(true);
+    try {
+      const res = await fetch('/api/country-languages', { method: 'PUT', headers, body: JSON.stringify(editingLang) });
+      if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || 'Could not save language'); }
+      notify('Language saved');
+      setEditingLang(null);
+      reload();
+    } catch (e) {
+      notify(e instanceof Error ? e.message : 'Could not save language');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const deleteLanguage = async (lang: CountryLanguage) => {
+    if (!window.confirm(`Delete ${lang.name} and all its localized pages? This cannot be undone.`)) return;
+    setBusy(true);
+    try {
+      const res = await fetch('/api/country-languages', { method: 'DELETE', headers, body: JSON.stringify({ id: lang.id }) });
+      if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || 'Could not delete language'); }
+      notify(`${lang.name} deleted`);
+      reload();
+    } catch (e) {
+      notify(e instanceof Error ? e.message : 'Could not delete language');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="rounded-2xl border border-line bg-white p-5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h3 className="font-display text-lg font-bold text-ink-900">Languages</h3>
+          <p className="mt-0.5 text-xs text-slate-500">Localized SEO pages for {country.name}. Adding a language auto-creates draft pages for every commercial topic.</p>
+        </div>
+        <button onClick={() => setAdding((v) => !v)} className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3.5 py-1.5 text-xs font-bold text-white">
+          <Plus size={13} /> Add language
+        </button>
+      </div>
+
+      {adding && (
+        <div className="mt-4 grid gap-2 rounded-xl border border-line bg-paper p-4 sm:grid-cols-3">
+          <label><FieldLabel>Name</FieldLabel><input value={newLang.name} onChange={(e) => setNewLang({ ...newLang, name: e.target.value })} placeholder="Vietnamese" className={input} /></label>
+          <label><FieldLabel>Native name</FieldLabel><input value={newLang.native_name} onChange={(e) => setNewLang({ ...newLang, native_name: e.target.value })} placeholder="Tiếng Việt" className={input} /></label>
+          <label><FieldLabel>Code</FieldLabel><input value={newLang.code} onChange={(e) => setNewLang({ ...newLang, code: e.target.value })} placeholder="vi" className={input} /></label>
+          <label><FieldLabel>Locale</FieldLabel><input value={newLang.locale} onChange={(e) => setNewLang({ ...newLang, locale: e.target.value })} placeholder="vi-VN" className={input} /></label>
+          <label><FieldLabel hint="Used in the URL, e.g. /vn/vi/...">URL prefix</FieldLabel><input value={newLang.url_prefix} onChange={(e) => setNewLang({ ...newLang, url_prefix: e.target.value })} placeholder="vi" className={input} /></label>
+          <label className="flex items-center gap-2 pt-5"><input type="checkbox" checked={newLang.is_default} onChange={(e) => setNewLang({ ...newLang, is_default: e.target.checked })} /><span className="text-xs font-semibold text-slate-600">Default language</span></label>
+          <div className="sm:col-span-3 flex justify-end gap-2">
+            <button onClick={() => setAdding(false)} className="rounded-lg px-3 py-1.5 text-xs font-bold text-slate-500 hover:bg-white">Cancel</button>
+            <button onClick={addLanguage} disabled={busy} className="inline-flex items-center gap-1.5 rounded-lg bg-ink-950 px-3.5 py-1.5 text-xs font-bold text-white disabled:opacity-50">{busy && <Loader2 size={12} className="animate-spin" />} Add language</button>
+          </div>
+        </div>
+      )}
+
+      <div className="mt-4 space-y-3">
+        {languages.map((lang) => {
+          const pages = localizedPages.filter((p) => p.language_code === lang.code && p.country_slug === country.slug);
+          const isEditing = editingLang?.id === lang.id;
+          return (
+            <div key={lang.id} className="rounded-xl border border-line">
+              <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
+                {isEditing ? (
+                  <div className="grid flex-1 gap-2 sm:grid-cols-3">
+                    <input value={editingLang.name} onChange={(e) => setEditingLang({ ...editingLang, name: e.target.value })} className={input} />
+                    <input value={editingLang.native_name} onChange={(e) => setEditingLang({ ...editingLang, native_name: e.target.value })} className={input} />
+                    <input value={editingLang.url_prefix} onChange={(e) => setEditingLang({ ...editingLang, url_prefix: e.target.value })} className={input} />
+                  </div>
+                ) : (
+                  <span>
+                    <span className="text-sm font-bold text-ink-900">{lang.name} <span className="font-normal text-slate-400">({lang.native_name})</span></span>
+                    {lang.is_default && <span className="ml-2 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">Default</span>}
+                    <span className="ml-2 rounded-full bg-paper px-2 py-0.5 text-[10px] font-bold text-slate-500">/{lang.url_prefix}</span>
+                    {!lang.active && <span className="ml-2 rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-600">Inactive</span>}
+                  </span>
+                )}
+                <div className="flex shrink-0 items-center gap-1">
+                  {isEditing ? (
+                    <>
+                      <button onClick={saveLanguage} disabled={busy} className="rounded-lg bg-ink-950 px-2.5 py-1.5 text-[11px] font-bold text-white disabled:opacity-50">Save</button>
+                      <button onClick={() => setEditingLang(null)} className="rounded-lg px-2.5 py-1.5 text-[11px] font-bold text-slate-500 hover:bg-paper">Cancel</button>
+                    </>
+                  ) : (
+                    <>
+                      <button onClick={() => setEditingLang({ ...lang, active: !lang.active })} className="rounded-lg px-2.5 py-1.5 text-[11px] font-bold text-slate-500 hover:bg-paper">{lang.active ? 'Deactivate' : 'Activate'}</button>
+                      <button onClick={() => setEditingLang(lang)} className="rounded-lg p-1.5 text-slate-400 hover:bg-paper" title="Manage language"><Pencil size={13} /></button>
+                      <button onClick={() => deleteLanguage(lang)} className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600" title="Delete language"><Trash2 size={13} /></button>
+                    </>
+                  )}
+                </div>
+              </div>
+              <div className="divide-y divide-line border-t border-line">
+                {pages.map((page) => (
+                  <button key={page.id} onClick={() => setEditingPage(page)} className="flex w-full items-center justify-between px-4 py-2.5 text-left hover:bg-paper">
+                    <span><span className="block text-xs font-bold text-ink-900">{page.title || page.slug}</span><span className="text-[11px] text-slate-400">{page.topic_key} · {page.published ? 'Published' : 'Draft'} · {page.indexable ? 'Indexable' : 'Noindex'}</span></span>
+                    <Pencil size={12} className="text-slate-400" />
+                  </button>
+                ))}
+                {!pages.length && <p className="px-4 py-3 text-xs text-slate-400">No localized pages for this language yet.</p>}
+              </div>
+            </div>
+          );
+        })}
+        {!languages.length && <p className="rounded-xl border border-dashed border-line p-4 text-center text-xs text-slate-400">No languages added for {country.name} yet.</p>}
+      </div>
+
+      {editingPage && (
+        <LocalizedPageEditor
+          page={editingPage}
+          token={token}
+          notify={notify}
+          onClose={() => setEditingPage(null)}
+          onSaved={() => { setEditingPage(null); reload(); }}
+          onEditContentDoc={onEditContentDoc}
+        />
+      )}
+    </div>
+  );
+}
+
+function LocalizedPageEditor({ page, token, notify, onClose, onSaved, onEditContentDoc }: { page: LocalizedSeoPage; token: string; notify: (msg: string) => void; onClose: () => void; onSaved: () => void; onEditContentDoc: (doc: ContentDocument) => void }) {
+  const [form, setForm] = useState<any>({ ...page });
+  const [busy, setBusy] = useState(false);
+  const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
+  const input = 'h-10 w-full rounded-xl border border-line bg-paper px-3 text-sm outline-none focus:border-emerald-500';
+
+  const save = async () => {
+    setBusy(true);
+    try {
+      const res = await fetch('/api/localized-seo-pages', { method: 'PUT', headers, body: JSON.stringify(form) });
+      if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || 'Could not save page'); }
+      notify('Localized page saved');
+      onSaved();
+    } catch (e) {
+      notify(e instanceof Error ? e.message : 'Could not save page');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // First time the admin wants the visual builder for this page's body,
+  // seed a real content_documents record from the existing plain-text
+  // content, then link it back via content_document_id — matching the same
+  // "load existing content into blocks" pattern used for brokers and
+  // country SEO pages.
+  const openInBuilder = async () => {
+    if (form.content_document_id) {
+      notify("Open this page's linked rich content from Country guides and SEO content to edit it.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const seedBlocks = form.content && form.content.trim()
+        ? legacySectionsToBlocks([{ paragraphs: form.content.split(/\n{2,}/) }])
+        : [];
+      const seedFaqBlocks = faqsToBlocks(form.faqs ?? []);
+      const res = await fetch('/api/content-documents', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          content_key: `localized:${form.country_slug}:${form.language_code}:${form.topic_key}`,
+          content_type: 'localized-seo',
+          country_slug: form.country_slug,
+          topic_slug: form.topic_key,
+          slug: form.slug,
+          title: form.title,
+          excerpt: '',
+          html: '',
+          blocks: [...seedBlocks, ...seedFaqBlocks],
+          seo_title: form.meta_title || '',
+          seo_description: form.meta_description || '',
+          indexable: form.indexable,
+          published: form.published,
+        }),
+      });
+      const doc = await res.json().catch(() => null);
+      if (!res.ok) throw new Error((doc as { error?: string })?.error || 'Could not create rich content');
+      const linkRes = await fetch('/api/localized-seo-pages', { method: 'PUT', headers, body: JSON.stringify({ id: form.id, content_document_id: doc.id }) });
+      if (!linkRes.ok) throw new Error('Content created but could not be linked to this page');
+      notify('Existing content loaded into the visual builder');
+      onEditContentDoc(doc as ContentDocument);
+    } catch (e) {
+      notify(e instanceof Error ? e.message : 'Could not open visual builder');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <DrawerShell title={`${form.title || form.slug} — ${form.language_name ?? ''}`} onClose={onClose}>
+      <div className="space-y-4">
+        <label><FieldLabel>Title</FieldLabel><input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className={input} /></label>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label><FieldLabel>SEO title</FieldLabel><input value={form.meta_title ?? ''} onChange={(e) => setForm({ ...form, meta_title: e.target.value })} className={input} /></label>
+          <label><FieldLabel>H1</FieldLabel><input value={form.h1 ?? ''} onChange={(e) => setForm({ ...form, h1: e.target.value })} className={input} /></label>
+        </div>
+        <label><FieldLabel>Meta description</FieldLabel><textarea value={form.meta_description ?? ''} onChange={(e) => setForm({ ...form, meta_description: e.target.value })} rows={2} className="w-full rounded-xl border border-line bg-paper px-3 py-2.5 text-sm outline-none focus:border-emerald-500" /></label>
+        <div className="rounded-xl border border-line bg-paper p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-bold text-ink-900">Page body</p>
+              <p className="text-xs text-slate-500">{form.content_document_id ? 'This page already uses the visual builder.' : 'Currently plain text. Load it into the same visual builder used everywhere else.'}</p>
+            </div>
+            {!form.content_document_id && (
+              <button onClick={openInBuilder} disabled={busy} className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3.5 py-2 text-xs font-bold text-white disabled:opacity-50">
+                {busy && <Loader2 size={12} className="animate-spin" />} <Sparkles size={13} /> Load into builder
+              </button>
+            )}
+          </div>
+          {!form.content_document_id && (
+            <textarea value={form.content ?? ''} onChange={(e) => setForm({ ...form, content: e.target.value })} rows={6} className="mt-3 w-full rounded-xl border border-line bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-500" placeholder="Plain-text content (legacy)" />
+          )}
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="flex items-center justify-between rounded-xl border border-line bg-paper p-4"><span className="text-sm font-bold">Publish</span><Toggle on={!!form.published} onToggle={() => setForm({ ...form, published: !form.published })} /></label>
+          <label className="flex items-center justify-between rounded-xl border border-line bg-paper p-4"><span className="text-sm font-bold">Index page</span><Toggle on={!!form.indexable} onToggle={() => setForm({ ...form, indexable: !form.indexable })} /></label>
+        </div>
+        <button onClick={save} disabled={busy} className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-ink-950 text-sm font-bold text-white disabled:opacity-60">{busy && <Loader2 size={15} className="animate-spin" />}Save localized page</button>
+      </div>
+    </DrawerShell>
+  );
+}
+
+function GlobalHub({ guides, intents, contentDocs, token, notify, onNewGuide, onEditGuide, onNewIntent, onEditIntent, onEditContentDoc }: { guides: Guide[]; intents: Intent[]; contentDocs: ContentDocument[]; token: string; notify: (msg: string) => void; onNewGuide: () => void; onEditGuide: (g: Guide) => void; onNewIntent: () => void; onEditIntent: (i: Intent) => void; onEditContentDoc: (d: ContentDocument) => void }) {
+  const [seeding, setSeeding] = useState<string | null>(null);
+  const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
+
+  const docFor = (key: string) => contentDocs.find((d) => d.content_key === key);
+
+  const seed = async (key: string, contentType: string, title: string, seedBlocks: PageBlock[], topicSlug: string) => {
+    if (!seedBlocks.length) { notify('Nothing to convert yet — this page has no written content.'); return; }
+    setSeeding(key);
+    try {
+      const res = await fetch('/api/content-documents', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ content_key: key, content_type: contentType, country_slug: null, topic_slug: topicSlug, slug: topicSlug, title, excerpt: '', html: '', blocks: seedBlocks, seo_title: '', seo_description: '', indexable: true, published: true }),
+      });
+      const doc = await res.json().catch(() => null);
+      if (!res.ok) throw new Error((doc as { error?: string })?.error || 'Could not create rich content');
+      notify('Existing content loaded into the visual builder');
+      onEditContentDoc(doc as ContentDocument);
+    } catch (e) {
+      notify(e instanceof Error ? e.message : 'Could not open visual builder');
+    } finally {
+      setSeeding(null);
+    }
+  };
+
+  return (
+    <div className="grid gap-5 lg:grid-cols-2">
+      <div className="rounded-2xl border border-line bg-white shadow-soft">
+        <div className="flex items-center justify-between border-b border-line px-5 py-4">
+          <p className="font-display text-base font-bold text-ink-900">Guides ({guides.length})</p>
+          <button onClick={onNewGuide} className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3.5 py-1.5 text-xs font-bold text-white transition hover:bg-emerald-600"><Plus size={13} /> New guide</button>
+        </div>
+        <div className="divide-y divide-line">
+          {guides.map((g) => {
+            const key = `guide:${g.slug}`;
+            const existing = docFor(key);
+            const seedBlocks = legacySectionsToBlocks(guideSectionsToLegacySections(g.sections));
+            return (
+              <div key={g.id} className="flex items-center gap-3 px-5 py-3.5">
+                <img src={g.image} alt="" className="h-10 w-16 shrink-0 rounded-lg object-cover" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-bold text-ink-900">{g.title}</p>
+                  <p className="text-xs text-slate-400">{g.category} · {g.level} · {g.minutes} min</p>
+                </div>
+                {existing ? (
+                  <button onClick={() => onEditContentDoc(existing)} className="rounded-lg p-2 text-slate-400 hover:bg-emerald-50 hover:text-emerald-700" title="Edit in visual builder"><Sparkles size={14} /></button>
+                ) : seedBlocks.length > 0 ? (
+                  <button onClick={() => seed(key, 'guide', g.title, seedBlocks, g.slug)} disabled={seeding === key} className="rounded-lg p-2 text-slate-400 hover:bg-emerald-50 hover:text-emerald-700 disabled:opacity-50" title="Load existing content into builder">
+                    {seeding === key ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                  </button>
+                ) : null}
+                <button onClick={() => onEditGuide(g)} className="rounded-lg p-2 text-slate-400 hover:bg-paper hover:text-ink-900" title="Edit guide details"><Pencil size={14} /></button>
+              </div>
+            );
+          })}
+          {!guides.length && <p className="p-5 text-sm text-slate-400">No guides yet.</p>}
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-line bg-white shadow-soft">
+        <div className="flex items-center justify-between border-b border-line px-5 py-4">
+          <p className="font-display text-base font-bold text-ink-900">Best-For pages ({intents.length})</p>
+          <button onClick={onNewIntent} className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3.5 py-1.5 text-xs font-bold text-white transition hover:bg-emerald-600"><Plus size={13} /> New page</button>
+        </div>
+        <div className="divide-y divide-line">
+          {intents.map((i) => {
+            const key = `best-for:${i.slug}`;
+            const existing = docFor(key);
+            const seedBlocks = legacySectionsToBlocks(introCriteriaToLegacySections(i.intro, i.criteria, i.sections));
+            return (
+              <div key={i.id} className="flex items-center gap-3 px-5 py-3.5">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-bold text-ink-900">{i.label}</p>
+                  <p className="text-xs text-slate-400">/best/{i.slug}</p>
+                </div>
+                {existing ? (
+                  <button onClick={() => onEditContentDoc(existing)} className="rounded-lg p-2 text-slate-400 hover:bg-emerald-50 hover:text-emerald-700" title="Edit in visual builder"><Sparkles size={14} /></button>
+                ) : seedBlocks.length > 0 ? (
+                  <button onClick={() => seed(key, 'best-for', i.label, seedBlocks, i.slug)} disabled={seeding === key} className="rounded-lg p-2 text-slate-400 hover:bg-emerald-50 hover:text-emerald-700 disabled:opacity-50" title="Load existing content into builder">
+                    {seeding === key ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                  </button>
+                ) : null}
+                <button onClick={() => onEditIntent(i)} className="rounded-lg p-2 text-slate-400 hover:bg-paper hover:text-ink-900" title="Edit page details"><Pencil size={14} /></button>
+              </div>
+            );
+          })}
+          {!intents.length && <p className="p-5 text-sm text-slate-400">No best-for pages yet.</p>}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function AuthorHub({ authors, allContent, onNewAuthor, onEditAuthor }: { authors: ContentDocument[]; allContent: ContentDocument[]; onNewAuthor: () => void; onEditAuthor: (doc: ContentDocument) => void }) {
@@ -2654,15 +3065,16 @@ function ContentTab({
 
 /* ======================= RICH CONTENT EDITOR ======================= */
 
-function ContentDocumentEditor({ document, countries, token, onClose, onSave }: {
+function ContentDocumentEditor({ document, countries, token, defaultCountrySlug, onClose, onSave }: {
   document: ContentDocument | null;
   countries: CountryPage[];
   token: string;
+  defaultCountrySlug?: string;
   onClose: () => void;
   onSave: (fields: Record<string, unknown>, isNew: boolean) => Promise<void>;
 }) {
   const [form, setForm] = useState(() => document ? { ...document } : {
-    content_key: '', content_type: 'country-topic', country_slug: '', topic_slug: '', slug: '', title: '', excerpt: '', html: '', blocks: [] as PageBlock[], seo_title: '', seo_description: '', indexable: true, published: true,
+    content_key: '', content_type: 'country-topic', country_slug: defaultCountrySlug || '', topic_slug: '', slug: '', title: '', excerpt: '', html: '', blocks: [] as PageBlock[], seo_title: '', seo_description: '', indexable: true, published: true,
   });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
