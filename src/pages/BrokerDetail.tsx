@@ -16,8 +16,8 @@ import {
   ThumbsUp,
   X,
 } from 'lucide-react';
-import type { Broker, BrokerContent, BrokerCountryVerification, PlatformDetail, Review, ContentDocument } from '../lib/types';
-import { createReview, fetchBroker, fetchBrokerContent, fetchBrokers, fetchBrokerVerification, fetchCountries, fetchReviews, fetchContentDocument, voteHelpful } from '../lib/api';
+import type { Broker, BrokerContent, BrokerCountryAvailability, BrokerCountryVerification, PlatformDetail, Review, ContentDocument } from '../lib/types';
+import { createReview, fetchBroker, fetchBrokerAvailability, fetchBrokerContent, fetchBrokers, fetchBrokerVerification, fetchReviews, fetchContentDocument, voteHelpful } from '../lib/api';
 import { blocksToHtml } from '../components/PageBuilder';
 import { track } from '../lib/track';
 import { getSupabase } from '../lib/supabase-lazy';
@@ -54,11 +54,11 @@ const HEALTH_LABELS: [keyof Broker['health'], string][] = [
 ];
 
 export default function BrokerDetail() {
-  const { slug } = useParams<{ slug: string }>();
+  const { slug, countrySlug } = useParams<{ slug: string; countrySlug?: string }>();
   const navigate = useNavigate();
   const [broker, setBroker] = useState<Broker | null>(null);
   const [all, setAll] = useState<Broker[]>([]);
-  const [countries, setCountries] = useState<import('../lib/types').CountryPage[]>([]);
+  const [availability, setAvailability] = useState<BrokerCountryAvailability[]>([]);
   const [verifications, setVerifications] = useState<BrokerCountryVerification[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [extras, setExtras] = useState<BrokerContent | null>(null);
@@ -81,6 +81,7 @@ export default function BrokerDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [openFaq, setOpenFaq] = useState(0);
+  const [reviewsExpanded, setReviewsExpanded] = useState(false);
   const [voted, setVoted] = useState<number[]>(() => {
     try {
       return JSON.parse(localStorage.getItem('piprank_voted') ?? '[]');
@@ -100,6 +101,7 @@ export default function BrokerDetail() {
     setError('');
     setFormDone(false);
     setExtras(null);
+    setAvailability([]);
     setPlatformTab(0);
     fetchBroker(slug)
       .then((b) => {
@@ -108,13 +110,18 @@ export default function BrokerDetail() {
         fetchBrokerContent(b.id).then(setExtras).catch(() => setExtras(null));
         fetchContentDocument(`broker:${b.slug}:main`).then(content => setRichProfile(content?.published ? content : null)).catch(() => setRichProfile(null));
         fetchBrokers().then(setAll).catch(() => {});
-        fetchCountries().then(setCountries).catch(() => {});
-        fetchBrokerVerification(b.id).then(setVerifications).catch(() => setVerifications([]));
+        if (countrySlug) {
+          fetchBrokerAvailability(b.id).then(setAvailability).catch(() => setAvailability([]));
+          fetchBrokerVerification(b.id, countrySlug).then(setVerifications).catch(() => setVerifications([]));
+        } else {
+          setAvailability([]);
+          setVerifications([]);
+        }
         track('broker_view', { broker: b.slug, name: b.name });
       })
       .catch((e) => setError(e instanceof Error ? e.message : 'Broker not found'))
       .finally(() => setLoading(false));
-  }, [slug]);
+  }, [slug, countrySlug]);
 
   // Full page metadata (title, description, canonical, OG, Twitter, JSON-LD).
   // useSEO is a no-op while seoInput is null (loading / not found); the
@@ -314,6 +321,17 @@ export default function BrokerDetail() {
       }
   );
   const activePlatform = platformContent[Math.min(platformTab, platformContent.length - 1)] ?? platformContent[0];
+  const countryAvailabilityBadge = countrySlug
+    ? verifications.find(
+        (verification) =>
+          verification.country_slug === countrySlug &&
+          verification.availability_verified &&
+          availability.some(
+            (entry) => entry.country_slug === countrySlug && entry.status === 'available'
+          )
+      )
+    : null;
+
 
   const accountRows = extras?.accounts?.length
     ? extras.accounts
@@ -368,9 +386,9 @@ export default function BrokerDetail() {
                     <ShieldCheck size={13} /> Tier-1 regulated
                   </span>
                 )}
-                {verifications.some((v) => v.country_slug === 'ghana' && v.availability_verified) && (
+                {countryAvailabilityBadge?.country_name && (
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-500/30 bg-sky-500/10 px-3 py-1 text-xs font-bold text-sky-200">
-                    <BadgeCheck size={13} /> Ghana availability verified
+                    <BadgeCheck size={13} /> {countryAvailabilityBadge.country_name} availability verified
                   </span>
                 )}
               </div>
@@ -388,9 +406,9 @@ export default function BrokerDetail() {
                   {ratingWord(broker.rating)}
                 </span>
               </div>
-            </div>
-            <div className="w-full sm:w-auto">
-              <VisitButton broker={broker} className="w-full" />
+              <div className="mt-4 sm:max-w-xs">
+                <VisitButton broker={broker} className="w-full" />
+              </div>
             </div>
           </div>
 
@@ -516,9 +534,8 @@ export default function BrokerDetail() {
                 <div key={item} className="rounded-xl bg-white px-4 py-3 text-sm font-semibold text-slate-700 ring-1 ring-emerald-100">Best for {item}</div>
               ))}
             </div>
-            <div className="mt-5 flex flex-wrap gap-3">
-              <VisitButton broker={broker} />
-              <Link to="/methodology" className="inline-flex items-center rounded-xl border border-line bg-white px-4 py-2.5 text-sm font-bold text-ink-900 hover:border-emerald-300">See how PipRank scores brokers</Link>
+            <div className="mt-5">
+              <VisitButton broker={broker} className="w-full" />
             </div>
           </section>
 
@@ -540,33 +557,6 @@ export default function BrokerDetail() {
                 <ul className="mt-3 space-y-2.5">
                   {broker.cons.slice(0, 5).map((c) => <li key={c} className="flex gap-2 text-sm leading-relaxed text-slate-700"><X size={15} className="mt-0.5 shrink-0 text-rose-500" />{c}</li>)}
                 </ul>
-              </div>
-            </div>
-          </section>
-
-          {/* COMMERCIAL INTERNAL-LINK MESH */}
-          <section className="rounded-3xl border border-line bg-white p-6 sm:p-8" aria-labelledby="explore-broker">
-            <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Continue researching</p>
-            <h2 id="explore-broker" className="mt-1 font-display text-2xl font-bold text-ink-900">Explore {broker.name} by country, trading style and alternatives</h2>
-            <div className="mt-5 grid gap-5 md:grid-cols-3">
-              <div>
-                <h3 className="text-sm font-bold text-ink-900">Best for</h3>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {(broker.best_for ?? []).slice(0, 6).map((slug) => <Link key={slug} to={`/best/${slug}`} className="rounded-full border border-line bg-paper px-3 py-1.5 text-xs font-semibold text-slate-600 hover:border-emerald-400">{slug.replace(/-/g, ' ')}</Link>)}
-                </div>
-              </div>
-              <div>
-                <h3 className="text-sm font-bold text-ink-900">Available by country</h3>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {countries.filter((c) => c.recommended?.some((r) => r.slug === broker.slug)).slice(0, 8).map((c) => <Link key={c.slug} to={`/countries/${c.slug}`} className="rounded-full border border-line bg-paper px-3 py-1.5 text-xs font-semibold text-slate-600 hover:border-emerald-400">{c.name}</Link>)}
-                  {!countries.some((c) => c.recommended?.some((r) => r.slug === broker.slug)) && <Link to="/countries" className="text-xs font-semibold text-emerald-700">Browse country availability →</Link>}
-                </div>
-              </div>
-              <div>
-                <h3 className="text-sm font-bold text-ink-900">Compare</h3>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {all.filter((x) => x.slug !== broker.slug).slice(0, 6).map((o) => { const [x, y] = [broker.slug, o.slug].sort((a, b) => a.localeCompare(b)); return <Link key={o.slug} to={`/compare/${x}-vs-${y}`} className="rounded-full border border-line bg-paper px-3 py-1.5 text-xs font-semibold text-slate-600 hover:border-emerald-400">{o.name}</Link>; })}
-                </div>
               </div>
             </div>
           </section>
@@ -848,15 +838,52 @@ export default function BrokerDetail() {
             </div>
           </section>
 
-          {/* COMMUNITY */}
+          {/* FAQ */}
+          <section id="faq" className="scroll-mt-28 rounded-3xl border border-line bg-white p-6 sm:p-8">
+            <h2 className="font-display text-2xl font-bold text-ink-900">{broker.name} FAQs</h2>
+            <div className="mt-5 space-y-2.5">
+              {(Array.isArray(profileSettings.faqs) && profileSettings.faqs.length ? profileSettings.faqs : broker.faqs).map((f:any, i:number) => (
+                <div key={f.q} className="overflow-hidden rounded-2xl border border-line">
+                  <button
+                    onClick={() => setOpenFaq(openFaq === i ? -1 : i)}
+                    className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left"
+                  >
+                    <span className="text-sm font-bold text-ink-900">{f.q}</span>
+                    <ChevronDown
+                      size={17}
+                      className={`shrink-0 text-slate-400 transition ${openFaq === i ? 'rotate-180' : ''}`}
+                    />
+                  </button>
+                  {openFaq === i && (
+                    <p className="border-t border-line bg-paper px-5 py-4 text-sm leading-relaxed text-slate-600">
+                      {f.a}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+
+{/* COMMUNITY */}
           <section id="community" className="scroll-mt-28 rounded-3xl border border-line bg-white p-6 sm:p-8">
-            <div className="flex flex-wrap items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={() => setReviewsExpanded((v) => !v)}
+              className="flex w-full flex-wrap items-center justify-between gap-3 text-left"
+              aria-expanded={reviewsExpanded}
+            >
               <h2 className="flex items-center gap-2.5 font-display text-2xl font-bold text-ink-900">
                 <MessageSquare size={20} className="text-emerald-600" />
                 Trader reviews <span className="tnum text-slate-400">({reviews.length})</span>
               </h2>
-            </div>
+              <ChevronDown
+                size={20}
+                className={`shrink-0 text-slate-400 transition ${reviewsExpanded ? 'rotate-180' : ''}`}
+              />
+            </button>
 
+            {reviewsExpanded && (
+            <>
             <div className="mt-5 space-y-4">
               {reviews.length === 0 && (
                 <p className="rounded-2xl border border-dashed border-line bg-paper p-6 text-center text-sm text-slate-500">
@@ -1028,7 +1055,10 @@ export default function BrokerDetail() {
                 </form>
               )}
             </div>
+            </>
+            )}
           </section>
+
 
           {/* METHODOLOGY */}
           <section id="methodology" className="scroll-mt-28 rounded-3xl border border-line bg-white p-6 sm:p-8">
@@ -1045,32 +1075,6 @@ export default function BrokerDetail() {
               ))}
             </div>
             <Link to="/methodology" className="mt-5 inline-flex text-sm font-bold text-emerald-700 underline-offset-2 hover:underline">Read the full PipRank methodology →</Link>
-          </section>
-
-          {/* FAQ */}
-          <section id="faq" className="scroll-mt-28 rounded-3xl border border-line bg-white p-6 sm:p-8">
-            <h2 className="font-display text-2xl font-bold text-ink-900">{broker.name} FAQs</h2>
-            <div className="mt-5 space-y-2.5">
-              {(Array.isArray(profileSettings.faqs) && profileSettings.faqs.length ? profileSettings.faqs : broker.faqs).map((f:any, i:number) => (
-                <div key={f.q} className="overflow-hidden rounded-2xl border border-line">
-                  <button
-                    onClick={() => setOpenFaq(openFaq === i ? -1 : i)}
-                    className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left"
-                  >
-                    <span className="text-sm font-bold text-ink-900">{f.q}</span>
-                    <ChevronDown
-                      size={17}
-                      className={`shrink-0 text-slate-400 transition ${openFaq === i ? 'rotate-180' : ''}`}
-                    />
-                  </button>
-                  {openFaq === i && (
-                    <p className="border-t border-line bg-paper px-5 py-4 text-sm leading-relaxed text-slate-600">
-                      {f.a}
-                    </p>
-                  )}
-                </div>
-              ))}
-            </div>
           </section>
 
           {/* ALTERNATIVES */}

@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react';
 import { BrowserRouter, Route, Routes, useLocation } from 'react-router-dom';
+import { Analytics } from '@vercel/analytics/react';
 import Footer from './components/Footer';
 import Navbar from './components/Navbar';
 import ScrollToTop from './components/ScrollToTop';
@@ -53,6 +54,7 @@ export function Shell() {
             <Route path="/" element={<Home />} />
             <Route path="/brokers" element={<Brokers />} />
             <Route path="/brokers/:slug" element={<BrokerDetail />} />
+            <Route path="/:countrySlug/brokers/:slug" element={<BrokerDetail />} />
             <Route path="/compare" element={<Compare />} />
             <Route path="/compare/:pair" element={<ComparePair />} />
             <Route path="/quiz" element={<Quiz />} />
@@ -93,6 +95,7 @@ export default function App() {
         <ScrollToTop />
         <Shell />
       </GeoProvider>
+      <Analytics />
     </BrowserRouter>
   );
 }
