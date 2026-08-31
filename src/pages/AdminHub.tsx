@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import supabase from '../lib/supabase';
 import AdminCountryWorkspace from './AdminCountryWorkspace';
@@ -14,10 +14,7 @@ export default function AdminHub() {
   }, []);
 
   useEffect(() => {
-    if (!session) {
-      setRole('none');
-      return;
-    }
+    if (!session) { setRole('none'); return; }
     setRole('checking');
     fetch('/api/admin-users?self=1', { headers: { Authorization: `Bearer ${session.access_token}` } })
       .then((r) => (r.ok ? r.json() : {}))
@@ -36,7 +33,7 @@ function AdminLogin() {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const submit = async (event: React.FormEvent) => {
+  const submit = async (event: FormEvent) => {
     event.preventDefault();
     setBusy(true);
     setError('');
