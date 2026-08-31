@@ -7,13 +7,10 @@ import Home from './pages/Home';
 import NotFound from './pages/NotFound';
 import { GeoProvider } from './lib/GeoContext';
 
-// Lazy-loaded so the framer-motion chunk it depends on isn't forced onto
-// every page's initial load — SmartCTA only appears after scroll/exit-intent
-// triggers anyway, so a brief async load has no visible cost.
 const SmartCTA = lazy(() => import('./components/SmartCTA'));
-
 const About = lazy(() => import('./pages/About'));
 const Admin = lazy(() => import('./pages/Admin'));
+const AdminWorkspace = lazy(() => import('./pages/AdminWorkspace'));
 const Authors = lazy(() => import('./pages/Authors'));
 const BestFor = lazy(() => import('./pages/BestFor'));
 const BrokerDetail = lazy(() => import('./pages/BrokerDetail'));
@@ -33,17 +30,12 @@ const Quiz = lazy(() => import('./pages/Quiz'));
 const Tools = lazy(() => import('./pages/Tools'));
 
 function RouteLoader() {
-  return (
-    <div className="flex min-h-[60vh] items-center justify-center">
-      <div className="h-9 w-9 animate-spin rounded-full border-2 border-line border-t-emerald-500" />
-    </div>
-  );
+  return <div className="flex min-h-[60vh] items-center justify-center"><div className="h-9 w-9 animate-spin rounded-full border-2 border-line border-t-emerald-500" /></div>;
 }
 
 export function Shell() {
   const { pathname } = useLocation();
   const bare = pathname.startsWith('/archypage');
-
   return (
     <div className="flex min-h-screen flex-col bg-paper text-ink-900">
       {!bare && <Navbar />}
@@ -68,7 +60,8 @@ export function Shell() {
             <Route path="/countries" element={<Countries />} />
             <Route path="/countries/:slug" element={<CountryDetail />} />
             <Route path="/promotions" element={<Promotions />} />
-            <Route path="/archypage" element={<Admin />} />
+            <Route path="/archypage" element={<AdminWorkspaceRoute />} />
+            <Route path="/archypage-legacy" element={<Admin />} />
             <Route path="/:countrySlug/:locale/:topicSlug" element={<LocalizedCountrySeoTopic />} />
             <Route path="/:countrySlug/:topicSlug" element={<CountrySeoTopic />} />
             <Route path="/:slug" element={<CountryDetail />} />
@@ -77,22 +70,16 @@ export function Shell() {
         </Suspense>
       </main>
       {!bare && <Footer />}
-      {!bare && (
-        <Suspense fallback={null}>
-          <SmartCTA />
-        </Suspense>
-      )}
+      {!bare && <Suspense fallback={null}><SmartCTA /></Suspense>}
     </div>
   );
 }
 
+function AdminWorkspaceRoute() {
+  const Component = AdminWorkspace;
+  return <Component />;
+}
+
 export default function App() {
-  return (
-    <BrowserRouter>
-      <GeoProvider>
-        <ScrollToTop />
-        <Shell />
-      </GeoProvider>
-    </BrowserRouter>
-  );
+  return <BrowserRouter><GeoProvider><ScrollToTop /><Shell /></GeoProvider></BrowserRouter>;
 }
