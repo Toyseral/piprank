@@ -282,7 +282,8 @@ export interface ContentDocument {
   title: string;
   excerpt: string;
   html: string;
-  blocks: unknown[];
+  /** Legacy flat blocks or the v2 VisualDocument persisted by PageBuilder. */
+  blocks: unknown[] | Record<string, unknown>;
   seo_title: string | null;
   seo_description: string | null;
   indexable: boolean;

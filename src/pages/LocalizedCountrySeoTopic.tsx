@@ -14,7 +14,7 @@ import {
   type LocalizationUiStrings,
 } from '../lib/localization';
 import supabase from '../lib/supabase';
-import { blocksToHtml } from '../components/PageBuilder';
+import { blocksToHtml, hasVisualContent } from '../components/PageBuilder';
 import BrokerCard from '../components/BrokerCard';
 import Monogram from '../components/Monogram';
 import Reveal from '../components/Reveal';
@@ -188,7 +188,7 @@ export default function LocalizedCountrySeoTopic() {
   }
 
   const studioHtml = studioDoc
-    ? (Array.isArray(studioDoc.blocks) && studioDoc.blocks.length
+    ? (hasVisualContent(studioDoc.blocks)
         ? blocksToHtml(studioDoc.blocks as any)
         : studioDoc.html)
     : '';

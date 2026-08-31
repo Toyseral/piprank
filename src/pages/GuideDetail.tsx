@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Check, Clock, ListOrdered } from 'lucide-react';
 import type { ContentDocument, Guide } from '../lib/types';
 import { fetchGuide, fetchGuides, fetchContentDocument } from '../lib/api';
-import { blocksToHtml } from '../components/PageBuilder';
+import { blocksToHtml, hasVisualContent } from '../components/PageBuilder';
 import { ButtonLink } from '../components/Button';
 import NewsletterForm from '../components/NewsletterForm';
 import { fmtDate } from '../lib/format';
@@ -110,8 +110,8 @@ export default function GuideDetail() {
           <p className="mt-3 text-lg leading-relaxed text-slate-500">{guide.excerpt}</p>
 
           <div className="mt-8 space-y-10">
-            {richContent?.published && (richContent.html || (Array.isArray(richContent.blocks) && richContent.blocks.length)) ? (
-              <div className="prose prose-slate max-w-none prose-headings:font-display prose-img:rounded-2xl prose-table:w-full prose-th:border prose-th:border-line prose-th:bg-paper prose-th:px-3 prose-th:py-2 prose-td:border prose-td:border-line prose-td:px-3 prose-td:py-2" dangerouslySetInnerHTML={{ __html: Array.isArray(richContent.blocks) && richContent.blocks.length ? blocksToHtml(richContent.blocks as any) : richContent.html }} />
+            {richContent?.published && (richContent.html || hasVisualContent(richContent.blocks)) ? (
+              <div className="prose prose-slate max-w-none prose-headings:font-display prose-img:rounded-2xl prose-table:w-full prose-th:border prose-th:border-line prose-th:bg-paper prose-th:px-3 prose-th:py-2 prose-td:border prose-td:border-line prose-td:px-3 prose-td:py-2" dangerouslySetInnerHTML={{ __html: hasVisualContent(richContent.blocks) ? blocksToHtml(richContent.blocks as any) : richContent.html }} />
             ) : guide.sections.map((sec, i) => (
               <section key={i} id={`sec-${i}`} className="scroll-mt-28">
                 <h2 className="flex items-baseline gap-3 font-display text-2xl font-bold text-ink-900">

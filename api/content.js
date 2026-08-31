@@ -296,13 +296,24 @@ function cleanHtml(input = '') {
 }
 
 function cleanBlocks(blocks) {
-  if (!Array.isArray(blocks)) return [];
-  return blocks.map((b) => {
-    if (b && typeof b === 'object' && typeof b.html === 'string') {
-      return { ...b, html: cleanHtml(b.html) };
-    }
-    return b;
-  });
+  // v2 VisualDocument is an object ({ version, sections }), while legacy
+  // documents are arrays. Preserve both shapes; reducing v2 to [] silently
+  // discarded every edit made in the visual builder.
+  if (Array.isArray(blocks)) return blocks.map(cleanBlockValue);
+  if (blocks && typeof blocks === 'object' && Number(blocks.version) === 2 && Array.isArray(blocks.sections)) {
+    return { ...blocks, sections: blocks.sections.map((section) => ({
+      ...section,
+      blocks: Array.isArray(section?.blocks) ? section.blocks.map(cleanBlockValue) : [],
+    })) };
+  }
+  return [];
+}
+
+function cleanBlockValue(block) {
+  if (!block || typeof block !== 'object') return block;
+  const cleaned = { ...block };
+  if (typeof cleaned.html === 'string') cleaned.html = cleanHtml(cleaned.html);
+  return cleaned;
 }
 
 function normalizeContentDoc(body) {
@@ -319,7 +330,7 @@ function normalizeContentDoc(body) {
     title: String(body.title || '').slice(0, 180),
     excerpt: String(body.excerpt || '').slice(0, 600),
     html: cleanHtml(body.html || ''),
-    blocks: cleanBlocks(Array.isArray(body.blocks) ? body.blocks : []),
+    blocks: cleanBlocks(body.blocks),
     settings: body.settings && typeof body.settings === 'object' && !Array.isArray(body.settings) ? body.settings : {},
     seo_title: body.seo_title ? String(body.seo_title).slice(0, 180) : null,
     seo_description: body.seo_description ? String(body.seo_description).slice(0, 320) : null,
@@ -644,7 +655,7 @@ function bodyMeetsMinimum(content, doc) {
   if (doc.published === false) return false;
   const htmlLen = String(doc.html || '').trim().length;
   if (htmlLen >= MIN_LOCALIZED_CONTENT_LENGTH) return true;
-  if (Array.isArray(doc.blocks) && doc.blocks.length > 0) return true;
+  if ((Array.isArray(doc.blocks) && doc.blocks.length > 0) || (doc.blocks?.version === 2 && Array.isArray(doc.blocks.sections) && doc.blocks.sections.some((section) => section.blocks?.length))) return true;
   return false;
 }
 
