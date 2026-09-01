@@ -245,6 +245,11 @@ export default function Admin() {
   }, []);
 
   // resolve the admin role for this account
+  // Keyed on the user id (not the whole session object) so a routine auth
+  // token refresh — which fires every time the tab regains focus, and
+  // produces a new session object for the same user — doesn't re-trigger
+  // this and drop the whole dashboard back into a loading state, wiping
+  // any unsaved work in an open editor.
   useEffect(() => {
     if (!session) return;
     setRole('checking');
@@ -254,7 +259,7 @@ export default function Admin() {
       .then((r) => (r.ok ? r.json() : { role: null }))
       .then((d) => setRole(d.role ?? 'none'))
       .catch(() => setRole('none'));
-  }, [session]);
+  }, [session?.user?.id]);
 
   if (checkingAuth || (session && role === 'checking'))
     return (
