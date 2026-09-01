@@ -16,7 +16,7 @@
 //
 // The server never depends on the browser having produced a correct html cache.
 
-import { blocksToHtml } from '../../src/lib/content/blocksToHtml.ts';
+import { blocksToHtml } from '../../src/lib/content/blocksToHtml.runtime.js';
 import { blockValidatePayload, cleanHtml } from './block-validate.js';
 
 /**

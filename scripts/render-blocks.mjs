@@ -3,21 +3,20 @@
 // Node-side boundary for the shared block serializer.
 //
 // Phase 1 goal: one canonical serializer for page blocks (src/lib/content/
-// blocksToHtml.ts + blockRegistry.ts) usable BOTH in the browser (via Vite /
-// PageBuilder) and in Node scripts (prerender, migration tooling, validation).
+// blocksToHtml.js + blockRegistry.js) usable BOTH in the browser (via Vite /
+// PageBuilder) and in Node scripts (prerender, migration tooling, validation)
+// AND in Vercel's serverless functions.
 //
-// Node here is >= 22.6 with type-stripping enabled (this repo runs Node 24),
-// so this boundary can import the canonical TypeScript implementation directly
-// instead of maintaining a second serializer. Importing this file keeps that
-// fact isolated: prerender.mjs and future tooling import from here, and if a
-// target runtime ever lacks type stripping, only this one file needs to be
-// swapped (e.g. to a compiled bundle) — nothing else changes.
+// The serializer takes a runtime-neutral form (blocksToHtml.js) with no
+// TypeScript dependency, so this boundary works in every Node runtime without
+// type-stripping. prerender.mjs and future tooling import from here, and the
+// Vercel serverless functions import the same runtime-neutral modules directly.
 //
 // Usage (ESM):
 //   import { renderBlocks, serializeHeaderNote } from './render-blocks.mjs';
 
-import { blocksToHtml } from '../src/lib/content/blocksToHtml.ts';
-import { isKnownBlockType } from '../src/lib/content/blockRegistry.ts';
+import { blocksToHtml } from '../src/lib/content/blocksToHtml.runtime.js';
+import { isKnownBlockType } from '../src/lib/content/blockRegistry.runtime.js';
 import { sanitizeHtml, sanitizeBlockUrl } from '../src/lib/content/sanitize.ts';
 
 /**

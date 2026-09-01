@@ -2,7 +2,7 @@ import supabase from './_lib/db-client.js';
 import { requireRole } from './_lib/admin-guard.js';
 import { blockValidatePayload } from './_lib/block-validate.js';
 import { deriveHtmlForSave } from './_lib/derive-html.js';
-import { blocksToHtml } from '../src/lib/content/blocksToHtml.ts';
+import { blocksToHtml } from '../src/lib/content/blocksToHtml.runtime.js';
 
 const CONTENT_WRITE = ['super_admin', 'admin', 'content_admin'];
 

@@ -14,9 +14,14 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { fileURLToPath } from 'node:url';
+import { readFile, readdir } from 'node:fs/promises';
 import { deriveHtmlForSave, sanitizeBlocksForSave } from '../api/_lib/derive-html.js';
 import { blockValidatePayload } from '../api/_lib/block-validate.js';
 import { blocksToHtml } from '../src/lib/content/blocksToHtml.ts';
+// Runtime-neutral canonical serializer: the SAME module boundary the Vercel
+// serverless functions load (a real .js module, no TypeScript in the runtime).
+import { blocksToHtml as runtimeBlocksToHtml } from '../src/lib/content/blocksToHtml.runtime.js';
 
 const VALID_BLOCKS = [
   { id: 'b1', type: 'heading', title: 'Document B', level: 'h2' },
@@ -121,6 +126,48 @@ test('unsafe URLs are still rejected by the validation the server runs before de
   const bad = [{ id: 'x', type: 'image', src: 'javascript:alert(1)' }];
   const validation = blockValidatePayload({ blocks: bad });
   assert.equal(validation.valid, false, 'javascript: image src must be rejected');
+});
+
+test('server-side serializer resolves through the runtime-neutral .js boundary (Vercel-safe)', async () => {
+  // Vercel's serverless Node runtime does not type-strip .ts. The server must
+  // import the canonical serializer through a real .js module. Prove that:
+  //   1. derive-html.js (api/_lib) resolves the serializer from a .js specifier,
+  //      not a .ts specifier.
+  //   2. That .js module executes and returns output identical to the canonical
+  //      implementation (no drift between browser wrapper and server boundary).
+  const deriveSrc = await readFile(fileURLToPath(new URL('../api/_lib/derive-html.js', import.meta.url)), 'utf8');
+  const contentTypeSrc = await readFile(fileURLToPath(new URL('../api/content.js', import.meta.url)), 'utf8');
+  const serializerDir = fileURLToPath(new URL('../src/lib/content', import.meta.url));
+
+  assert.match(
+    deriveSrc,
+    /blocksToHtml\.runtime\.js/,
+    'api/_lib/derive-html.js must import the serializer from a .js runtime module'
+  );
+  assert.doesNotMatch(
+    deriveSrc,
+    /from\s+['"]\.\.\/\.\.\/src\/lib\/content\/blocksToHtml\.ts['"]/,
+    'api/_lib/derive-html.js must NOT import the serializer from a .ts source'
+  );
+  assert.match(
+    contentTypeSrc,
+    /blocksToHtml\.runtime\.js/,
+    'api/content.js must import the serializer from a .js runtime module'
+  );
+  assert.doesNotMatch(
+    contentTypeSrc,
+    /from\s+['"]\.\.\/src\/lib\/content\/blocksToHtml\.ts['"]/,
+    'api/content.js must NOT import the serializer from a .ts source'
+  );
+
+  // The runtime-neutral module physically exists as .js (not only a .ts file).
+  const files = await readdir(serializerDir);
+  assert.ok(files.includes('blocksToHtml.runtime.js'), 'runtime serializer module blocksToHtml.runtime.js exists on disk');
+  assert.ok(files.includes('blockRegistry.runtime.js'), 'runtime registry module blockRegistry.runtime.js exists on disk');
+
+  // It executes and matches the canonical output exactly.
+  assert.equal(runtimeBlocksToHtml(VALID_BLOCKS), '<h2>Document B</h2>\n<p>Body content for B</p>');
+  assert.equal(runtimeBlocksToHtml(VALID_BLOCKS), blocksToHtml(VALID_BLOCKS));
 });
 
 test('server derives html from blocks even when the client submits a wrong html cache', async () => {
