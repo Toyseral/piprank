@@ -31,6 +31,7 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { requireSiteUrlForProduction } from './seo-config.mjs';
 import { fileURLToPath } from 'node:url';
+import { blocksToHtmlServer } from './render-blocks.mjs';
 import { countrySeoTopics, rankCountryTopicBrokers, topicMeta, topicIntro, topicFaq, topicNote } from './country-seo-topics.mjs';
 import { vietnameseCommercialTopics } from './vietnamese-localization.mjs';
 
@@ -189,26 +190,6 @@ async function main() {
   }
 
   const brokerContentById = new Map((brokerContents ?? []).map((row) => [Number(row.broker_id), row]));
-
-  // Server-side port of blocksToHtml() from src/components/PageBuilder.tsx —
-  // kept byte-for-byte equivalent so admin-edited pages (via Content Studio /
-  // the Bulk SEO Generator / country guides) render identically for
-  // crawlers and hydrated clients. Blocks are already sanitized at write
-  // time by api/content.js's cleanBlocks(), so no re-sanitization happens
-  // here. Defined once, early, since both the country-guides loop and the
-  // country-topic loop below need it.
-  const blocksToHtmlServer = (blocks) => (blocks || []).map((b) => {
-    if (b.type === 'heading') return `<h2>${esc(b.title || 'Section heading')}</h2>`;
-    if (b.type === 'image') return `<figure><img src="${esc(b.src || '')}" alt="${esc(b.alt || '')}" loading="lazy" /><figcaption>${esc(b.alt || '')}</figcaption></figure>`;
-    if (b.type === 'table') {
-      const r = b.rows || [['Feature', 'Details'], ['', '']];
-      return `<div class="overflow-x-auto"><table><thead><tr>${r[0].map((c) => `<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${r.slice(1).map((x) => `<tr>${x.map((c) => `<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
-    }
-    if (b.type === 'callout') return `<aside class="piprank-callout piprank-callout-${b.tone || 'neutral'}">${b.html || ''}</aside>`;
-    if (b.type === 'links') return `<nav class="piprank-internal-links"><ul>${(b.links || []).map((x) => `<li><a href="${esc(x.href)}">${esc(x.label)}</a></li>`).join('')}</ul></nav>`;
-    if (b.type === 'divider') return '<hr />';
-    return b.html || '';
-  }).join('\n');
 
   log(`Fetched ${brokers.length} brokers, ${countries.length} countries, ${guides.length} guides, ${intents.length} global best-for pages, ${countryBestFors.length} country best-for pages.`);
 
