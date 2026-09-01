@@ -64,7 +64,7 @@ export function looksUnsafe(input: unknown): boolean {
 /** Schemes considered safe for block URLs (src/href). */
 export const SAFE_URL_SCHEMES = ['https', 'http', 'mailto', 'tel'] as const;
 
-const SAFE_SCHEMES = new Set(SAFE_URL_SCHEMES);
+const SAFE_SCHEMES = new Set<string>(SAFE_URL_SCHEMES);
 
 /** True for URLs the app already accepts — https/http, root-relative, mailto/tel. */
 export function isSafeUrl(input: unknown): boolean {

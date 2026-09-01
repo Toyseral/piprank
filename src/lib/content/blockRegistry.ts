@@ -16,7 +16,7 @@
  * from Node scripts (prerender, render-blocks, migration tooling).
  */
 
-import type { PageBlock, PageTypeKey, CalloutTone } from './types.ts';
+import type { PageBlock, PageTypeKey, CalloutTone, DynamicBlock, DynamicBlockType } from './types.ts';
 
 /** Escape exactly like the existing PageBuilder serializer (byte-for-byte). */
 export function esc(v: string): string {
@@ -45,7 +45,7 @@ export interface BlockDef<T extends PageBlock = PageBlock> {
   /** Returns an error string, or null when the block is valid. */
   validate?: (block: Record<string, unknown>) => string | null;
   /** Canonical HTML serialization (editorial blocks). Dynamic blocks render in later phases. */
-  toHtml?: (block: T) => string;
+  toHtml?(block: T): string;
 }
 
 /** Checks for a safe URL inside block data (src/href). */
@@ -104,7 +104,7 @@ export function blocks(): Record<string, BlockDef> {
       validate: (block) => {
         const req = requireNonEmptyString(block.title, 'title');
         if (req) return req;
-        if (block.title && block.title.length > 500) return 'title is too long';
+        if (typeof block.title === 'string' && block.title.length > 500) return 'title is too long';
         if (block.level !== undefined && !(validHeadingLevels as readonly string[]).includes(block.level as string)) {
           return 'heading level must be h2 or h3';
         }
@@ -242,7 +242,7 @@ export function blocks(): Record<string, BlockDef> {
   };
 }
 
-function dynamicDef(type: string, label: string, allowedOn: PageTypeKey[] | 'all'): BlockDef {
+function dynamicDef<T extends DynamicBlockType>(type: T, label: string, allowedOn: PageTypeKey[] | 'all'): BlockDef<DynamicBlock> {
   return {
     type,
     category: 'dynamic',

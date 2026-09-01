@@ -55,7 +55,7 @@ function tagTokens(html: string): TagToken[] {
     const isClose = raw[1] === '/';
     const name = inner.split(/[\s/]/)[0]?.toLowerCase() ?? '';
     const selfClose = /\/\s*$/.test(inner) || VOID_TAGS.has(name);
-    tokens.push({ start: m.index, end: m.index + raw.length, name, isClose, selfClose, raw });
+    tokens.push({ start: m.index, end: m.index + raw.length, name, isClose, selfClose });
   }
   return tokens;
 }

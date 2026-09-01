@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ArrowDown, ArrowUp, Eye, GripVertical, Image as ImageIcon, Plus, Save, Table2, Trash2, Type, Columns3, Quote, Link2 } from 'lucide-react';
 import RichTextEditor from './RichTextEditor';
+import { blocksToHtml } from '../lib/content/blocksToHtml';
 export type PageBlock={id:string;type:'richtext'|'heading'|'image'|'table'|'callout'|'divider'|'links';title?:string;html?:string;src?:string;alt?:string;rows?:string[][];tone?:'neutral'|'success'|'warning'|'dark';links?:{label:string;href:string}[]};
 type Props={value?:unknown[];onChange:(blocks:PageBlock[])=>void;onUploadImage?:(file:File)=>Promise<string>};
 const uid=()=>`b_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;

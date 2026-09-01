@@ -146,7 +146,7 @@ export function shouldMigrateLegacy(doc: Pick<PageDocument, 'html' | 'blocks'> |
  * removes html, and records the marker in settings when a migration occurred.
  */
 export function migrateDocument(
-  doc: Pick<PageDocument, 'html' | 'blocks' | 'settings' | 'content_key' | 'indexable'>
+  doc: Pick<PageDocument, 'html' | 'blocks' | 'settings' | 'content_key'>
 ): { document: Pick<PageDocument, 'html' | 'blocks' | 'settings'>; migrated: boolean } {
   if (!shouldMigrateLegacy(doc)) {
     return { document: { html: doc.html, blocks: doc.blocks, settings: doc.settings }, migrated: false };
