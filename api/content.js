@@ -1,7 +1,21 @@
 import supabase from './_lib/db-client.js';
 import { requireRole } from './_lib/admin-guard.js';
+import { blockValidatePayload } from './_lib/block-validate.js';
+import { deriveHtmlForSave } from './_lib/derive-html.js';
+import { blocksToHtml } from '../src/lib/content/blocksToHtml.ts';
 
 const CONTENT_WRITE = ['super_admin', 'admin', 'content_admin'];
+
+// Server-side save pipeline — mirrors src/lib/content/migrate.ts deriveHtmlForSave.
+// Fetching the existing document protects against silent data loss: legacy html is
+// preserved (never clobbered to "") when the incoming blocks are empty and the save
+// was not an explicit clear.
+//
+// Normal block-based saves are made canonical server-side: the shared derivation
+// (api/_lib/derive-html.js) validates/sanitizes blocks to their canonical form and
+// then derives the html cache with the SAME serializer the browser and prerender use
+// (src/lib/content/blocksToHtml.ts). The server never depends on the browser having
+// produced a correct html representation.
 
 // Merged from the former standalone /api/countries, /api/guides, /api/intents,
 // /api/country-best-for, /api/content-documents, /api/content-assets and
@@ -310,6 +324,14 @@ function normalizeContentDoc(body) {
   const countrySlug = body.country_slug ? slugify(body.country_slug) : null;
   const topicSlug = body.topic_slug ? slugify(body.topic_slug) : null;
   const contentKey = String(body.content_key || [contentType, countrySlug, topicSlug, body.slug].filter(Boolean).join(':')).slice(0, 180);
+
+  // Use block-validate.js to validate and clean blocks instead of inline sanitization.
+  // This ensures blocks are validated against the foundation's rules (known types,
+  // required fields, sane limits) and html is sanitized consistently.
+  const validation = blockValidatePayload({ blocks: body.blocks, html: body.html }, { strict: false });
+  const validatedBlocks = validation.valid && validation.cleaned ? validation.cleaned.blocks : (Array.isArray(body.blocks) ? body.blocks : []);
+  const validatedHtml = validation.valid && validation.cleaned && validation.cleaned.html ? validation.cleaned.html : cleanHtml(body.html || '');
+
   return {
     content_key: contentKey,
     content_type: contentType,
@@ -318,8 +340,8 @@ function normalizeContentDoc(body) {
     slug: body.slug ? slugify(body.slug) : null,
     title: String(body.title || '').slice(0, 180),
     excerpt: String(body.excerpt || '').slice(0, 600),
-    html: cleanHtml(body.html || ''),
-    blocks: cleanBlocks(Array.isArray(body.blocks) ? body.blocks : []),
+    html: validatedHtml,
+    blocks: validatedBlocks,
     settings: body.settings && typeof body.settings === 'object' && !Array.isArray(body.settings) ? body.settings : {},
     seo_title: body.seo_title ? String(body.seo_title).slice(0, 180) : null,
     seo_description: body.seo_description ? String(body.seo_description).slice(0, 320) : null,
@@ -350,7 +372,20 @@ async function handleContentDocuments(req, res) {
   const actor = await requireRole(req, res, CONTENT_WRITE);
   if (!actor) return;
   if (req.method === 'POST') {
-    const payload = normalizeContentDoc(req.body || {});
+    // Server-side block validation on create. Reject invalid block shapes
+    // before they hit the database.
+    const body = req.body || {};
+    const validation = blockValidatePayload(body);
+    if (!validation.valid) {
+      return res.status(400).json({ error: `Block validation failed: ${validation.error}` });
+    }
+    // New documents: derive the html cache from the canonical blocks with the
+    // shared serializer so a client submitting valid blocks without html still
+    // persists a correct document.
+    const canonicalBlocks = validation.cleaned && Array.isArray(validation.cleaned.blocks) ? validation.cleaned.blocks : (Array.isArray(body.blocks) ? body.blocks : []);
+    const hadHtml = typeof body.html === 'string' && body.html.trim().length > 0;
+    const derivedHtml = hadHtml ? body.html : blocksToHtml(canonicalBlocks);
+    const payload = normalizeContentDoc({ ...body, blocks: canonicalBlocks, html: derivedHtml });
     if (!payload.content_key) return res.status(400).json({ error: 'content_key is required' });
     const { data, error } = await supabase.from('content_documents').insert({ ...payload, updated_by: actor.email }).select().single();
     if (error) throw error;
@@ -359,8 +394,31 @@ async function handleContentDocuments(req, res) {
   if (req.method === 'PUT') {
     const { id, ...rest } = req.body || {};
     if (!id) return res.status(400).json({ error: 'id is required' });
-    const payload = { ...normalizeContentDoc(rest), updated_by: actor.email };
+
+    // Fetch existing document to protect against silent data loss.
+    // When blocks are empty but legacy html exists on the server, the save
+    // pipeline preserves the existing html instead of overwriting it.
+    const { data: existingDoc } = await supabase
+      .from('content_documents')
+      .select('id,html,blocks')
+      .eq('id', Number(id))
+      .maybeSingle();
+
+    if (!existingDoc) return res.status(404).json({ error: 'Document not found' });
+
+    // Apply the save pipeline: derive the correct blocks/html considering
+    // the existing document state. This prevents the blocks=[] → html=""
+    // data-loss bug when the client sends empty blocks for a legacy document.
+    const incomingBlocks = Array.isArray(rest.blocks) ? rest.blocks : [];
+    const explicitEmpty = rest._explicitEmpty === true;
+    const derived = await deriveHtmlForSave(existingDoc, incomingBlocks, explicitEmpty);
+
+    const payload = {
+      ...normalizeContentDoc({ ...rest, blocks: derived.blocks, html: derived.html }),
+      updated_by: actor.email,
+    };
     delete payload.content_key;
+
     const { data, error } = await supabase.from('content_documents').update(payload).eq('id', Number(id)).select().single();
     if (error) throw error;
     return res.status(200).json(data);
@@ -520,7 +578,7 @@ async function handleSeoPageGenerator(req, res) {
     content_key: `country-topic:${countrySlug}:${topicSlug}`,
     content_type: 'country-topic', country_slug: countrySlug, topic_slug: topicSlug, slug: topicSlug,
     title, excerpt: `Compare ${topic.title.toLowerCase()} available to traders in ${country.name}.`,
-    html: '', blocks,
+    html: blocksToHtml(blocks), blocks,
     seo_title: `Best ${topic.title} in ${country.name} ${year} | PipRank`,
     seo_description: `Compare ${topic.title.toLowerCase()} available to traders in ${country.name}, including country-specific broker recommendations, costs, platforms and key trading features.`,
     indexable: eligible, published: false,

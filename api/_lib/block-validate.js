@@ -74,7 +74,7 @@ function isValidUrl(value) {
 }
 
 // Reuses the exact policy from api/content.js cleanHtml (kept in sync there).
-function cleanHtml(input) {
+export function cleanHtml(input) {
   let html = String(input ?? '');
   html = html.replace(/<\s*(script|style|iframe|object|embed|form|input|button|textarea|select)[^>]*>[\s\S]*?<\/\s*\1\s*>/gi, '');
   html = html.replace(/<(script|style|iframe|object|embed|form|input|button|textarea|select)[^>]*\/?>/gi, '');
