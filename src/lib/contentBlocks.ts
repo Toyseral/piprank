@@ -139,3 +139,15 @@ export function introCriteriaToLegacySections(
   }
   return out;
 }
+
+/**
+ * True if a `sections`-shaped field is already block-based (has been
+ * migrated to the PageBuilder editor) rather than the old
+ * {heading, body, bullets}[] shape. Every PageBlock carries an `id` and a
+ * `type`; legacy sections carry neither.
+ */
+export function isBlockShape(sections: unknown): sections is PageBlock[] {
+  if (!Array.isArray(sections) || sections.length === 0) return false;
+  const first = sections[0] as Record<string, unknown>;
+  return typeof first === 'object' && first !== null && 'type' in first && 'id' in first;
+}

@@ -40,7 +40,7 @@ import {
 import AnalyticsPanel from './AnalyticsPanel';
 import supabase from '../lib/supabase';
 import type { Broker, BrokerContent, CountryBestFor, CountryPage, FAQ, Guide, GuideSection, Intent, Promotion, Regulation, Review, TestResult, ContentDocument, CountryLanguage, LocalizedSeoPage } from '../lib/types';
-import { legacySectionsToBlocks, brokerContentToLegacySections, guideSectionsToLegacySections, introCriteriaToLegacySections, faqsToBlocks } from '../lib/contentBlocks';
+import { legacySectionsToBlocks, brokerContentToLegacySections, guideSectionsToLegacySections, introCriteriaToLegacySections, faqsToBlocks, isBlockShape } from '../lib/contentBlocks';
 import Monogram from '../components/Monogram';
 import Stars from '../components/Stars';
 import { fmtDate, timeAgo } from '../lib/format';
@@ -673,37 +673,19 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
                     onNewCountry={() => setEditingCountry('new')}
                     onEditCountry={(c) => setEditingCountry(c)}
                     onEditCountryBestFor={(p) => setEditingCountryBestFor(p)}
+                    onNewCountryBestFor={() => setEditingCountryBestFor('new')}
                     onEditContentDoc={(d) => setEditingContentDoc(d)}
                     onNewCountryContentDoc={(slug) => { setNewDocDefaultCountry(slug); setEditingContentDoc('new'); }}
-                    onSeedCountryBestFor={async (key, page, blocks) => {
-                      try {
-                        const res = await fetch('/api/content-documents', {
-                          method: 'POST',
-                          headers: headers(),
-                          body: JSON.stringify({ content_key: key, content_type: 'country-best-for', country_slug: page.country_slug ?? null, topic_slug: page.slug, slug: page.slug, title: page.title || page.label, excerpt: '', html: '', blocks, seo_title: page.meta_title || '', seo_description: page.meta_description || '', indexable: true, published: true }),
-                        });
-                        const doc = await res.json().catch(() => null);
-                        if (!res.ok) throw new Error((doc as { error?: string })?.error || 'Could not create rich content');
-                        notify('Existing content loaded into the visual builder');
-                        setEditingContentDoc(doc as ContentDocument);
-                      } catch (e) {
-                        notify(e instanceof Error ? e.message : 'Could not open visual builder');
-                      }
-                    }}
                   />
                 )}
                 {activeTab === 'global' && (
                   <GlobalHub
                     guides={guides}
                     intents={intents}
-                    contentDocs={contentDocs}
-                    token={session.access_token}
-                    notify={notify}
                     onNewGuide={() => setEditingGuide('new')}
                     onEditGuide={(g) => setEditingGuide(g)}
                     onNewIntent={() => setEditingIntent('new')}
                     onEditIntent={(i) => setEditingIntent(i)}
-                    onEditContentDoc={(d) => setEditingContentDoc(d)}
                   />
                 )}
                 {activeTab === 'authors' && (
@@ -753,6 +735,7 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
       {editingGuide && (
         <GuideEditor
           guide={editingGuide === 'new' ? null : editingGuide}
+          token={session.access_token}
           onClose={() => setEditingGuide(null)}
           onSave={async (fields, isNew) => {
             await mutate('/api/guides', isNew ? 'POST' : 'PUT', fields, isNew ? 'Guide published' : 'Guide saved');
@@ -763,6 +746,7 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
       {editingIntent && (
         <IntentEditor
           intent={editingIntent === 'new' ? null : editingIntent}
+          token={session.access_token}
           onClose={() => setEditingIntent(null)}
           onSave={async (fields, isNew) => {
             await mutate('/api/intents', isNew ? 'POST' : 'PUT', fields, isNew ? 'Intent published' : 'Intent saved');
@@ -793,6 +777,7 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
           page={editingCountryBestFor === 'new' ? null : editingCountryBestFor}
           countries={countries}
           intents={intents}
+          token={session.access_token}
           onClose={() => setEditingCountryBestFor(null)}
           onSave={async (fields, isNew) => {
             await mutate('/api/country-best-for', isNew ? 'POST' : 'PUT', fields, isNew ? 'Best-for page published' : 'Best-for page saved');
@@ -1032,7 +1017,7 @@ function CommercialHub({ token, brokers, notify }: { token: string; brokers: Bro
   return <div className="space-y-5"><div className="rounded-2xl border border-line bg-white p-4"><div className="flex flex-wrap gap-2">{(['affiliate','promos','conversions'] as const).map((key)=><button key={key} onClick={()=>setSection(key)} className={`rounded-xl px-4 py-2 text-xs font-bold transition ${section===key?'bg-ink-950 text-white':'bg-paper text-slate-500 hover:bg-white'}`}>{key==='affiliate'?'Affiliate links':key==='promos'?'Promotions':'Conversions'}</button>)}</div></div>{section==='affiliate'&&<AffiliateLinksTab token={token} brokers={brokers} notify={notify}/>} {section==='promos'&&<PromosTab token={token} brokers={brokers} notify={notify}/>} {section==='conversions'&&<ConversionsTab token={token} brokers={brokers}/>}</div>;
 }
 
-function CountryHub({ countries, brokers, countryBestFors, contentDocs, countryLanguages, localizedPages, token, notify, reloadLocalization, onNewCountry, onEditCountry, onEditCountryBestFor, onEditContentDoc, onNewCountryContentDoc, onSeedCountryBestFor }: { countries: CountryPage[]; brokers: Broker[]; countryBestFors: CountryBestFor[]; contentDocs: ContentDocument[]; countryLanguages: CountryLanguage[]; localizedPages: LocalizedSeoPage[]; token: string; notify: (msg: string) => void; reloadLocalization: () => void; onNewCountry: () => void; onEditCountry: (country: CountryPage) => void; onEditCountryBestFor: (page: CountryBestFor) => void; onEditContentDoc: (doc: ContentDocument) => void; onNewCountryContentDoc: (countrySlug: string) => void; onSeedCountryBestFor: (key: string, page: CountryBestFor, blocks: PageBlock[]) => void }) {
+function CountryHub({ countries, brokers, countryBestFors, contentDocs, countryLanguages, localizedPages, token, notify, reloadLocalization, onNewCountry, onEditCountry, onEditCountryBestFor, onNewCountryBestFor, onEditContentDoc, onNewCountryContentDoc }: { countries: CountryPage[]; brokers: Broker[]; countryBestFors: CountryBestFor[]; contentDocs: ContentDocument[]; countryLanguages: CountryLanguage[]; localizedPages: LocalizedSeoPage[]; token: string; notify: (msg: string) => void; reloadLocalization: () => void; onNewCountry: () => void; onEditCountry: (country: CountryPage) => void; onEditCountryBestFor: (page: CountryBestFor) => void; onNewCountryBestFor: (countrySlug: string) => void; onEditContentDoc: (doc: ContentDocument) => void; onNewCountryContentDoc: (countrySlug: string) => void }) {
   const [query, setQuery] = useState('');
   const [selectedSlug, setSelectedSlug] = useState(() => countries[0]?.slug ?? '');
   useEffect(() => { if (!selectedSlug && countries[0]) setSelectedSlug(countries[0].slug); }, [countries, selectedSlug]);
@@ -1041,7 +1026,7 @@ function CountryHub({ countries, brokers, countryBestFors, contentDocs, countryL
   const bestFor = selected ? countryBestFors.filter((page) => page.country_id === selected.id || page.country_slug === selected.slug) : [];
   const docs = selected ? contentDocs.filter((doc) => doc.country_slug === selected.slug || doc.content_key.includes(`:${selected.slug}:`) || doc.slug === selected.slug) : [];
   const publishedState = String((selected as any)?.publishing_state ?? ((selected as any)?.status ?? 'published'));
-  return <div className="grid gap-5 lg:grid-cols-[300px_1fr]"><section className="rounded-2xl border border-line bg-white p-4"><div className="flex items-center justify-between"><h2 className="font-display text-lg font-bold text-ink-900">Countries</h2><button onClick={onNewCountry} className="rounded-lg bg-ink-950 px-3 py-1.5 text-xs font-bold text-white"><Plus size={13} className="inline"/> New</button></div><div className="mt-3 flex items-center gap-2 rounded-xl border border-line bg-paper px-3"><Search size={14} className="text-slate-400"/><input value={query} onChange={(e)=>setQuery(e.target.value)} placeholder="Search countries…" className="h-10 flex-1 bg-transparent text-sm outline-none"/></div><div className="mt-3 max-h-[560px] space-y-1 overflow-auto">{filtered.map((country)=><button key={country.id} onClick={()=>setSelectedSlug(country.slug)} className={`w-full rounded-xl px-3 py-2 text-left text-sm transition ${selected?.id===country.id?'bg-emerald-50 text-emerald-800':'hover:bg-paper'}`}><span className="font-bold">{country.flag} {country.name}</span><span className="block text-xs text-slate-400">/{country.slug}</span></button>)}</div></section>{selected&&<section className="space-y-5"><div className="rounded-2xl border border-line bg-white p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Country Workspace</p><h2 className="font-display text-2xl font-bold text-ink-900">{selected.flag} {selected.name}</h2><p className="mt-1 text-sm text-slate-500">Overview, publishing, SEO, brokers, best-for pages, guides, FAQs and internal links in one place.</p></div><button onClick={()=>onEditCountry(selected)} className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-4 py-2 text-xs font-bold text-white"><Pencil size={14}/> Edit country hub</button></div><div className="mt-4 grid gap-3 sm:grid-cols-3"><HubMetric label="Publishing" value={publishedState} sub="draft · published · closed"/><HubMetric label="Best-For" value={String(bestFor.length)} sub="country category pages"/><HubMetric label="Country content" value={String(docs.length)} sub="guides and SEO docs"/></div></div><div className="grid gap-5 xl:grid-cols-2"><EntityPanel title="SEO QA" items={[selected.seo_title?'SEO title present':'Missing SEO title',selected.seo_description?'Meta description present':'Missing meta description',(selected.seo_intro?.length||0)>0?'Intro present':'Missing SEO intro',(selected.seo_sections?.length||0)>0?'Structured sections present':'Missing sections',(selected.seo_faqs?.length||0)>0?'FAQs present':'Missing FAQs']}/><EntityPanel title="Broker coverage" items={[`${selected.recommended.length} recommended brokers`,`${selected.unavailable.length} unavailable broker flags`,`${brokers.length} brokers in database`,'Use Broker Workspace for searchable eligibility states']}/></div><div className="rounded-2xl border border-line bg-white p-5"><h3 className="font-display text-lg font-bold text-ink-900">Best-For pages</h3><div className="mt-3 divide-y divide-line rounded-xl border border-line">{bestFor.map((page)=>{const key=`best-for:${selected.slug}:${page.slug}`;const existingDoc=contentDocs.find((d)=>d.content_key===key);const seedBlocks=legacySectionsToBlocks(introCriteriaToLegacySections(page.intro,page.criteria,page.sections));return <div key={page.id} className="flex items-center justify-between px-4 py-3"><button onClick={()=>onEditCountryBestFor(page)} className="min-w-0 flex-1 text-left"><span className="block text-sm font-bold text-ink-900">{page.label}</span><span className="text-xs text-slate-400">/{selected.slug}/{page.slug} · {page.indexable?'Indexable':'Noindex'}</span></button><div className="flex shrink-0 items-center gap-1">{existingDoc?<button onClick={()=>onEditContentDoc(existingDoc)} className="rounded-lg p-2 text-slate-400 hover:bg-emerald-50 hover:text-emerald-700" title="Edit in visual builder"><Sparkles size={14}/></button>:seedBlocks.length>0?<button onClick={()=>onSeedCountryBestFor(key,page,seedBlocks)} className="rounded-lg p-2 text-slate-400 hover:bg-emerald-50 hover:text-emerald-700" title="Load existing content into builder"><Sparkles size={14}/></button>:null}<button onClick={()=>onEditCountryBestFor(page)} className="rounded-lg p-2 text-slate-400 hover:bg-paper"><Pencil size={14}/></button></div></div>;})}{!bestFor.length&&<p className="p-4 text-sm text-slate-400">No country best-for pages yet.</p>}</div></div><div className="rounded-2xl border border-line bg-white p-5"><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-display text-lg font-bold text-ink-900">Country guides and SEO content</h3><button onClick={()=>onNewCountryContentDoc(selected.slug)} className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3.5 py-1.5 text-xs font-bold text-white"><Plus size={13}/> Add new page</button></div><div className="mt-3 divide-y divide-line rounded-xl border border-line">{docs.map((doc)=><button key={doc.id} onClick={()=>onEditContentDoc(doc)} className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-paper"><span><span className="block text-sm font-bold text-ink-900">{doc.title || doc.content_key}</span><span className="text-xs text-slate-400">{doc.content_type} · {doc.published?'Published':'Draft'} · {doc.indexable?'Indexable':'Noindex'}</span></span><Pencil size={14} className="text-slate-400"/></button>)}{!docs.length&&<p className="p-4 text-sm text-slate-400">No country-specific rich content found.</p>}</div></div><CountryLanguagesPanel country={selected} countryLanguages={countryLanguages} localizedPages={localizedPages} token={token} notify={notify} reload={reloadLocalization} onEditContentDoc={onEditContentDoc}/></section>}</div>;
+  return <div className="grid gap-5 lg:grid-cols-[300px_1fr]"><section className="rounded-2xl border border-line bg-white p-4"><div className="flex items-center justify-between"><h2 className="font-display text-lg font-bold text-ink-900">Countries</h2><button onClick={onNewCountry} className="rounded-lg bg-ink-950 px-3 py-1.5 text-xs font-bold text-white"><Plus size={13} className="inline"/> New</button></div><div className="mt-3 flex items-center gap-2 rounded-xl border border-line bg-paper px-3"><Search size={14} className="text-slate-400"/><input value={query} onChange={(e)=>setQuery(e.target.value)} placeholder="Search countries…" className="h-10 flex-1 bg-transparent text-sm outline-none"/></div><div className="mt-3 max-h-[560px] space-y-1 overflow-auto">{filtered.map((country)=><button key={country.id} onClick={()=>setSelectedSlug(country.slug)} className={`w-full rounded-xl px-3 py-2 text-left text-sm transition ${selected?.id===country.id?'bg-emerald-50 text-emerald-800':'hover:bg-paper'}`}><span className="font-bold">{country.flag} {country.name}</span><span className="block text-xs text-slate-400">/{country.slug}</span></button>)}</div></section>{selected&&<section className="space-y-5"><div className="rounded-2xl border border-line bg-white p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Country Workspace</p><h2 className="font-display text-2xl font-bold text-ink-900">{selected.flag} {selected.name}</h2><p className="mt-1 text-sm text-slate-500">Overview, publishing, SEO, brokers, best-for pages, guides, FAQs and internal links in one place.</p></div><button onClick={()=>onEditCountry(selected)} className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-4 py-2 text-xs font-bold text-white"><Pencil size={14}/> Edit country hub</button></div><div className="mt-4 grid gap-3 sm:grid-cols-3"><HubMetric label="Publishing" value={publishedState} sub="draft · published · closed"/><HubMetric label="Best-For" value={String(bestFor.length)} sub="country category pages"/><HubMetric label="Country content" value={String(docs.length)} sub="guides and SEO docs"/></div></div><div className="grid gap-5 xl:grid-cols-2"><EntityPanel title="SEO QA" items={[selected.seo_title?'SEO title present':'Missing SEO title',selected.seo_description?'Meta description present':'Missing meta description',(selected.seo_intro?.length||0)>0?'Intro present':'Missing SEO intro',(selected.seo_sections?.length||0)>0?'Structured sections present':'Missing sections',(selected.seo_faqs?.length||0)>0?'FAQs present':'Missing FAQs']}/><EntityPanel title="Broker coverage" items={[`${selected.recommended.length} recommended brokers`,`${selected.unavailable.length} unavailable broker flags`,`${brokers.length} brokers in database`,'Use Broker Workspace for searchable eligibility states']}/></div><div className="rounded-2xl border border-line bg-white p-5"><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-display text-lg font-bold text-ink-900">Best-For pages</h3><button onClick={()=>onNewCountryBestFor(selected.slug)} className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3.5 py-1.5 text-xs font-bold text-white"><Plus size={13}/> Add new page</button></div><div className="mt-3 divide-y divide-line rounded-xl border border-line">{bestFor.map((page)=><div key={page.id} className="flex items-center justify-between px-4 py-3"><button onClick={()=>onEditCountryBestFor(page)} className="min-w-0 flex-1 text-left"><span className="block text-sm font-bold text-ink-900">{page.label}</span><span className="text-xs text-slate-400">/{selected.slug}/{page.slug} · {page.indexable?'Indexable':'Noindex'}</span></button><div className="flex shrink-0 items-center gap-1"><a href={`/countries/${selected.slug}/best/${page.slug}`} target="_blank" rel="noreferrer" className="rounded-lg p-2 text-slate-400 hover:bg-paper" title="Preview live page"><Eye size={14}/></a><button onClick={()=>onEditCountryBestFor(page)} className="rounded-lg p-2 text-slate-400 hover:bg-paper" title="Edit page"><Pencil size={14}/></button></div></div>)}{!bestFor.length&&<p className="p-4 text-sm text-slate-400">No country best-for pages yet.</p>}</div></div><div className="rounded-2xl border border-line bg-white p-5"><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-display text-lg font-bold text-ink-900">Country guides and SEO content</h3><button onClick={()=>onNewCountryContentDoc(selected.slug)} className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3.5 py-1.5 text-xs font-bold text-white"><Plus size={13}/> Add new page</button></div><div className="mt-3 divide-y divide-line rounded-xl border border-line">{docs.map((doc)=><div key={doc.id} className="flex items-center justify-between px-4 py-3"><button onClick={()=>onEditContentDoc(doc)} className="min-w-0 flex-1 text-left"><span className="block text-sm font-bold text-ink-900">{doc.title || doc.content_key}</span><span className="text-xs text-slate-400">{doc.content_type} · {doc.published?'Published':'Draft'} · {doc.indexable?'Indexable':'Noindex'}</span></button><div className="flex shrink-0 items-center gap-1">{doc.topic_slug&&<a href={`/${selected.slug}/${doc.topic_slug}`} target="_blank" rel="noreferrer" className="rounded-lg p-2 text-slate-400 hover:bg-paper" title="Preview live page (only works for registered topics)"><Eye size={14}/></a>}<button onClick={()=>onEditContentDoc(doc)} className="rounded-lg p-2 text-slate-400 hover:bg-paper" title="Edit page"><Pencil size={14}/></button></div></div>)}{!docs.length&&<p className="p-4 text-sm text-slate-400">No country-specific rich content found.</p>}</div></div><CountryLanguagesPanel country={selected} countryLanguages={countryLanguages} localizedPages={localizedPages} token={token} notify={notify} reload={reloadLocalization} onEditContentDoc={onEditContentDoc}/></section>}</div>;
 }
 
 function CountryLanguagesPanel({ country, countryLanguages, localizedPages, token, notify, reload, onEditContentDoc }: { country: CountryPage; countryLanguages: CountryLanguage[]; localizedPages: LocalizedSeoPage[]; token: string; notify: (msg: string) => void; reload: () => void; onEditContentDoc: (doc: ContentDocument) => void }) {
@@ -1302,32 +1287,7 @@ function LocalizedPageEditor({ page, token, notify, onClose, onSaved, onEditCont
   );
 }
 
-function GlobalHub({ guides, intents, contentDocs, token, notify, onNewGuide, onEditGuide, onNewIntent, onEditIntent, onEditContentDoc }: { guides: Guide[]; intents: Intent[]; contentDocs: ContentDocument[]; token: string; notify: (msg: string) => void; onNewGuide: () => void; onEditGuide: (g: Guide) => void; onNewIntent: () => void; onEditIntent: (i: Intent) => void; onEditContentDoc: (d: ContentDocument) => void }) {
-  const [seeding, setSeeding] = useState<string | null>(null);
-  const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
-
-  const docFor = (key: string) => contentDocs.find((d) => d.content_key === key);
-
-  const seed = async (key: string, contentType: string, title: string, seedBlocks: PageBlock[], topicSlug: string) => {
-    if (!seedBlocks.length) { notify('Nothing to convert yet — this page has no written content.'); return; }
-    setSeeding(key);
-    try {
-      const res = await fetch('/api/content-documents', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ content_key: key, content_type: contentType, country_slug: null, topic_slug: topicSlug, slug: topicSlug, title, excerpt: '', html: '', blocks: seedBlocks, seo_title: '', seo_description: '', indexable: true, published: true }),
-      });
-      const doc = await res.json().catch(() => null);
-      if (!res.ok) throw new Error((doc as { error?: string })?.error || 'Could not create rich content');
-      notify('Existing content loaded into the visual builder');
-      onEditContentDoc(doc as ContentDocument);
-    } catch (e) {
-      notify(e instanceof Error ? e.message : 'Could not open visual builder');
-    } finally {
-      setSeeding(null);
-    }
-  };
-
+function GlobalHub({ guides, intents, onNewGuide, onEditGuide, onNewIntent, onEditIntent }: { guides: Guide[]; intents: Intent[]; onNewGuide: () => void; onEditGuide: (g: Guide) => void; onNewIntent: () => void; onEditIntent: (i: Intent) => void }) {
   return (
     <div className="grid gap-5 lg:grid-cols-2">
       <div className="rounded-2xl border border-line bg-white shadow-soft">
@@ -1336,28 +1296,17 @@ function GlobalHub({ guides, intents, contentDocs, token, notify, onNewGuide, on
           <button onClick={onNewGuide} className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3.5 py-1.5 text-xs font-bold text-white transition hover:bg-emerald-600"><Plus size={13} /> New guide</button>
         </div>
         <div className="divide-y divide-line">
-          {guides.map((g) => {
-            const key = `guide:${g.slug}`;
-            const existing = docFor(key);
-            const seedBlocks = legacySectionsToBlocks(guideSectionsToLegacySections(g.sections));
-            return (
-              <div key={g.id} className="flex items-center gap-3 px-5 py-3.5">
-                <img src={g.image} alt="" className="h-10 w-16 shrink-0 rounded-lg object-cover" />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-bold text-ink-900">{g.title}</p>
-                  <p className="text-xs text-slate-400">{g.category} · {g.level} · {g.minutes} min</p>
-                </div>
-                {existing ? (
-                  <button onClick={() => onEditContentDoc(existing)} className="rounded-lg p-2 text-slate-400 hover:bg-emerald-50 hover:text-emerald-700" title="Edit in visual builder"><Sparkles size={14} /></button>
-                ) : seedBlocks.length > 0 ? (
-                  <button onClick={() => seed(key, 'guide', g.title, seedBlocks, g.slug)} disabled={seeding === key} className="rounded-lg p-2 text-slate-400 hover:bg-emerald-50 hover:text-emerald-700 disabled:opacity-50" title="Load existing content into builder">
-                    {seeding === key ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-                  </button>
-                ) : null}
-                <button onClick={() => onEditGuide(g)} className="rounded-lg p-2 text-slate-400 hover:bg-paper hover:text-ink-900" title="Edit guide details"><Pencil size={14} /></button>
+          {guides.map((g) => (
+            <div key={g.id} className="flex items-center gap-3 px-5 py-3.5">
+              <img src={g.image} alt="" className="h-10 w-16 shrink-0 rounded-lg object-cover" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-bold text-ink-900">{g.title}</p>
+                <p className="text-xs text-slate-400">{g.category} · {g.level} · {g.minutes} min</p>
               </div>
-            );
-          })}
+              <a href={`/guides/${g.slug}`} target="_blank" rel="noreferrer" className="rounded-lg p-2 text-slate-400 hover:bg-paper hover:text-ink-900" title="Preview live page"><Eye size={14} /></a>
+              <button onClick={() => onEditGuide(g)} className="rounded-lg p-2 text-slate-400 hover:bg-paper hover:text-ink-900" title="Edit guide"><Pencil size={14} /></button>
+            </div>
+          ))}
           {!guides.length && <p className="p-5 text-sm text-slate-400">No guides yet.</p>}
         </div>
       </div>
@@ -1368,27 +1317,16 @@ function GlobalHub({ guides, intents, contentDocs, token, notify, onNewGuide, on
           <button onClick={onNewIntent} className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3.5 py-1.5 text-xs font-bold text-white transition hover:bg-emerald-600"><Plus size={13} /> New page</button>
         </div>
         <div className="divide-y divide-line">
-          {intents.map((i) => {
-            const key = `best-for:${i.slug}`;
-            const existing = docFor(key);
-            const seedBlocks = legacySectionsToBlocks(introCriteriaToLegacySections(i.intro, i.criteria, i.sections));
-            return (
-              <div key={i.id} className="flex items-center gap-3 px-5 py-3.5">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-bold text-ink-900">{i.label}</p>
-                  <p className="text-xs text-slate-400">/best/{i.slug}</p>
-                </div>
-                {existing ? (
-                  <button onClick={() => onEditContentDoc(existing)} className="rounded-lg p-2 text-slate-400 hover:bg-emerald-50 hover:text-emerald-700" title="Edit in visual builder"><Sparkles size={14} /></button>
-                ) : seedBlocks.length > 0 ? (
-                  <button onClick={() => seed(key, 'best-for', i.label, seedBlocks, i.slug)} disabled={seeding === key} className="rounded-lg p-2 text-slate-400 hover:bg-emerald-50 hover:text-emerald-700 disabled:opacity-50" title="Load existing content into builder">
-                    {seeding === key ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-                  </button>
-                ) : null}
-                <button onClick={() => onEditIntent(i)} className="rounded-lg p-2 text-slate-400 hover:bg-paper hover:text-ink-900" title="Edit page details"><Pencil size={14} /></button>
+          {intents.map((i) => (
+            <div key={i.id} className="flex items-center gap-3 px-5 py-3.5">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-bold text-ink-900">{i.label}</p>
+                <p className="text-xs text-slate-400">/best/{i.slug}</p>
               </div>
-            );
-          })}
+              <a href={`/best/${i.slug}`} target="_blank" rel="noreferrer" className="rounded-lg p-2 text-slate-400 hover:bg-paper hover:text-ink-900" title="Preview live page"><Eye size={14} /></a>
+              <button onClick={() => onEditIntent(i)} className="rounded-lg p-2 text-slate-400 hover:bg-paper hover:text-ink-900" title="Edit page"><Pencil size={14} /></button>
+            </div>
+          ))}
           {!intents.length && <p className="p-5 text-sm text-slate-400">No best-for pages yet.</p>}
         </div>
       </div>
@@ -3169,10 +3107,11 @@ const EMPTY_COUNTRY_BEST_FOR: CountryBestForForm = {
   intro: [], criteria: [], sections: [], faqs: [], indexable: true, sort_order: 0,
 };
 
-function CountryBestForEditor({ page, countries, intents = [], onClose, onSave }: {
+function CountryBestForEditor({ page, countries, intents = [], token, onClose, onSave }: {
   page: CountryBestFor | null;
   countries: CountryPage[];
   intents?: Intent[];
+  token: string;
   onClose: () => void;
   onSave: (fields: Record<string, unknown>, isNew: boolean) => Promise<void>;
 }) {
@@ -3180,9 +3119,23 @@ function CountryBestForEditor({ page, countries, intents = [], onClose, onSave }
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const inputCls = 'h-10 w-full rounded-xl border border-line bg-paper px-3 text-sm font-medium outline-none transition focus:border-emerald-500';
-  const jsonSections = JSON.stringify(form.sections, null, 2);
-  const jsonFaqs = JSON.stringify(form.faqs, null, 2);
   const isSuperseded = !page && SUPERSEDED_INTENT_SLUGS.has(form.slug);
+
+  // Same block-based body as guides and global best-for pages, editing
+  // `sections` directly — legacy pages convert automatically on first open.
+  const initialBlocks = useMemo(
+    () => (isBlockShape(form.sections) ? (form.sections as unknown as PageBlock[]) : legacySectionsToBlocks(introCriteriaToLegacySections(undefined, undefined, form.sections))),
+    []
+  );
+
+  const uploadImage = async (file: File) => {
+    const reader = new FileReader();
+    const data = await new Promise<string>((resolve, reject) => { reader.onload = () => resolve(String(reader.result)); reader.onerror = reject; reader.readAsDataURL(file); });
+    const res = await fetch('/api/content-assets', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ filename: file.name, contentType: file.type, dataBase64: data }) });
+    const out = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(out.error || 'Image upload failed');
+    return out.url;
+  };
 
   const submit = async () => {
     if (!form.country_id) return setErr('Choose a country.');
@@ -3239,7 +3192,12 @@ function CountryBestForEditor({ page, countries, intents = [], onClose, onSave }
         <label><FieldLabel hint="Unique 140–160 character search description">Meta description</FieldLabel><textarea value={form.meta_description} onChange={(e) => setForm({ ...form, meta_description: e.target.value })} rows={3} className="w-full rounded-xl border border-line bg-paper px-3 py-2.5 text-sm outline-none focus:border-emerald-500" /></label>
         <StringList label="Intro paragraphs" hint="Country-specific opening copy" items={form.intro} onChange={(v) => setForm({ ...form, intro: v })} textarea />
         <StringList label="Ranking criteria" items={form.criteria} onChange={(v) => setForm({ ...form, criteria: v })} placeholder="Explain what qualifies a broker for this category" />
-        <SeoSectionsEditor label="SEO sections" hint="Structured sections shown on the country best-for page." sections={form.sections} onChange={(sections) => setForm({ ...form, sections })} />
+        <div>
+          <FieldLabel hint="Reorder, add headings, images, tables, callouts and more">Page content</FieldLabel>
+          <div className="mt-1.5">
+            <PageBuilder value={initialBlocks} onChange={(blocks) => setForm({ ...form, sections: blocks as unknown as typeof form.sections })} onUploadImage={uploadImage} />
+          </div>
+        </div>
         <FaqListEditor label="FAQs" hint="Structured FAQ editor for normal admins." faqs={form.faqs} onChange={(faqs) => setForm({ ...form, faqs })} />
         <div className="flex items-center justify-between rounded-xl border border-line bg-paper p-4">
           <div><p className="text-sm font-bold text-ink-900">Index this page</p><p className="text-xs text-slate-500">Only enable when the page has enough unique content and commercial value.</p></div>
@@ -4183,10 +4141,12 @@ interface GuideForm {
 
 function GuideEditor({
   guide,
+  token,
   onClose,
   onSave,
 }: {
   guide: Guide | null;
+  token: string;
   onClose: () => void;
   onSave: (fields: Record<string, unknown>, isNew: boolean) => Promise<void>;
 }) {
@@ -4207,8 +4167,23 @@ function GuideEditor({
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
 
-  const setSection = (i: number, patch: Partial<GuideSection>) =>
-    setForm((f) => ({ ...f, sections: f.sections.map((s, xi) => (xi === i ? { ...s, ...patch } : s)) }));
+  // The article body is now edited as PageBuilder blocks directly on the
+  // same `sections` field the public page renders — no separate document.
+  // Guides written before this change are auto-converted the first time
+  // they're opened here; nothing is lost, they just become editable blocks.
+  const initialBlocks = useMemo(
+    () => (isBlockShape(form.sections) ? (form.sections as unknown as PageBlock[]) : legacySectionsToBlocks(guideSectionsToLegacySections(form.sections as GuideSection[]))),
+    []
+  );
+
+  const uploadImage = async (file: File) => {
+    const reader = new FileReader();
+    const data = await new Promise<string>((resolve, reject) => { reader.onload = () => resolve(String(reader.result)); reader.onerror = reject; reader.readAsDataURL(file); });
+    const res = await fetch('/api/content-assets', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ filename: file.name, contentType: file.type, dataBase64: data }) });
+    const out = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(out.error || 'Image upload failed');
+    return out.url;
+  };
 
   const submit = async () => {
     if (form.title.trim().length < 4) return setErr('A guide title is required.');
@@ -4217,7 +4192,6 @@ function GuideEditor({
       const out: Record<string, unknown> = {
         ...form,
         minutes: parseInt(form.minutes, 10) || 8,
-        sections: form.sections.filter((s) => s.heading.trim()),
       };
       if (guide) out.id = guide.id;
       await onSave(out, !guide);
@@ -4289,78 +4263,11 @@ function GuideEditor({
           </div>
         </div>
 
-        {/* sections */}
-        <div className="rounded-xl border border-line bg-paper p-4">
-          <FieldLabel hint="numbered article sections">Article sections</FieldLabel>
-          <div className="mt-2 space-y-3">
-            {form.sections.map((sec, i) => (
-              <div key={i} className="space-y-2 rounded-xl border border-line bg-white p-4">
-                <div className="flex items-center gap-2">
-                  <span className="tnum w-6 shrink-0 text-center font-display text-sm font-bold text-slate-400">
-                    {String(i + 1).padStart(2, '0')}
-                  </span>
-                  <input
-                    value={sec.heading}
-                    onChange={(e) => setSection(i, { heading: e.target.value })}
-                    placeholder="Section heading"
-                    className="h-10 flex-1 rounded-xl border border-line bg-paper px-3 text-sm font-bold outline-none focus:border-emerald-500"
-                  />
-                  <IconRemove onClick={() => setForm((f) => ({ ...f, sections: f.sections.filter((_, xi) => xi !== i) }))} />
-                </div>
-                <div className="space-y-1.5 pl-8">
-                  {sec.body.map((p, pi) => (
-                    <div key={pi} className="flex items-start gap-2">
-                      <textarea
-                        value={p}
-                        rows={2}
-                        onChange={(e) => setSection(i, { body: sec.body.map((x, xi) => (xi === pi ? e.target.value : x)) })}
-                        placeholder="Paragraph…"
-                        className="w-full rounded-xl border border-line bg-paper px-3 py-2 text-sm leading-relaxed outline-none focus:border-emerald-500"
-                      />
-                      <IconRemove onClick={() => setSection(i, { body: sec.body.filter((_, xi) => xi !== pi) })} />
-                    </div>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() => setSection(i, { body: [...sec.body, ''] })}
-                    className="inline-flex items-center gap-1 text-xs font-bold text-slate-500 transition hover:text-emerald-700"
-                  >
-                    <Plus size={12} /> Paragraph
-                  </button>
-                  {/* bullets */}
-                  <div className="pt-1.5">
-                    <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Bullets (optional)</p>
-                    <div className="mt-1.5 space-y-1.5">
-                      {(sec.bullets ?? []).map((b, bi) => (
-                        <div key={bi} className="flex items-center gap-2">
-                          <input
-                            value={b}
-                            onChange={(e) => setSection(i, { bullets: (sec.bullets ?? []).map((x, xi) => (xi === bi ? e.target.value : x)) })}
-                            placeholder="Bullet point…"
-                            className="h-9 flex-1 rounded-xl border border-line bg-paper px-3 text-xs outline-none focus:border-emerald-500"
-                          />
-                          <IconRemove onClick={() => setSection(i, { bullets: (sec.bullets ?? []).filter((_, xi) => xi !== bi) })} />
-                        </div>
-                      ))}
-                      <button
-                        type="button"
-                        onClick={() => setSection(i, { bullets: [...(sec.bullets ?? []), ''] })}
-                        className="inline-flex items-center gap-1 text-xs font-bold text-slate-500 transition hover:text-emerald-700"
-                      >
-                        <Plus size={12} /> Bullet
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-            <button
-              type="button"
-              onClick={() => setForm((f) => ({ ...f, sections: [...f.sections, { heading: '', body: [''], bullets: [] }] }))}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-line px-3 py-2 text-xs font-bold text-slate-500 transition hover:border-emerald-500 hover:text-emerald-700"
-            >
-              <Plus size={13} /> Add section
-            </button>
+        {/* sections — block-based editor, same one used everywhere else */}
+        <div>
+          <FieldLabel hint="Reorder, add headings, images, tables, callouts and more">Article content</FieldLabel>
+          <div className="mt-1.5">
+            <PageBuilder value={initialBlocks} onChange={(blocks) => setForm((f) => ({ ...f, sections: blocks as unknown as GuideSection[] }))} onUploadImage={uploadImage} />
           </div>
         </div>
 
@@ -4408,10 +4315,12 @@ const EMPTY_INTENT: IntentForm = { label: '', title: '', meta_title: '', meta_de
 
 function IntentEditor({
   intent,
+  token,
   onClose,
   onSave,
 }: {
   intent: Intent | null;
+  token: string;
   onClose: () => void;
   onSave: (fields: Record<string, unknown>, isNew: boolean) => Promise<void>;
 }) {
@@ -4420,6 +4329,23 @@ function IntentEditor({
   );
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
+
+  // Same block-based body used everywhere else, editing this page's
+  // `sections` field directly — legacy pages are converted the first time
+  // they're opened here.
+  const initialBlocks = useMemo(
+    () => (isBlockShape(form.sections) ? (form.sections as unknown as PageBlock[]) : legacySectionsToBlocks(introCriteriaToLegacySections(undefined, undefined, form.sections))),
+    []
+  );
+
+  const uploadImage = async (file: File) => {
+    const reader = new FileReader();
+    const data = await new Promise<string>((resolve, reject) => { reader.onload = () => resolve(String(reader.result)); reader.onerror = reject; reader.readAsDataURL(file); });
+    const res = await fetch('/api/content-assets', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ filename: file.name, contentType: file.type, dataBase64: data }) });
+    const out = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(out.error || 'Image upload failed');
+    return out.url;
+  };
 
   const submit = async () => {
     if (form.label.trim().length < 2) return setErr('A label is required.');
@@ -4472,7 +4398,12 @@ function IntentEditor({
           onChange={(v) => setForm({ ...form, criteria: v })}
           placeholder="e.g. Observed spreads below 0.3 pips"
         />
-        <SeoSectionsEditor label="SEO sections" hint="Structured sections for this SEO page." sections={form.sections} onChange={(sections) => setForm({ ...form, sections })} />
+        <div>
+          <FieldLabel hint="Reorder, add headings, images, tables, callouts and more">Page content</FieldLabel>
+          <div className="mt-1.5">
+            <PageBuilder value={initialBlocks} onChange={(blocks) => setForm({ ...form, sections: blocks as unknown as typeof form.sections })} onUploadImage={uploadImage} />
+          </div>
+        </div>
         <FaqListEditor label="FAQs" hint="Structured FAQ editor." faqs={form.faqs} onChange={(faqs) => setForm({ ...form, faqs })} />
         <div className="flex items-center justify-between rounded-xl border border-line bg-paper p-4"><div><p className="text-sm font-bold text-ink-900">Index this page</p><p className="text-xs text-slate-500">Disable for drafts or pages without sufficient unique content.</p></div><Toggle on={form.indexable} onToggle={() => setForm({ ...form, indexable: !form.indexable })} /></div>
         <p className="rounded-xl bg-paper px-3.5 py-2.5 text-xs leading-relaxed text-slate-500">

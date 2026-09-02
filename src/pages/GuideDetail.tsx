@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Check, Clock, ListOrdered } from 'lucide-react';
-import type { ContentDocument, Guide } from '../lib/types';
-import { fetchGuide, fetchGuides, fetchContentDocument } from '../lib/api';
+import type { Guide } from '../lib/types';
+import { fetchGuide, fetchGuides } from '../lib/api';
 import { blocksToHtml } from '../components/PageBuilder';
+import { isBlockShape } from '../lib/contentBlocks';
 import { ButtonLink } from '../components/Button';
 import NewsletterForm from '../components/NewsletterForm';
 import { fmtDate } from '../lib/format';
@@ -14,24 +15,32 @@ export default function GuideDetail() {
   const { slug } = useParams<{ slug: string }>();
   const [guide, setGuide] = useState<Guide | null>(null);
   const [all, setAll] = useState<Guide[]>([]);
-  const [richContent, setRichContent] = useState<ContentDocument | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const contentRef = useRef<HTMLDivElement | null>(null);
+  const [blockToc, setBlockToc] = useState<{ id: string; text: string }[]>([]);
 
   useEffect(() => {
     if (!slug) return;
     setLoading(true);
     setError('');
-    setRichContent(null);
     fetchGuide(slug)
       .then((g) => {
         setGuide(g);
         fetchGuides().then(setAll).catch(() => {});
-        fetchContentDocument(`guide:${g.slug}`).then((content) => setRichContent(content?.published ? content : null)).catch(() => setRichContent(null));
       })
       .catch((e) => setError(e instanceof Error ? e.message : 'Guide not found'))
       .finally(() => setLoading(false));
   }, [slug]);
+
+  // For migrated (block-based) guides, build the "In this guide" list from
+  // the actual rendered headings — their ids come from blocksToHtml, so
+  // this stays correct without duplicating slug logic here.
+  useEffect(() => {
+    if (!guide || !isBlockShape(guide.sections) || !contentRef.current) { setBlockToc([]); return; }
+    const headings = Array.from(contentRef.current.querySelectorAll('h2[id]'));
+    setBlockToc(headings.map((h) => ({ id: h.id, text: h.textContent || '' })));
+  }, [guide]);
 
   const seoInput = guide ? guideSeo(guide) : null;
   useSEO(
@@ -109,9 +118,9 @@ export default function GuideDetail() {
           </h1>
           <p className="mt-3 text-lg leading-relaxed text-slate-500">{guide.excerpt}</p>
 
-          <div className="mt-8 space-y-10">
-            {richContent?.published && (richContent.html || (Array.isArray(richContent.blocks) && richContent.blocks.length)) ? (
-              <div className="prose prose-slate max-w-none prose-headings:font-display prose-img:rounded-2xl prose-table:w-full prose-th:border prose-th:border-line prose-th:bg-paper prose-th:px-3 prose-th:py-2 prose-td:border prose-td:border-line prose-td:px-3 prose-td:py-2" dangerouslySetInnerHTML={{ __html: Array.isArray(richContent.blocks) && richContent.blocks.length ? blocksToHtml(richContent.blocks as any) : richContent.html }} />
+          <div className="mt-8 space-y-10" ref={contentRef}>
+            {isBlockShape(guide.sections) ? (
+              <div className="prose prose-slate max-w-none [&_h2]:scroll-mt-28 prose-headings:font-display prose-img:rounded-2xl prose-table:w-full prose-th:border prose-th:border-line prose-th:bg-paper prose-th:px-3 prose-th:py-2 prose-td:border prose-td:border-line prose-td:px-3 prose-td:py-2" dangerouslySetInnerHTML={{ __html: blocksToHtml(guide.sections as any) }} />
             ) : guide.sections.map((sec, i) => (
               <section key={i} id={`sec-${i}`} className="scroll-mt-28">
                 <h2 className="flex items-baseline gap-3 font-display text-2xl font-bold text-ink-900">
@@ -156,14 +165,14 @@ export default function GuideDetail() {
               <ListOrdered size={14} /> In this guide
             </p>
             <ol className="mt-3 space-y-2">
-              {guide.sections.map((sec, i) => (
-                <li key={i}>
+              {(isBlockShape(guide.sections) ? blockToc : guide.sections.map((sec, i) => ({ id: `sec-${i}`, text: sec.heading }))).map((item, i) => (
+                <li key={item.id}>
                   <button
-                    onClick={() => document.getElementById(`sec-${i}`)?.scrollIntoView({ behavior: 'smooth' })}
+                    onClick={() => document.getElementById(item.id)?.scrollIntoView({ behavior: 'smooth' })}
                     className="flex items-baseline gap-2 text-left text-sm font-medium text-slate-600 transition hover:text-emerald-700"
                   >
                     <span className="tnum text-xs font-bold text-slate-400">{i + 1}.</span>
-                    {sec.heading}
+                    {item.text}
                   </button>
                 </li>
               ))}
