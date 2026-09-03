@@ -11,8 +11,8 @@ export function englishSlugForTopicKey(topicKey: string | null | undefined): str
 /** English alternate path for a localized commercial page. */
 export function englishAlternatePath(countrySlug: string, topicKey: string | null | undefined): string {
   const topicSlug = englishSlugForTopicKey(topicKey);
-  if (!topicSlug) return `/${countrySlug}`;
-  return `/${countrySlug}/${topicSlug}`;
+  if (!topicSlug) return `/countries/${countrySlug}`;
+  return `/countries/${countrySlug}/${topicSlug}`;
 }
 
 /** BCP 47 region code for a country slug (e.g. vietnam → VN). */

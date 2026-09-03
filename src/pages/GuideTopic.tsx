@@ -9,6 +9,7 @@ import { blocksToHtml } from '../components/PageBuilder';
 import Monogram from '../components/Monogram';
 import { ButtonLink } from '../components/Button';
 import { reviewerFor } from '../lib/team';
+import { countryHubPath, countryRankingPath } from '../lib/countryRoutes';
 
 /**
  * Generic country guide page. One route, one component, works for any
@@ -24,7 +25,8 @@ import { reviewerFor } from '../lib/team';
  * real noindex — not a generic fallback pretending content exists.
  */
 export default function GuideTopic() {
-  const { countrySlug, slug } = useParams<{ countrySlug: string; slug: string }>();
+  const { countrySlug, slug: routeSlug, topicSlug } = useParams<{ countrySlug: string; slug?: string; topicSlug?: string }>();
+  const slug = routeSlug ?? topicSlug;
   const [country, setCountry] = useState<CountryPage | null>(null);
   const [doc, setDoc] = useState<ContentDocument | null>(null);
   const [loading, setLoading] = useState(true);
@@ -60,7 +62,7 @@ export default function GuideTopic() {
     ? {
         title: doc.seo_title || doc.title,
         description: doc.seo_description || doc.excerpt,
-        path: `/${country.slug}/guides/${doc.slug}`,
+        path: `/countries/${country.slug}/${doc.slug}`,
         type: 'article' as const,
       }
     : null;
@@ -72,7 +74,7 @@ export default function GuideTopic() {
           { ...buildWebPageJsonLd(seo), author: { '@type': 'Person', name: reviewer.penName, jobTitle: reviewer.role, url: absoluteUrl(`/authors#${reviewer.slug}`) } },
           buildBreadcrumbJsonLd([
             { name: 'Home', path: '/' },
-            { name: country.name, path: `/${country.slug}` },
+            { name: country.name, path: countryHubPath(country.slug) },
             { name: doc.title, path: seo!.path },
           ]),
           ...(faqs.length ? [buildFAQPageJsonLd(faqs.map((f) => ({ question: f.q, answer: f.a })))] : []),
@@ -103,7 +105,7 @@ export default function GuideTopic() {
     <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6">
       <nav aria-label="Breadcrumb" className="mb-5 flex flex-wrap items-center gap-1.5 text-xs font-medium text-slate-400">
         <Link to="/" className="hover:text-ink-900">Home</Link><span>/</span>
-        <Link to={`/${country.slug}`} className="hover:text-ink-900">{country.name}</Link><span>/</span>
+        <Link to={countryHubPath(country.slug)} className="hover:text-ink-900">{country.name}</Link><span>/</span>
         <span className="text-ink-900">{doc.title}</span>
       </nav>
 
@@ -157,7 +159,7 @@ export default function GuideTopic() {
         <p className="text-xs font-bold uppercase tracking-widest text-emerald-300">Continue your research</p>
         <h2 className="mt-2 font-display text-2xl font-bold">Compare forex brokers in {country.name}</h2>
         <div className="mt-5 flex flex-wrap gap-3">
-          <Link to={`/${country.slug}`} className="rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-ink-950">View all {country.name} brokers</Link>
+          <Link to={countryRankingPath(country.slug)} className="rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-ink-950">View all {country.name} brokers</Link>
           <Link to="/quiz" className="rounded-xl border border-white/15 px-4 py-2.5 text-sm font-bold text-white">Find my broker</Link>
         </div>
       </div>

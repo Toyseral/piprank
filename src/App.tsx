@@ -23,12 +23,13 @@ const Compare = lazy(() => import('./pages/Compare'));
 const ComparePair = lazy(() => import('./pages/ComparePair'));
 const Countries = lazy(() => import('./pages/Countries'));
 const CountryDetail = lazy(() => import('./pages/CountryDetail'));
-const CountrySeoTopic = lazy(() => import('./pages/CountrySeoTopic'));
+const CountryRanking = lazy(() => import('./pages/CountryRanking'));
 const LocalizedCountrySeoTopic = lazy(() => import('./pages/LocalizedCountrySeoTopic'));
+const LocalizedCountryHub = lazy(() => import('./pages/LocalizedCountryHub'));
 const GuideDetail = lazy(() => import('./pages/GuideDetail'));
 const Guides = lazy(() => import('./pages/Guides'));
 const Methodology = lazy(() => import('./pages/Methodology'));
-const GuideTopic = lazy(() => import('./pages/GuideTopic'));
+const CountryContent = lazy(() => import('./pages/CountryContent'));
 const Promotions = lazy(() => import('./pages/Promotions'));
 const Quiz = lazy(() => import('./pages/Quiz'));
 const Tools = lazy(() => import('./pages/Tools'));
@@ -66,14 +67,14 @@ export function Shell() {
             <Route path="/authors" element={<Authors />} />
             <Route path="/best/:slug" element={<BestFor />} />
             <Route path="/countries/:countrySlug/best/:slug" element={<BestFor />} />
-            <Route path="/:countrySlug/guides/:slug" element={<GuideTopic />} />
+            <Route path="/countries/:countrySlug/:locale/:topicSlug" element={<LocalizedCountrySeoTopic />} />
+            <Route path="/countries/:countrySlug/forex-brokers" element={<CountryRanking />} />
+            <Route path="/countries/:countrySlug/vi" element={<LocalizedCountryHub />} />
+            <Route path="/countries/:countrySlug/:topicSlug" element={<CountryContent />} />
             <Route path="/countries" element={<Countries />} />
             <Route path="/countries/:slug" element={<CountryDetail />} />
             <Route path="/promotions" element={<Promotions />} />
             <Route path="/archypage" element={<Admin />} />
-            <Route path="/:countrySlug/:locale/:topicSlug" element={<LocalizedCountrySeoTopic />} />
-            <Route path="/:countrySlug/:topicSlug" element={<CountrySeoTopic />} />
-            <Route path="/:slug" element={<CountryDetail />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>
