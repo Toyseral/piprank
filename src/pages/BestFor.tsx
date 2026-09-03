@@ -289,7 +289,7 @@ export default function BestFor() {
       )}
 
       {'sections' in intent && isBlockShape(intent.sections) ? (
-        <div className="prose prose-slate mt-10 max-w-none prose-headings:font-display prose-img:rounded-2xl prose-table:w-full prose-th:border prose-th:border-line prose-th:bg-paper prose-th:px-3 prose-th:py-2 prose-td:border prose-td:border-line prose-td:px-3 prose-td:py-2" dangerouslySetInnerHTML={{ __html: blocksToHtml(intent.sections as any) }} />
+        <div className="piprank-rich-content mt-10" dangerouslySetInnerHTML={{ __html: blocksToHtml(intent.sections as any) }} />
       ) : (
         'sections' in intent && Array.isArray(intent.sections) && intent.sections.length > 0 && (
           <div className="mt-10 space-y-6">

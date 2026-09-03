@@ -120,7 +120,7 @@ export default function GuideDetail() {
 
           <div className="mt-8 space-y-10" ref={contentRef}>
             {isBlockShape(guide.sections) ? (
-              <div className="prose prose-slate max-w-none [&_h2]:scroll-mt-28 prose-headings:font-display prose-img:rounded-2xl prose-table:w-full prose-th:border prose-th:border-line prose-th:bg-paper prose-th:px-3 prose-th:py-2 prose-td:border prose-td:border-line prose-td:px-3 prose-td:py-2" dangerouslySetInnerHTML={{ __html: blocksToHtml(guide.sections as any) }} />
+              <div className="piprank-rich-content [&_h2]:scroll-mt-28" dangerouslySetInnerHTML={{ __html: blocksToHtml(guide.sections as any) }} />
             ) : guide.sections.map((sec, i) => (
               <section key={i} id={`sec-${i}`} className="scroll-mt-28">
                 <h2 className="flex items-baseline gap-3 font-display text-2xl font-bold text-ink-900">
