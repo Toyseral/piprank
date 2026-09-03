@@ -5,7 +5,7 @@ import type { CountryPage, ContentDocument } from '../lib/types';
 import { fetchCountry, fetchContentDocument } from '../lib/api';
 import { useSEO } from '../hooks/useSEO';
 import { buildBreadcrumbJsonLd, buildFAQPageJsonLd, buildWebPageJsonLd, absoluteUrl } from '../lib/seo';
-import { blocksToHtml } from '../components/PageBuilder';
+import { blocksToHtml, hasVisualContent } from '../components/PageBuilder';
 import Monogram from '../components/Monogram';
 import { ButtonLink } from '../components/Button';
 import { reviewerFor } from '../lib/team';
@@ -127,7 +127,7 @@ export default function GuideTopic() {
 
       <div
         className="piprank-rich-content mt-8 rounded-3xl border border-line bg-white p-6 sm:p-8"
-        dangerouslySetInnerHTML={{ __html: Array.isArray(doc.blocks) && doc.blocks.length ? blocksToHtml(doc.blocks as never) : doc.html }}
+        dangerouslySetInnerHTML={{ __html: hasVisualContent(doc.blocks) ? blocksToHtml(doc.blocks as never) : doc.html }}
       />
 
       {faqs.length > 0 && (

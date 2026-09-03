@@ -8,7 +8,7 @@ import { buildBreadcrumbJsonLd, buildFAQPageJsonLd, buildItemListJsonLd, buildWe
 import { getCountrySeoTopic, rankCountryTopicBrokers, topicFaq, topicNote, topicMeta, topicIntro } from '../data/countrySeoTopics';
 import BrokerCard from '../components/BrokerCard';
 import Monogram from '../components/Monogram';
-import { blocksToHtml } from '../components/PageBuilder';
+import { blocksToHtml, hasVisualContent } from '../components/PageBuilder';
 import Reveal from '../components/Reveal';
 import NotFound from './NotFound';
 import { track } from '../lib/track';
@@ -190,7 +190,7 @@ export default function CountrySeoTopic() {
         <section className="mt-10 rounded-2xl border border-line bg-white p-6 sm:p-8" aria-label="Additional editorial content">
           {richContent.title && <h2 className="font-display text-2xl font-bold text-ink-950">{richContent.title}</h2>}
           {richContent.excerpt && <p className="mt-2 text-sm leading-6 text-slate-500">{richContent.excerpt}</p>}
-          <div className="piprank-rich-content mt-6" dangerouslySetInnerHTML={{ __html: (Array.isArray(richContent.blocks) && richContent.blocks.length ? blocksToHtml(richContent.blocks as any) : richContent.html) }} />
+          <div className="piprank-rich-content mt-6" dangerouslySetInnerHTML={{ __html: (hasVisualContent(richContent.blocks) ? blocksToHtml(richContent.blocks as any) : richContent.html) }} />
         </section>
       )}
 

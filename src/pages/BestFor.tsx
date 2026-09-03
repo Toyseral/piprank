@@ -40,7 +40,7 @@ import Monogram from '../components/Monogram';
 import Stars from '../components/Stars';
 import VisitButton from '../components/VisitButton';
 import Reveal from '../components/Reveal';
-import { blocksToHtml } from '../components/PageBuilder';
+import { blocksToHtml, hasVisualContent } from '../components/PageBuilder';
 import { fmtMoney } from '../lib/format';
 import { useSEO } from '../hooks/useSEO';
 import { buildBreadcrumbJsonLd, buildFAQPageJsonLd, buildItemListJsonLd, intentSeo, countryBestForSeo, type SeoInput } from '../lib/seo';
@@ -291,8 +291,8 @@ export default function BestFor() {
       </div>
       )}
 
-      {richContent?.published && (richContent.html || (Array.isArray(richContent.blocks) && richContent.blocks.length)) ? (
-        <div className="prose prose-slate mt-10 max-w-none prose-headings:font-display prose-img:rounded-2xl prose-table:w-full prose-th:border prose-th:border-line prose-th:bg-paper prose-th:px-3 prose-th:py-2 prose-td:border prose-td:border-line prose-td:px-3 prose-td:py-2" dangerouslySetInnerHTML={{ __html: Array.isArray(richContent.blocks) && richContent.blocks.length ? blocksToHtml(richContent.blocks as any) : richContent.html }} />
+      {richContent?.published && (richContent.html || hasVisualContent(richContent.blocks)) ? (
+        <div className="prose prose-slate mt-10 max-w-none prose-headings:font-display prose-img:rounded-2xl prose-table:w-full prose-th:border prose-th:border-line prose-th:bg-paper prose-th:px-3 prose-th:py-2 prose-td:border prose-td:border-line prose-td:px-3 prose-td:py-2" dangerouslySetInnerHTML={{ __html: hasVisualContent(richContent.blocks) ? blocksToHtml(richContent.blocks as any) : richContent.html }} />
       ) : (
         'sections' in intent && Array.isArray(intent.sections) && intent.sections.length > 0 && (
           <div className="mt-10 space-y-6">

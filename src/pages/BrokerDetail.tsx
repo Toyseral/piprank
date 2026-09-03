@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import type { Broker, BrokerContent, BrokerCountryAvailability, BrokerCountryVerification, PlatformDetail, Review, ContentDocument } from '../lib/types';
 import { createReview, fetchBroker, fetchBrokerAvailability, fetchBrokerContent, fetchBrokers, fetchBrokerVerification, fetchReviews, fetchContentDocument, voteHelpful } from '../lib/api';
-import { blocksToHtml } from '../components/PageBuilder';
+import { blocksToHtml, hasVisualContent } from '../components/PageBuilder';
 import { track } from '../lib/track';
 import { getSupabase } from '../lib/supabase-lazy';
 import { useSEO } from '../hooks/useSEO';
@@ -484,7 +484,7 @@ export default function BrokerDetail() {
             <div className="prose-sm mt-4 space-y-4 text-[15px] leading-relaxed text-slate-600">
               {broker.review.map((p, i) => (<p key={i}>{p}</p>))}
               {extras?.overview?.map((p, i) => <p key={`extra-overview-${i}`}>{p}</p>)}
-              {richProfile?.published && richProfile.html ? <div className="mt-5 prose prose-slate max-w-none prose-headings:font-display prose-img:rounded-2xl prose-table:w-full prose-th:border prose-th:border-line prose-th:bg-paper prose-th:px-3 prose-th:py-2 prose-td:border prose-td:border-line prose-td:px-3 prose-td:py-2" dangerouslySetInnerHTML={{__html: (Array.isArray(richProfile.blocks) && richProfile.blocks.length ? blocksToHtml(richProfile.blocks as any) : richProfile.html)}} /> : null}
+              {richProfile?.published && richProfile.html ? <div className="mt-5 prose prose-slate max-w-none prose-headings:font-display prose-img:rounded-2xl prose-table:w-full prose-th:border prose-th:border-line prose-th:bg-paper prose-th:px-3 prose-th:py-2 prose-td:border prose-td:border-line prose-td:px-3 prose-td:py-2" dangerouslySetInnerHTML={{__html: (hasVisualContent(richProfile.blocks) ? blocksToHtml(richProfile.blocks as any) : richProfile.html)}} /> : null}
               {Array.isArray(profileSettings.internalLinks) && profileSettings.internalLinks.length > 0 && <div className="mt-8 border-t border-line pt-6"><p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Related PipRank pages</p><div className="mt-3 grid gap-2 sm:grid-cols-2">{profileSettings.internalLinks.map((link:any,i:number)=><Link key={i} to={link.href} className="rounded-xl border border-line px-4 py-3 text-sm font-semibold text-ink-900 hover:border-emerald-300 hover:bg-emerald-50">{link.label}</Link>)}</div></div>}
             </div>
             <div className="mt-7 grid gap-5 sm:grid-cols-2">

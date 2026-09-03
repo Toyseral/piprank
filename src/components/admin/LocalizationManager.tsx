@@ -322,7 +322,7 @@ function LocalizedPageRow({
       .then((d: ContentDocument | null) => {
         setStudioDoc(d);
         const blocks = Array.isArray(d?.blocks) ? (d!.blocks as PageBlock[]) : [];
-        setBuilderBlocks(blocks);
+        setBuilderBlocks(blocks as any);
       })
       .catch(() => {
         setStudioDoc(null);
@@ -574,7 +574,7 @@ function LocalizedPageRow({
                   key={`studio-${contentDocumentId}-${studioDoc?.updated_at || 'new'}`}
                   value={builderBlocks}
                   onChange={(blocks) => {
-                    setBuilderBlocks(blocks);
+                    setBuilderBlocks(blocks as any);
                   }}
                 />
               </div>
