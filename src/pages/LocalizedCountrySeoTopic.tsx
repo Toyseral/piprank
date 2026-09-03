@@ -21,6 +21,7 @@ import Reveal from '../components/Reveal';
 import NotFound from './NotFound';
 import { reviewerFor } from '../lib/team';
 import VietnameseCountrySeoTopic from './VietnameseCountrySeoTopic';
+import { countryHubPath, localizedCountryPath } from '../lib/countryRoutes';
 
 export default function LocalizedCountrySeoTopic() {
   const { countrySlug = '', locale = '', topicSlug = '' } = useParams<{
@@ -121,7 +122,7 @@ export default function LocalizedCountrySeoTopic() {
     [countrySlug, locale, topicSlug],
   );
 
-  const path = `/${countrySlug}/${locale}/${topicSlug}`;
+  const path = localizedCountryPath(countrySlug, locale, topicSlug);
   const englishPath = englishAlternatePath(countrySlug, page?.topic_key);
   const enHreflang = englishHreflangForCountry(countrySlug);
 
@@ -156,7 +157,7 @@ export default function LocalizedCountrySeoTopic() {
           },
           buildBreadcrumbJsonLd([
             { name: ui.home, path: '/' },
-            { name: country?.name ?? countrySlug, path: `/${countrySlug}` },
+            { name: country?.name ?? countrySlug, path: countryHubPath(countrySlug) },
             { name: page!.title, path },
           ]),
           buildItemListJsonLd(
@@ -204,7 +205,7 @@ export default function LocalizedCountrySeoTopic() {
       <nav aria-label="Breadcrumb" className="mb-5 flex flex-wrap gap-1.5 text-xs text-slate-400">
         <Link to="/">{ui.home}</Link>
         <span>/</span>
-        <Link to={`/${countrySlug}`}>{country.name}</Link>
+        <Link to={countryHubPath(countrySlug)}>{country.name}</Link>
         <span>/</span>
         <span className="text-ink-900">{page.title}</span>
       </nav>

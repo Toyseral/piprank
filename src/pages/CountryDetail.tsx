@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useLocation, useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { AlertTriangle, ArrowRight, Info, Scale, Slash, ShieldCheck, Sparkles } from 'lucide-react';
 import type { Broker, CountryBestFor, CountryPage, LocalizedSeoPage } from '../lib/types';
 import { fetchBrokers, fetchCountry, fetchCountryBestFors, fetchLocalizedSeoPagesForCountry } from '../lib/api';
@@ -16,6 +16,7 @@ import { countrySeoTopics, rankCountryTopicBrokers } from '../data/countrySeoTop
 import { useSEO } from '../hooks/useSEO';
 import { countrySeo, buildBreadcrumbJsonLd, buildWebPageJsonLd, buildItemListJsonLd, buildFAQPageJsonLd } from '../lib/seo';
 import { useGeo } from '../lib/GeoContext';
+import { countryGuidePath, countryHubPath, countryRankingPath, localizedCountryHubPath } from '../lib/countryRoutes';
 
 function faqFallback(country: CountryPage | null, ranked: { broker: Broker; note: string }[], brokers: Broker[]) {
   if (!country) return [];
@@ -49,8 +50,7 @@ const LEGACY_TOPIC_TO_NEW: Record<string, string> = {
 
 export default function CountryDetail() {
   const { slug } = useParams<{ slug: string }>();
-  const location = useLocation();
-  const countryPath = location.pathname.startsWith('/countries/') ? `/countries/${slug}` : `/${slug}`;
+  const countryPath = countryHubPath(slug ?? '');
   const [country, setCountry] = useState<CountryPage | null>(null);
   const [brokers, setBrokers] = useState<Broker[]>([]);
   const [bestForPages, setBestForPages] = useState<CountryBestFor[]>([]);
@@ -84,11 +84,11 @@ export default function CountryDetail() {
     ? {
         ...countrySeo(country, countryPath),
         alternates: [
-          { hreflang: englishHreflangForCountry(country.slug), path: countryPath.startsWith('/countries/') ? `/${country.slug}` : countryPath },
-          { hreflang: 'x-default', path: `/${country.slug}` },
+          { hreflang: englishHreflangForCountry(country.slug), path: countryPath },
+          { hreflang: 'x-default', path: countryPath },
           ...localizedAlts.map((r) => ({
             hreflang: r.locale || r.language_code || 'und',
-            path: `/${country.slug}/${r.url_prefix}/${r.slug}`,
+            path: `/countries/${country.slug}/${r.url_prefix}/${r.slug}`,
           })),
         ],
       }
@@ -203,15 +203,15 @@ export default function CountryDetail() {
         <div className="relative">
           <span className="text-5xl" aria-hidden="true">{country.flag}</span>
           <h1 className="mt-5 font-display text-3xl font-bold tracking-tight text-white sm:text-4xl">
-            Best Forex Brokers in {country.name} <span className="text-slate-500">(2026)</span>
+            Forex Trading in {country.name} <span className="text-slate-500">(2026)</span>
           </h1>
           <p className="mt-2 text-sm font-semibold text-emerald-300">{country.subtitle}</p>
           {countrySeoIntro.map((p, i) => (
             <p key={i} className="mt-3 max-w-3xl text-sm leading-relaxed text-slate-400 sm:text-[15px]">{p}</p>
           ))}
           <div className="mt-6 flex flex-wrap gap-3">
-            <Link to="/quiz" className="inline-flex items-center gap-2 rounded-xl bg-emerald-400 px-4 py-2.5 text-sm font-bold text-ink-950 transition hover:bg-emerald-300">
-              <Sparkles size={16} /> Find my best broker
+            <Link to={countryRankingPath(country.slug)} className="inline-flex items-center gap-2 rounded-xl bg-emerald-400 px-4 py-2.5 text-sm font-bold text-ink-950 transition hover:bg-emerald-300">
+              See best forex brokers <ArrowRight size={16} />
             </Link>
             <a href="#comparison" className="inline-flex items-center gap-2 rounded-xl border border-white/15 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-white/10">
               Compare brokers <ArrowRight size={15} />
@@ -260,6 +260,7 @@ export default function CountryDetail() {
               These recommendations reflect the brokers currently available in our {country.name} dataset. Compare the full broker profiles and confirm current terms before opening an account.
             </p>
           </div>
+          <Link to={countryRankingPath(country.slug)} className="hidden text-sm font-bold text-emerald-700 sm:block">View full ranking →</Link>
         </div>
         <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
           {ranked.map(({ broker, note }, i) => (
@@ -269,6 +270,32 @@ export default function CountryDetail() {
           ))}
         </div>
       </section>
+
+      <section aria-labelledby="country-guides" className="mt-12">
+        <p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Local trading guidance</p>
+        <h2 id="country-guides" className="mt-1 font-display text-2xl font-bold text-ink-950">Popular Guides for {country.name}</h2>
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          {[
+            ['Forex Trading Cost', 'forex-trading-cost'],
+            ['How to Choose a Forex Broker', 'how-to-choose-a-forex-broker'],
+            ['Forex Regulation', 'forex-regulation'],
+            ['Forex Payment Methods', 'forex-payment-methods'],
+          ].map(([title, guideSlug]) => (
+            <Link key={guideSlug} to={countryGuidePath(country.slug, guideSlug)} className="rounded-2xl border border-line bg-white p-4 transition hover:-translate-y-0.5 hover:border-emerald-300">
+              <span className="text-sm font-bold text-ink-900">{title} in {country.name}</span><span className="mt-2 block text-xs font-semibold text-emerald-700">Read guide →</span>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      {country.slug === 'vietnam' && (
+        <section className="mt-10 rounded-3xl border border-emerald-200 bg-emerald-50 p-6 sm:p-8">
+          <p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Tiếng Việt</p>
+          <h2 className="mt-1 font-display text-2xl font-bold text-ink-950">Đọc bằng tiếng Việt</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-600">Explore PipRank's Vietnam forex content in Vietnamese.</p>
+          <Link to={localizedCountryHubPath(country.slug, 'vi')} className="mt-4 inline-flex items-center gap-2 text-sm font-bold text-emerald-800">Xem phiên bản tiếng Việt <ArrowRight size={16} /></Link>
+        </section>
+      )}
 
       {country.slug === 'ghana' && (
         <section aria-labelledby="ghana-guides" className="mt-12">
