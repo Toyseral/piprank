@@ -190,7 +190,7 @@ export default function BestFor() {
     buildBreadcrumbJsonLd(countrySlug ? [
       { name: 'Home', path: '/' },
       { name: 'Countries', path: '/countries' },
-      { name: country?.name ?? countrySlug, path: `/countries/${countrySlug}` },
+      { name: country?.name ?? countrySlug, path: `/${countrySlug}` },
       { name: intent.title, path: seoInput.path },
     ] : [{ name: 'Home', path: '/' }, { name: 'Best Forex Brokers', path: '/best' }, { name: intent.title, path: seoInput.path }]),
     buildItemListJsonLd(intent.title, ranked.slice(0, 10).map((b) => ({ name: b.name, path: `/brokers/${b.slug}` }))),
@@ -255,7 +255,7 @@ export default function BestFor() {
           )}
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
-          {country && <Link to={`/countries/${country.slug}`} className="rounded-full border border-emerald-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-emerald-400">All {country.name} brokers</Link>}
+          {country && <Link to={`/${country.slug}`} className="rounded-full border border-emerald-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-emerald-400">All {country.name} brokers</Link>}
           <Link to={`/best/${intent.slug}`} className="rounded-full border border-emerald-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-emerald-400">Global {intent.title}</Link>
           {countrySlug && countryBestForPages.filter((x) => x.slug !== intent.slug).slice(0, 6).map((x) => <Link key={x.slug} to={LEGACY_TOPIC_TO_NEW[x.slug] ? `/${countrySlug}/${LEGACY_TOPIC_TO_NEW[x.slug]}` : `/countries/${countrySlug}/best/${x.slug}`} className="rounded-full border border-line bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:border-emerald-400">More: {x.title}</Link>)}
         </div>
@@ -279,7 +279,7 @@ export default function BestFor() {
         <section className="mt-8 rounded-2xl border border-amber-200 bg-amber-50/70 p-6" aria-labelledby="country-best-for-pending">
           <h2 id="country-best-for-pending" className="font-display text-xl font-bold text-ink-950">Country-specific recommendations are being finalized</h2>
           <p className="mt-2 text-sm leading-6 text-amber-900">PipRank does not display global broker rankings on this country page until country-specific broker eligibility and recommendations have been configured.</p>
-          <Link to={`/countries/${countrySlug}`} className="mt-4 inline-flex text-sm font-bold text-emerald-700 hover:text-emerald-800">See all {country?.name ?? countrySlug} broker information →</Link>
+          <Link to={`/${countrySlug}`} className="mt-4 inline-flex text-sm font-bold text-emerald-700 hover:text-emerald-800">See all {country?.name ?? countrySlug} broker information →</Link>
         </section>
       ) : (
       <div className="mt-8 grid grid-cols-1 gap-5 lg:grid-cols-2">
@@ -326,17 +326,7 @@ export default function BestFor() {
           <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Local versions</p>
           <h2 id="country-variants" className="mt-1 font-display text-xl font-bold text-ink-900">Best {intent.title.toLowerCase()} by country</h2>
           <div className="mt-4 flex flex-wrap gap-2">
-            {countries.slice(0, 12).map((c) => <Link key={c.slug} to={`/countries/${c.slug}`} className="rounded-full border border-line bg-paper px-3.5 py-2 text-xs font-semibold text-slate-600 hover:border-emerald-400 hover:text-ink-900">{c.name}</Link>)}
-          </div>
-        </section>
-      )}
-
-      {!countrySlug && countries.length > 0 && (
-        <section className="mt-8 rounded-2xl border border-line bg-white p-6" aria-labelledby="country-variants">
-          <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Local versions</p>
-          <h2 id="country-variants" className="mt-1 font-display text-xl font-bold text-ink-900">Explore {intent.title.toLowerCase()} by country</h2>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {countries.slice(0, 12).map((c) => <Link key={c.slug} to={`/countries/${c.slug}`} className="rounded-full border border-line bg-paper px-3.5 py-2 text-xs font-semibold text-slate-600 hover:border-emerald-400 hover:text-ink-900">{c.name}</Link>)}
+            {countries.slice(0, 12).map((c) => <Link key={c.slug} to={`/${c.slug}`} className="rounded-full border border-line bg-paper px-3.5 py-2 text-xs font-semibold text-slate-600 hover:border-emerald-400 hover:text-ink-900">{c.name}</Link>)}
           </div>
         </section>
       )}
