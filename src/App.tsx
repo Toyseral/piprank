@@ -7,6 +7,7 @@ import ScrollToTop from './components/ScrollToTop';
 import Home from './pages/Home';
 import NotFound from './pages/NotFound';
 import { GeoProvider } from './lib/GeoContext';
+import { GLOBAL_TOPIC_PATHS } from './lib/topicPaths';
 
 // Lazy-loaded so the framer-motion chunk it depends on isn't forced onto
 // every page's initial load — SmartCTA only appears after scroll/exit-intent
@@ -64,6 +65,11 @@ export function Shell() {
             <Route path="/methodology" element={<Methodology />} />
             <Route path="/about" element={<About />} />
             <Route path="/authors" element={<Authors />} />
+            {/* Flat global ranking URLs e.g. /forex-brokers-for-beginners */}
+            {GLOBAL_TOPIC_PATHS.map((topicPath) => (
+              <Route key={topicPath} path={`/${topicPath}`} element={<BestFor />} />
+            ))}
+            {/* Legacy /best/:slug kept for SPA fallback; vercel 301s preferred paths */}
             <Route path="/best/:slug" element={<BestFor />} />
             <Route path="/countries/:countrySlug/best/:slug" element={<BestFor />} />
             <Route path="/:countrySlug/guides/:slug" element={<GuideTopic />} />
