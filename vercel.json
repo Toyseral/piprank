@@ -16,6 +16,66 @@
       "statusCode": 301
     },
     {
+      "source": "/best/beginners",
+      "destination": "/forex-brokers-for-beginners",
+      "statusCode": 301
+    },
+    {
+      "source": "/best/low-spread",
+      "destination": "/low-spread-forex-brokers",
+      "statusCode": 301
+    },
+    {
+      "source": "/best/mt5",
+      "destination": "/mt5-forex-brokers",
+      "statusCode": 301
+    },
+    {
+      "source": "/best/mt4",
+      "destination": "/mt4-forex-brokers",
+      "statusCode": 301
+    },
+    {
+      "source": "/best/gold",
+      "destination": "/gold-forex-brokers",
+      "statusCode": 301
+    },
+    {
+      "source": "/best/scalping",
+      "destination": "/forex-brokers-for-scalping",
+      "statusCode": 301
+    },
+    {
+      "source": "/best/ecn",
+      "destination": "/ecn-forex-brokers",
+      "statusCode": 301
+    },
+    {
+      "source": "/best/copy-trading",
+      "destination": "/copy-trading-forex-brokers",
+      "statusCode": 301
+    },
+    {
+      "source": "/best/swing-trading",
+      "destination": "/forex-brokers-for-swing-trading",
+      "statusCode": 301
+    },
+    {
+      "source": "/best/high-leverage",
+      "destination": "/high-leverage-forex-brokers",
+      "statusCode": 301
+    },
+    {
+      "source": "/best/islamic",
+      "destination": "/islamic-forex-brokers",
+      "statusCode": 301
+    },
+    {
+      "source": "/best/low-deposit",
+      "destination": "/low-minimum-deposit-forex-brokers",
+      "statusCode": 301
+    },
+    {
       "source": "/countries/:countrySlug/best/beginners",
       "destination": "/:countrySlug/forex-brokers-for-beginners",
       "statusCode": 301
@@ -28,6 +88,11 @@
     {
       "source": "/countries/:countrySlug/best/mt5",
       "destination": "/:countrySlug/mt5-forex-brokers",
+      "statusCode": 301
+    },
+    {
+      "source": "/countries/:countrySlug/best/mt4",
+      "destination": "/:countrySlug/mt4-forex-brokers",
       "statusCode": 301
     },
     {
@@ -63,6 +128,11 @@
     {
       "source": "/countries/:countrySlug/best/islamic",
       "destination": "/:countrySlug/islamic-forex-brokers",
+      "statusCode": 301
+    },
+    {
+      "source": "/countries/:countrySlug/best/low-deposit",
+      "destination": "/:countrySlug/low-minimum-deposit-forex-brokers",
       "statusCode": 301
     },
     {
