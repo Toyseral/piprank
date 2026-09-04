@@ -1,3 +1,5 @@
+import { countryTopicPath, globalIntentPath, INTENT_TO_PATH } from './topicPaths';
+
 // Central SEO metadata builder.
 //
 // This is the single source of truth for page titles, meta descriptions,
@@ -133,7 +135,7 @@ export function intentSeo(i: { title: string; slug: string; meta_title?: string 
   return {
     title: i.meta_title || `${i.title}${/\b20\d{2}\b/.test(i.title) ? '' : ` ${year}`} | ${SITE_NAME}`,
     description: i.meta_description || i.intro?.[0] || `Compare the best forex brokers for ${i.title.toLowerCase().replace(/^best forex brokers for\s*/i, '')}.`,
-    path: `/best/${i.slug}`,
+    path: globalIntentPath(i.slug),
     type: 'website',
     noindex: i.indexable === false,
   };
@@ -144,7 +146,7 @@ export function countryBestForSeo(countrySlug: string, p: { title: string; slug:
   return {
     title: p.meta_title || `${p.title}${/\b20\d{2}\b/.test(p.title) ? '' : ` ${year}`} | ${SITE_NAME}`,
     description: p.meta_description || p.intro?.[0] || `${p.title} — country-specific forex broker recommendations and comparison from ${SITE_NAME}.`,
-    path: `/countries/${countrySlug}/best/${p.slug}`,
+    path: INTENT_TO_PATH[p.slug] ? countryTopicPath(countrySlug, p.slug) : `/countries/${countrySlug}/best/${p.slug}`,
     type: 'website',
     noindex: p.indexable === false,
   };
@@ -178,7 +180,7 @@ export function countrySeo(c: CountryLike, pathOverride?: string): SeoInput {
       c.seo_description?.trim() || (c.subtitle && c.subtitle.trim()
         ? `${c.subtitle} Compare regulated forex brokers available to traders in ${c.name}, with real-money tested spreads and fees.`
         : `Compare the best forex brokers available to traders in ${c.name}. Regulation, spreads, deposit methods and verdicts — independently tested by ${SITE_NAME}.`),
-    path: pathOverride || `/countries/${c.slug}`,
+    path: pathOverride || `/${c.slug}`,
     type: 'website',
   };
 }
