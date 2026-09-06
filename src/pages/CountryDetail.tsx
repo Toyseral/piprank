@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { AlertTriangle, ArrowRight, Info, Scale, Slash, ShieldCheck, Sparkles } from 'lucide-react';
-import type { Broker, CountryBestFor, CountryPage, LocalizedSeoPage } from '../lib/types';
-import { fetchBrokers, fetchCountry, fetchCountryBestFors, fetchLocalizedSeoPagesForCountry } from '../lib/api';
+import type { Broker, CountryBestFor, ContentDocument, CountryPage, LocalizedSeoPage } from '../lib/types';
+import { fetchBrokers, fetchCountry, fetchCountryBestFors, fetchCountryGuides, fetchLocalizedSeoPagesForCountry } from '../lib/api';
 import { englishHreflangForCountry } from '../lib/localization';
 import { track } from '../lib/track';
 import BrokerCard from '../components/BrokerCard';
@@ -54,6 +54,7 @@ export default function CountryDetail() {
   const [country, setCountry] = useState<CountryPage | null>(null);
   const [brokers, setBrokers] = useState<Broker[]>([]);
   const [bestForPages, setBestForPages] = useState<CountryBestFor[]>([]);
+  const [countryGuides, setCountryGuides] = useState<ContentDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [missing, setMissing] = useState(false);
   const [localizedAlts, setLocalizedAlts] = useState<LocalizedSeoPage[]>([]);
@@ -63,12 +64,13 @@ export default function CountryDetail() {
     if (!slug) return;
     setLoading(true);
     setMissing(false);
-    Promise.all([fetchCountry(slug), fetchBrokers(), fetchCountryBestFors(slug), fetchLocalizedSeoPagesForCountry(slug).catch(() => [])])
-      .then(([c, b, pages, locs]) => {
+    Promise.all([fetchCountry(slug), fetchBrokers(), fetchCountryBestFors(slug), fetchLocalizedSeoPagesForCountry(slug).catch(() => []), fetchCountryGuides(slug).catch(() => [])])
+      .then(([c, b, pages, locs, guides]) => {
         setCountry(c);
         setGeoCountry(c.slug);
         setBrokers(b);
         setBestForPages(pages);
+        setCountryGuides(guides);
         setLocalizedAlts(
           (Array.isArray(locs) ? locs : []).filter(
             (r) => r.published && r.indexable && r.topic_key === 'all' && r.url_prefix && r.slug,
@@ -270,52 +272,18 @@ export default function CountryDetail() {
         </div>
       </section>
 
-      {country.slug === 'ghana' && (
-        <section aria-labelledby="ghana-guides" className="mt-12">
-          <p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Ghana forex education</p>
-          <h2 id="ghana-guides" className="mt-1 font-display text-2xl font-bold text-ink-950">Guides for Ghanaian Forex Traders</h2>
-          <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-500">Country-specific guides on Ghana broker availability, regulation, platforms, spreads, funding and getting started.</p>
+      {countryGuides.length > 0 && (
+        <section aria-labelledby="country-guides" className="mt-12">
+          <p className="text-xs font-bold uppercase tracking-widest text-emerald-700">{country.name} forex education</p>
+          <h2 id="country-guides" className="mt-1 font-display text-2xl font-bold text-ink-950">Guides for {country.name} Forex Traders</h2>
+          <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-500">Country-specific guides on {country.name} broker availability, regulation, platforms, spreads, funding and getting started.</p>
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
-            {[
-              ['Is Forex Trading Legal in Ghana?', 'is-forex-trading-legal-in-ghana'],
-              ['How to Choose a Forex Broker in Ghana', 'how-to-choose-a-forex-broker-in-ghana'],
-              ['Forex Broker Regulation in Ghana', 'forex-broker-regulation-in-ghana'],
-            ].map(([title, topicSlug]) => (
-              <Link key={topicSlug} to={`/ghana/guides/${topicSlug}`} className="rounded-2xl border border-line bg-white p-4 transition hover:-translate-y-0.5 hover:border-emerald-300">
-                <span className="text-sm font-bold text-ink-900">{title}</span>
+            {countryGuides.map((doc) => (
+              <Link key={doc.id} to={`/${country.slug}/guides/${doc.slug}`} className="rounded-2xl border border-line bg-white p-4 transition hover:-translate-y-0.5 hover:border-emerald-300">
+                <span className="text-sm font-bold text-ink-900">{doc.title}</span>
                 <span className="mt-2 block text-xs font-semibold text-emerald-700">Read guide →</span>
               </Link>
             ))}
-          </div>
-          <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm font-bold text-emerald-700">
-            <Link to="/ghana/mt5-forex-brokers">Best MT5 brokers in Ghana →</Link>
-            <Link to="/ghana/forex-brokers-for-beginners">Best brokers for beginners in Ghana →</Link>
-            <Link to="/ghana/low-minimum-deposit-forex-brokers">Lowest minimum deposit brokers in Ghana →</Link>
-          </div>
-        </section>
-      )}
-
-      {country.slug === 'malaysia' && (
-        <section aria-labelledby="malaysia-guides" className="mt-12">
-          <p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Malaysia forex education</p>
-          <h2 id="malaysia-guides" className="mt-1 font-display text-2xl font-bold text-ink-950">Guides for Malaysian Forex Traders</h2>
-          <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-500">Practical guides on broker regulation, trading platforms, spreads, minimum deposits and getting started in Malaysia.</p>
-          <div className="mt-5 grid gap-3 sm:grid-cols-2">
-            {[
-              ['Is Forex Trading Legal in Malaysia?', 'is-forex-trading-legal-in-malaysia'],
-              ['How to Choose a Forex Broker in Malaysia', 'how-to-choose-a-forex-broker-in-malaysia'],
-              ['Forex Broker Regulation in Malaysia Explained', 'forex-broker-regulation-in-malaysia'],
-            ].map(([title, topicSlug]) => (
-              <Link key={topicSlug} to={`/malaysia/guides/${topicSlug}`} className="rounded-2xl border border-line bg-white p-4 transition hover:-translate-y-0.5 hover:border-emerald-300">
-                <span className="text-sm font-bold text-ink-900">{title}</span>
-                <span className="mt-2 block text-xs font-semibold text-emerald-700">Read guide →</span>
-              </Link>
-            ))}
-          </div>
-          <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm font-bold text-emerald-700">
-            <Link to="/malaysia/mt5-forex-brokers">Best MT5 brokers in Malaysia →</Link>
-            <Link to="/malaysia/forex-brokers-for-beginners">Best brokers for beginners in Malaysia →</Link>
-            <Link to="/malaysia/low-minimum-deposit-forex-brokers">Lowest minimum deposit brokers in Malaysia →</Link>
           </div>
         </section>
       )}

@@ -62,7 +62,7 @@ export default function Countries() {
               const v = e.target.value;
               if (!v) return;
               setGeoPreference(v);
-              navigate(`/countries/${v}`);
+              navigate(`/${v}`);
             }}
             className="rounded-lg border border-line bg-white px-2.5 py-1.5 text-xs font-bold text-ink-900 outline-none transition focus:border-emerald-500"
           >
@@ -97,7 +97,7 @@ export default function Countries() {
             return (
               <Reveal key={c.slug} delay={Math.min(i, 4) * 0.05}>
                 <Link
-                  to={`/countries/${c.slug}`}
+                  to={`/${c.slug}`}
                   className="group flex h-full flex-col rounded-2xl border border-line bg-white p-5 transition hover:-translate-y-1 hover:border-emerald-300 hover:shadow-soft-lg"
                 >
                   <span className="text-4xl">{c.flag}</span>

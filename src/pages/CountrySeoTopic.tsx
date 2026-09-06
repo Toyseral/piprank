@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowRight, Check, Sparkles } from 'lucide-react';
 import type { Broker, CountryPage, ContentDocument, LocalizedSeoPage } from '../lib/types';
-import { fetchBrokers, fetchCountry, fetchContentDocument, fetchLocalizedSeoPagesForCountry } from '../lib/api';
+import { fetchBrokers, fetchCountry, fetchCountryBestFor, fetchContentDocument, fetchLocalizedSeoPagesForCountry } from '../lib/api';
 import { useSEO } from '../hooks/useSEO';
 import { buildBreadcrumbJsonLd, buildFAQPageJsonLd, buildItemListJsonLd, buildWebPageJsonLd, absoluteUrl } from '../lib/seo';
 import { getCountrySeoTopic, rankCountryTopicBrokers, topicFaq, topicNote, topicMeta, topicIntro } from '../data/countrySeoTopics';
@@ -11,6 +11,7 @@ import Monogram from '../components/Monogram';
 import { blocksToHtml } from '../components/PageBuilder';
 import Reveal from '../components/Reveal';
 import NotFound from './NotFound';
+import BestFor from './BestFor';
 import { track } from '../lib/track';
 import { reviewerFor } from '../lib/team';
 import { englishHreflangForCountry } from '../lib/localization';
@@ -21,19 +22,41 @@ function rankBrokers(topic: Parameters<typeof rankCountryTopicBrokers>[2], broke
 
 
 export default function CountrySeoTopic() {
-  const { countrySlug, topicSlug } = useParams<{ countrySlug: string; topicSlug: string }>();
-  const topic = topicSlug ? getCountrySeoTopic(topicSlug) : null;
+  // The URL segment here is shared between two systems: a fixed set of
+  // matrix-defined topics (this page), and admin-authored CountryBestFor
+  // pages (rendered by <BestFor/>, reusing the exact same URL — see the
+  // fallback check below). Both read this same param, hence the shared
+  // name `slug` rather than each page's own historical name for it.
+  const { countrySlug, slug } = useParams<{ countrySlug: string; slug: string }>();
+  const topic = slug ? getCountrySeoTopic(slug) : null;
   const [country, setCountry] = useState<CountryPage | null>(null);
   const [brokers, setBrokers] = useState<Broker[]>([]);
   const [loading, setLoading] = useState(true);
   const [missing, setMissing] = useState(false);
   const [richContent, setRichContent] = useState<ContentDocument | null>(null);
   const [localizedAlts, setLocalizedAlts] = useState<LocalizedSeoPage[]>([]);
+  // Only set once we've actually confirmed a matching CountryBestFor page
+  // exists for this country+slug combination (the fixed-matrix miss case).
+  const [renderAsBestFor, setRenderAsBestFor] = useState(false);
 
   useEffect(() => {
-    if (!countrySlug || !topic) {
+    if (!countrySlug || !slug) {
       setMissing(true);
       setLoading(false);
+      return;
+    }
+    if (!topic) {
+      // Not a matrix topic — check whether an admin-authored CountryBestFor
+      // page exists at this same URL before giving up. This is what lets
+      // both systems share one bare URL space.
+      setLoading(true);
+      fetchCountryBestFor(countrySlug, slug)
+        .then((page) => {
+          if (page) setRenderAsBestFor(true);
+          else setMissing(true);
+        })
+        .catch(() => setMissing(true))
+        .finally(() => setLoading(false));
       return;
     }
     setLoading(true);
@@ -46,7 +69,7 @@ export default function CountrySeoTopic() {
       })
       .catch(() => setMissing(true))
       .finally(() => setLoading(false));
-  }, [countrySlug, topic?.slug]);
+  }, [countrySlug, slug, topic?.slug]);
 
   const pageSettings = (richContent?.settings ?? {}) as Record<string, any>;
   const ranked = useMemo(() => {
@@ -114,6 +137,7 @@ export default function CountrySeoTopic() {
       : undefined,
   );
 
+  if (renderAsBestFor) return <BestFor />;
   if (missing) return <NotFound />;
   if (loading || !country || !topic) {
     return <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6"><div className="h-52 animate-pulse rounded-3xl border border-line bg-white" /><div className="mt-8 h-64 animate-pulse rounded-3xl border border-line bg-white" /></div>;

@@ -82,6 +82,9 @@ export const fetchContentDocument = (key: string) =>
   get<ContentDocument | null>(`/api/content-documents?key=${encodeURIComponent(key)}`);
 export const fetchContentDocumentById = (id: number) =>
   get<ContentDocument | null>(`/api/content-documents?id=${id}`);
+export const fetchCountryGuides = (countrySlug: string) =>
+  get<ContentDocument[]>(`/api/content-documents?country=${encodeURIComponent(countrySlug)}&type=country-guide`)
+    .then((docs) => docs.filter((d) => d.published));
 
 export const fetchCountryLanguages = (countrySlug?: string) =>
   get<CountryLanguage[]>(`/api/country-languages${countrySlug ? `?country=${encodeURIComponent(countrySlug)}` : ''}`);

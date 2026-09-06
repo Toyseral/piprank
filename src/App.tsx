@@ -72,7 +72,7 @@ export function Shell() {
             <Route path="/promotions" element={<Promotions />} />
             <Route path="/archypage" element={<Admin />} />
             <Route path="/:countrySlug/:locale/:topicSlug" element={<LocalizedCountrySeoTopic />} />
-            <Route path="/:countrySlug/:topicSlug" element={<CountrySeoTopic />} />
+            <Route path="/:countrySlug/:slug" element={<CountrySeoTopic />} />
             <Route path="/:slug" element={<CountryDetail />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

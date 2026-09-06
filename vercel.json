@@ -6,13 +6,8 @@
       "statusCode": 301
     },
     {
-      "source": "/countries/malaysia/guides/:slug",
-      "destination": "/malaysia/guides/:slug",
-      "statusCode": 301
-    },
-    {
-      "source": "/countries/ghana/guides/:slug",
-      "destination": "/ghana/guides/:slug",
+      "source": "/countries/:countrySlug/guides/:slug",
+      "destination": "/:countrySlug/guides/:slug",
       "statusCode": 301
     },
     {
@@ -63,6 +58,11 @@
     {
       "source": "/countries/:countrySlug/best/islamic",
       "destination": "/:countrySlug/islamic-forex-brokers",
+      "statusCode": 301
+    },
+    {
+      "source": "/countries/:countrySlug/best/:slug",
+      "destination": "/:countrySlug/:slug",
       "statusCode": 301
     },
     {

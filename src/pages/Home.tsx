@@ -255,7 +255,7 @@ export default function Home() {
             <p className="mt-2 max-w-2xl text-sm leading-6 text-amber-900">
               PipRank only shows a broker here after its availability for {localizedCountry.name} has been verified. You can still browse the {localizedCountry.name} country guide while recommendations are being finalized.
             </p>
-            <Link to={`/countries/${localizedCountry.slug}`} className="mt-4 inline-flex items-center gap-2 text-sm font-bold text-emerald-700 hover:text-emerald-800">
+            <Link to={`/${localizedCountry.slug}`} className="mt-4 inline-flex items-center gap-2 text-sm font-bold text-emerald-700 hover:text-emerald-800">
               Explore {localizedCountry.name} broker information <ArrowRight size={15} />
             </Link>
           </div>
@@ -335,7 +335,7 @@ export default function Home() {
             {countries.map((c, i) => (
               <Reveal key={c.slug} delay={Math.min(i, 4) * 0.05}>
                 <Link
-                  to={`/countries/${c.slug}`}
+                  to={`/${c.slug}`}
                   className="group flex h-full flex-col rounded-2xl border border-line bg-white p-5 transition hover:-translate-y-1 hover:border-emerald-300 hover:shadow-soft-lg"
                 >
                   <span className="text-3xl">{c.flag}</span>
