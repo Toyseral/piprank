@@ -1,0 +1,10 @@
+name: Trigger country guide repair v3
+on:
+  push:
+    branches:
+      - seo/canonical-page-ownership-current-develop
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo trigger
