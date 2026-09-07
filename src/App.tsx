@@ -21,7 +21,7 @@ const Compare = lazy(() => import('./pages/Compare'));
 const ComparePair = lazy(() => import('./pages/ComparePair'));
 const Countries = lazy(() => import('./pages/Countries'));
 const CountryDetail = lazy(() => import('./pages/CountryDetail'));
-const CountrySeoTopic = lazy(() => import('./pages/CountrySeoTopic'));
+const CountryPathRouter = lazy(() => import('./pages/CountryPathRouter'));
 const LocalizedCountrySeoTopic = lazy(() => import('./pages/LocalizedCountrySeoTopic'));
 const GuideDetail = lazy(() => import('./pages/GuideDetail'));
 const Guides = lazy(() => import('./pages/Guides'));
@@ -89,7 +89,7 @@ export function Shell() {
           <Route path="/promotions" element={<Promotions />} />
           <Route path="/archypage" element={<Admin />} />
           <Route path="/:countrySlug/:locale/:topicSlug" element={<LocalizedCountrySeoTopic />} />
-          <Route path="/:countrySlug/:topicSlug" element={<CountrySeoTopic />} />
+          <Route path="/:countrySlug/:topicSlug" element={<CountryPathRouter />} />
           <Route path="/:slug" element={<CountryDetail />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
