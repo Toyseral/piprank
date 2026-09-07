@@ -29,16 +29,14 @@ jobs:
           p = Path('src/pages/Admin.tsx')
           s = p.read_text()
           pattern = r"safeJson(?:<[^>]+>)?\(fetch\('/api/track\?resource=clicks', \{ headers: headers\(\) \}\), \{[^\n]+\}\),"
-          replacement = "safeJson<ClicksAgg>(fetch('/api/track?resource=clicks', { headers: headers() }), { total: 0, byBroker: {}, byPage: {}, byDay: [], recent: [] }),"
+          replacement = "safeJson<ClicksAgg>(fetch('/api/track?resource=clicks', { headers: headers() }), { total: 0, byBroker: {}, byPage: {}, recent: [] }),"
           s2, count = re.subn(pattern, replacement, s, count=1)
           if count != 1:
               raise SystemExit('clicks loader line not found')
           p.write_text(s2)
           PY
           test "$(wc -l < src/pages/Admin.tsx)" -gt 4000
-      - name: Build
-        run: npm ci && npm run build
-      - name: Commit restore and remove repair workflows
+      - name: Commit restored Admin
         shell: bash
         run: |
           git config user.name 'github-actions[bot]'
@@ -46,6 +44,5 @@ jobs:
           git add src/pages/Admin.tsx
           git commit -m 'fix: restore full admin and correct clicks fallback'
           git push origin HEAD:seo/canonical-page-ownership-current-develop
-          git rm .github/workflows/recover-admin-now.yml .github/workflows/restore-admin-build.yml .github/workflows/fix-admin-clicks-fallback.yml .github/workflows/fix-admin-clicks-type.yml
-          git commit -m 'chore: remove temporary admin repair workflows'
-          git push origin HEAD:seo/canonical-page-ownership-current-develop
+      - name: Build
+        run: npm ci && npm run build
