@@ -23,7 +23,7 @@ export default function PageManager({ countries, brokers, contentDocs, token, on
   const [generatorBusy,setGeneratorBusy]=useState(false);
   const [generatorMsg,setGeneratorMsg]=useState('');
   const pages=useMemo<ManagedPage[]>(()=>{
-    const docs=contentDocs.map(d=>({...d,route:d.content_type==='broker'&&d.slug?`/brokers/${d.slug}`:d.country_slug&&d.topic_slug?`/${d.country_slug}/${d.topic_slug}`:d.country_slug?`/${d.country_slug}`:d.slug?`/${d.slug}`:'#',entityType:(d.content_type==='broker'?'broker':d.country_slug?'country':'document') as ManagedPage['entityType']}));
+    const docs=contentDocs.filter(d=>d.content_type!=='country-best-for').map(d=>({...d,route:d.content_type==='broker'&&d.slug?`/brokers/${d.slug}`:d.content_type==='country-guide'&&d.country_slug&&d.slug?`/${d.country_slug}/guides/${d.slug}`:d.country_slug&&d.topic_slug?`/${d.country_slug}/${d.topic_slug}`:d.country_slug?`/${d.country_slug}`:d.slug?`/${d.slug}`:'#',entityType:(d.content_type==='broker'?'broker':d.country_slug?'country':'document') as ManagedPage['entityType']}));
     const keys=new Set(docs.map(d=>d.content_key)); const generated:ManagedPage[]=[];
     countries.forEach(c=>{const key=`country:${c.slug}:hub`;if(!keys.has(key))generated.push({id:-c.id,content_key:key,content_type:'country',country_slug:c.slug,topic_slug:null,slug:c.slug,title:`${c.name} Forex Brokers`,excerpt:'',html:'',blocks:[],seo_title:c.seo_title||'',seo_description:c.seo_description||'',indexable:true,published:true,updated_by:null,created_at:'',updated_at:'',settings:{},route:`/${c.slug}`,entityType:'country'});});
     return [...generated,...docs].sort((a,b)=>String(b.updated_at||'').localeCompare(String(a.updated_at||'')));
