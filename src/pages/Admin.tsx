@@ -409,18 +409,27 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
 
   const load = useCallback(async () => {
     try {
+      const safeJson = async <T,>(request: Promise<Response>, fallback: T): Promise<T> => {
+        try {
+          const response = await request;
+          if (!response.ok) return fallback;
+          return (await response.json()) as T;
+        } catch {
+          return fallback;
+        }
+      };
       const [b, r, g, i, co, cb, s, c, cd, cl, lp] = await Promise.all([
-        fetch('/api/brokers').then((x) => x.json()),
-        fetch('/api/reviews', { headers: headers() }).then((x) => x.json()),
-        fetch('/api/guides').then((x) => x.json()),
-        fetch('/api/intents').then((x) => x.json()),
-        fetch('/api/countries').then((x) => x.json()),
-        fetch('/api/country-best-for').then((x) => x.json()),
-        fetch('/api/newsletter', { headers: headers() }).then((x) => x.json()),
-        fetch('/api/track?resource=clicks', { headers: headers() }).then((x) => x.json()),
-        fetch('/api/content-documents').then((x) => x.json()),
-        fetch('/api/country-languages?admin=true', { headers: headers() }).then((x) => x.json()),
-        fetch('/api/localized-seo-pages?admin=true', { headers: headers() }).then((x) => x.json()),
+        safeJson(fetch('/api/brokers'), []),
+        safeJson(fetch('/api/reviews', { headers: headers() }), []),
+        safeJson(fetch('/api/guides'), []),
+        safeJson(fetch('/api/intents'), []),
+        safeJson(fetch('/api/countries'), []),
+        safeJson(fetch('/api/country-best-for'), []),
+        safeJson(fetch('/api/newsletter', { headers: headers() }), []),
+        safeJson(fetch('/api/track?resource=clicks', { headers: headers() }), {}),
+        safeJson(fetch('/api/content-documents'), []),
+        safeJson(fetch('/api/country-languages?admin=true', { headers: headers() }), []),
+        safeJson(fetch('/api/localized-seo-pages?admin=true', { headers: headers() }), []),
       ]);
       if (Array.isArray(b)) setBrokers(b);
       if (Array.isArray(r)) setReviews(r);
