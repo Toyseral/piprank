@@ -13,9 +13,13 @@ const LEGACY_TO_CANONICAL: Record<string, string> = {
   'high-leverage': 'high-leverage-forex-brokers',
 };
 
+const CANONICAL_SLUGS = new Set(Object.values(LEGACY_TO_CANONICAL));
+
 export default function LegacyBestForRedirect() {
   const { slug } = useParams<{ slug: string }>();
-  const canonical = slug ? LEGACY_TO_CANONICAL[slug] : undefined;
+  const canonical = slug
+    ? LEGACY_TO_CANONICAL[slug] || (CANONICAL_SLUGS.has(slug) ? slug : undefined)
+    : undefined;
   if (!canonical) return <Navigate to="/" replace />;
   return <Navigate to={`/${canonical}`} replace />;
 }
