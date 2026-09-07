@@ -16,7 +16,7 @@ import { fetchBrokers, fetchCountries, fetchIntents } from '../lib/api';
 import { GEO_OPTIONS } from '../lib/geo';
 import { useGeo } from '../lib/GeoContext';
 import { btnCls } from './Button';
-import { bestForPath } from '../lib/seo';
+import { bestForPath, BEST_FOR_CANONICAL } from '../lib/seo';
 import type { Broker, CountryPage, Intent } from '../lib/types';
 
 let intentsCache: Promise<Intent[]> | null = null;
@@ -279,7 +279,7 @@ export default function Navbar() {
           <div className="relative">
             <button
               onClick={() => toggleDesktop('guides')}
-              className={dropBtnCls(openMenu === 'guides' || location.pathname.startsWith('/guides') || Object.values(bestForPath).some(() => false) || location.pathname.includes('forex-brokers-for-') || location.pathname.includes('-forex-brokers'))}
+              className={dropBtnCls(openMenu === 'guides' || location.pathname.startsWith('/guides') || Object.values(BEST_FOR_CANONICAL).some((path) => location.pathname === `/${path}`))}
               aria-expanded={openMenu === 'guides'}
             >
               Guides <ChevronDown size={14} className={`transition ${openMenu === 'guides' ? 'rotate-180' : ''}`} />
