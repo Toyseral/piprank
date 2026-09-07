@@ -15,13 +15,24 @@ export default function LocalizedGuide() {
 
   useEffect(() => {
     let alive = true;
-    Promise.all([fetchCountry(countrySlug), fetchCountryLanguages(countrySlug), fetchContentDocument(`localized-guide:${countrySlug}:${locale}:${slug}`)])
-      .then(([c, langs, d]) => {
+    setMissing(false);
+    setDoc(null);
+    Promise.all([fetchCountry(countrySlug), fetchCountryLanguages(countrySlug)])
+      .then(async ([c, langs]) => {
         if (!alive) return;
         const lang = (langs || []).find((item) => item.url_prefix === locale || item.code === locale) ?? null;
-        setCountry(c); setLanguage(lang); setDoc(d && d.content_type === 'localized-guide' ? d : null);
-        setMissing(!c || !lang || !d || d.content_type !== 'localized-guide' || (!d.published && !isPreview));
-      }).catch(() => alive && setMissing(true));
+        setCountry(c);
+        setLanguage(lang);
+        if (!c || !lang) {
+          setMissing(true);
+          return;
+        }
+        const d = await fetchContentDocument(`localized-guide:${c.slug}:${lang.code}:${slug}`);
+        if (!alive) return;
+        setDoc(d && d.content_type === 'localized-guide' ? d : null);
+        setMissing(!d || d.content_type !== 'localized-guide' || (!d.published && !isPreview));
+      })
+      .catch(() => alive && setMissing(true));
     return () => { alive = false; };
   }, [countrySlug, locale, slug, isPreview]);
 
@@ -37,7 +48,6 @@ export default function LocalizedGuide() {
   if (missing) return <main className="mx-auto max-w-3xl px-5 py-20"><h1 className="font-display text-3xl font-bold text-ink-950">Guide not found</h1><p className="mt-3 text-slate-500">This localized guide is not published.</p></main>;
   if (!doc) return null;
   const html = doc.html || blocksToHtml((doc.blocks || []) as any);
-
   return <main className="mx-auto max-w-4xl px-5 py-10 sm:px-8 sm:py-16">
     <nav className="mb-8 text-xs text-slate-400">{country?.name} · {language?.native_name} · Guides</nav>
     <article>
