@@ -426,7 +426,7 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
         safeJson(fetch('/api/countries'), []),
         safeJson(fetch('/api/country-best-for'), []),
         safeJson(fetch('/api/newsletter', { headers: headers() }), []),
-        safeJson(fetch('/api/track?resource=clicks', { headers: headers() }), {}),
+        safeJson(fetch('/api/track?resource=clicks', { headers: headers() }), { total: 0, byBroker: {}, byDay: [], recent: [] }),
         safeJson(fetch('/api/content-documents'), []),
         safeJson(fetch('/api/country-languages?admin=true', { headers: headers() }), []),
         safeJson(fetch('/api/localized-seo-pages?admin=true', { headers: headers() }), []),
