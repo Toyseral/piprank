@@ -85,10 +85,10 @@ function BulkSeoPageGenerator({countries,token,onClose,onCreated}:{countries:Cou
 }
 
 function PageManagerEditor({document,countries,brokers,token,onClose,onSave}:{document:ContentDocument|null;countries:CountryPage[];brokers:Broker[];token:string;onClose:()=>void;onSave:(f:Record<string,unknown>,n:boolean)=>Promise<void>}){
-  const isNew=!document||document.id===0; const [form,setForm]=useState<any>(()=>document?{...document,settings:document.settings||{}}:{content_key:'',content_type:'country-topic',country_slug:'',topic_slug:'',slug:'',title:'',excerpt:'',html:'',blocks:[],seo_title:'',seo_description:'',indexable:true,published:false,settings:{}});
+  const isNew=!document||document.id===0; const [form,setForm]=useState<any>(()=>document?{...document,settings:document.settings||{}}:{content_key:'',content_type:'country-guide',country_slug:'',topic_slug:'',slug:'',title:'',excerpt:'',html:'',blocks:[],seo_title:'',seo_description:'',indexable:true,published:false,settings:{}});
   const [busy,setBusy]=useState(false); const [err,setErr]=useState(''); const [preview,setPreview]=useState(false);
   const settings=form.settings||{}; const [rankingMode,setRankingMode]=useState(settings.rankingMode||'auto'); const [pinned,setPinned]=useState<string[]>(settings.pinnedBrokerSlugs||[]); const [excluded,setExcluded]=useState<string[]>(settings.excludedBrokerSlugs||[]); const [faqs,setFaqs]=useState<any[]>(settings.faqs||[]); const [links,setLinks]=useState<any[]>(settings.internalLinks||[]);
-  const isBroker=form.content_type==='broker'; const route=isBroker&&form.slug?`/brokers/${form.slug}`:form.country_slug?(form.topic_slug?`/${form.country_slug}/${form.topic_slug}`:`/${form.country_slug}`):'#'; const input='h-10 w-full rounded-xl border border-line bg-paper px-3 text-sm outline-none focus:border-emerald-500';
+  const isBroker=form.content_type==='broker'; const route=isBroker&&form.slug?`/brokers/${form.slug}`:form.content_type==='country-guide'&&form.country_slug&&form.slug?`/${form.country_slug}/guides/${form.slug}`:form.country_slug?(form.topic_slug?`/${form.country_slug}/${form.topic_slug}`:`/${form.country_slug}`):'#'; const input='h-10 w-full rounded-xl border border-line bg-paper px-3 text-sm outline-none focus:border-emerald-500';
   const manualPool=useMemo(()=>{
     if(form.content_type!=='country-topic') return [] as Broker[];
     const country=countries.find(c=>c.slug===form.country_slug);
@@ -101,7 +101,7 @@ function PageManagerEditor({document,countries,brokers,token,onClose,onSave}:{do
   const uploadImage=async(file:File)=>{const reader=new FileReader();const data=await new Promise<string>((resolve,reject)=>{reader.onload=()=>resolve(String(reader.result));reader.onerror=reject;reader.readAsDataURL(file)});const r=await fetch('/api/content-assets',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({filename:file.name,contentType:file.type,dataBase64:data})});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||'Image upload failed');return d.url};
   const save=async()=>{setBusy(true);setErr('');try{
     if(form.content_type==='country-topic'&&rankingMode==='manual'&&pinned.length===0) throw new Error('Manual ranking requires at least one selected eligible broker.');
-    const key=form.content_key||(isBroker?`broker:${form.slug}:main`:`country-topic:${form.country_slug}:${form.topic_slug}`);
+    const key=form.content_key||(isBroker?`broker:${form.slug}:main`:(form.content_type==='country-guide'?`country-guide:${form.country_slug}:${form.slug||form.topic_slug}`:`country-topic:${form.country_slug}:${form.topic_slug}`));
     const cleanPinned=Array.from(new Set(pinned));
     await onSave({...form,content_key:key,html:blocksToHtml(form.blocks||[]),settings:{...settings,rankingMode,pinnedBrokerSlugs:cleanPinned,excludedBrokerSlugs:excluded,faqs,internalLinks:links},...(isNew?{}:{id:document!.id})},isNew)
   }catch(e){setErr(e instanceof Error?e.message:'Could not save')}finally{setBusy(false)}};

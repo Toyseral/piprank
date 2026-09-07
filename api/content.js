@@ -309,13 +309,14 @@ function normalizeContentDoc(body) {
   const contentType = String(body.content_type || 'page').slice(0, 40);
   const countrySlug = body.country_slug ? slugify(body.country_slug) : null;
   const topicSlug = body.topic_slug ? slugify(body.topic_slug) : null;
-  const contentKey = String(body.content_key || [contentType, countrySlug, topicSlug, body.slug].filter(Boolean).join(':')).slice(0, 180);
+  const slug = body.slug ? slugify(body.slug) : (topicSlug || slugify(body.title || body.content_key || '') || null);
+  const contentKey = String(body.content_key || [contentType, countrySlug, topicSlug, slug].filter(Boolean).join(':')).slice(0, 180);
   return {
     content_key: contentKey,
     content_type: contentType,
     country_slug: countrySlug,
     topic_slug: topicSlug,
-    slug: body.slug ? slugify(body.slug) : null,
+    slug,
     title: String(body.title || '').slice(0, 180),
     excerpt: String(body.excerpt || '').slice(0, 600),
     html: cleanHtml(body.html || ''),
