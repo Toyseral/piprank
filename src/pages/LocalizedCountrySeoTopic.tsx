@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowRight, Check, Sparkles } from 'lucide-react';
 import type { Broker, ContentDocument, CountryPage, LocalizedSeoPage } from '../lib/types';
-import { fetchBrokers, fetchCountry, fetchCountryLanguages, fetchLocalizedSeoPage, fetchLocalizedSeoPagePreview, fetchLocalizationUiPack, fetchContentDocumentById } from '../lib/api';
+import { fetchBrokers, fetchCountry, fetchCountryLanguages, fetchLocalizedSeoPage, fetchLocalizedSeoPagePreview, fetchLocalizationUiPack, fetchContentDocumentById, fetchLocalizedSeoPagesForCountry } from '../lib/api';
 import { useSEO } from '../hooks/useSEO';
 import { buildBreadcrumbJsonLd, buildFAQPageJsonLd, buildItemListJsonLd, buildWebPageJsonLd, absoluteUrl } from '../lib/seo';
 import { countrySeoTopics, rankCountryTopicBrokers, topicNote } from '../data/countrySeoTopics';
@@ -36,6 +36,7 @@ export default function LocalizedCountrySeoTopic() {
   const [studioDoc, setStudioDoc] = useState<ContentDocument | null>(null);
   const [ui, setUi] = useState<LocalizationUiStrings>(() => getLocalizationUi(locale));
   const [isPreview, setIsPreview] = useState(false);
+  const [localizedAlternates, setLocalizedAlternates] = useState<LocalizedSeoPage[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -49,7 +50,6 @@ export default function LocalizedCountrySeoTopic() {
           (l) => l.active !== false && (l.url_prefix === locale || l.code === locale),
         );
         if (cancelled) return;
-        // Allow Vietnam/vi only as last-resort hard-coded fallback when no language row exists yet.
         const legacyVi = countrySlug === 'vietnam' && locale === 'vi';
         setLocaleAllowed(ok || legacyVi);
         if (!ok && !legacyVi) {
@@ -69,10 +69,11 @@ export default function LocalizedCountrySeoTopic() {
           p = await fetchLocalizedSeoPage(countrySlug, locale, topicSlug);
         }
 
-        const [c, b, pack] = await Promise.all([
+        const [c, b, pack, allLocalized] = await Promise.all([
           fetchCountry(countrySlug),
           fetchBrokers(),
           fetchLocalizationUiPack(locale).catch(() => null),
+          fetchLocalizedSeoPagesForCountry(countrySlug).catch(() => []),
         ]);
         if (cancelled) return;
         if (!p) setMissing(true);
@@ -84,6 +85,11 @@ export default function LocalizedCountrySeoTopic() {
           setPage(p);
           setCountry(c);
           setBrokers(b);
+          setLocalizedAlternates(
+            (allLocalized ?? []).filter(
+              (r) => r.published && r.indexable && r.topic_key === p!.topic_key,
+            ),
+          );
           setUi(mergeLocalizationUi(p.language_code || locale, pack?.strings));
           if (p.content_document_id) {
             fetchContentDocumentById(Number(p.content_document_id))
@@ -124,6 +130,13 @@ export default function LocalizedCountrySeoTopic() {
   const path = `/${countrySlug}/${locale}/${topicSlug}`;
   const englishPath = englishAlternatePath(countrySlug, page?.topic_key);
   const enHreflang = englishHreflangForCountry(countrySlug);
+  const localizedHreflangAlternates = localizedAlternates
+    .filter((r) => r.url_prefix && r.slug)
+    .map((r) => ({
+      hreflang: r.locale || r.language_code || '',
+      path: `/${countrySlug}/${r.url_prefix}/${r.slug}`,
+    }))
+    .filter((r) => r.hreflang && r.path !== path);
 
   const seo = page
     ? {
@@ -135,6 +148,7 @@ export default function LocalizedCountrySeoTopic() {
         alternates: [
           { hreflang: page.locale || locale, path },
           { hreflang: enHreflang, path: englishPath },
+          ...localizedHreflangAlternates,
           { hreflang: 'x-default', path: englishPath },
         ],
       }
@@ -174,8 +188,6 @@ export default function LocalizedCountrySeoTopic() {
   );
 
   if (missing) {
-    // Last-resort only: hard-coded Vietnamese cluster when DB has no published/preview row yet.
-    // Prefer sql/PHASE-16-VIETNAMESE-LOCALIZATION-REGISTRY.sql + publish from admin.
     if (countrySlug === 'vietnam' && locale === 'vi' && !isPreview) return <VietnameseCountrySeoTopic />;
     return <NotFound />;
   }
