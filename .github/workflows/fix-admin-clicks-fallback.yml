@@ -1,7 +1,9 @@
 name: Fix admin clicks fallback
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - seo/canonical-page-ownership-current-develop
 
 jobs:
   fix:
