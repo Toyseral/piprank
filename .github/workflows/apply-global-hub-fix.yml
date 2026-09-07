@@ -1,0 +1,58 @@
+name: Apply global hub route fix
+on:
+  push:
+    branches:
+      - tmp/fix-global-hub-preview
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: seo/canonical-page-ownership-current-develop
+          fetch-depth: 1
+      - name: Patch routes and prerender
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path('src/pages/BestFor.tsx')
+          s = p.read_text()
+          s = s.replace("import { Link, useParams } from 'react-router-dom';", "import { Link, useLocation, useParams } from 'react-router-dom';")
+          s = s.replace("  const { slug, countrySlug } = useParams<{ slug: string; countrySlug: string }>();", "  const { slug: paramSlug, countrySlug } = useParams<{ slug: string; countrySlug: string }>();\n  const { pathname } = useLocation();\n  const slug = paramSlug ?? (BEST_FOR_CANONICAL[pathname.slice(1)] ? pathname.slice(1) : undefined);")
+          p.write_text(s)
+
+          p = Path('src/pages/Admin.tsx')
+          s = p.read_text()
+          s = s.replace("to={`/countries/${c.slug}`}", "to={`/${c.slug}`}")
+          s = s.replace("href={`/countries/${c.slug}`}", "href={`/${c.slug}`}")
+          p.write_text(s)
+
+          p = Path('scripts/prerender.mjs')
+          s = p.read_text()
+          s = s.replace(".eq('content_type', 'country-topic')", ".in('content_type', ['country-topic', 'country-guide'])")
+          marker = "function englishSlugForTopicKey(topicKey) {"
+          if "function globalBestForPath(" not in s:
+              insert = "function globalBestForPath(slug) {\n  const map = {\n    beginners: 'forex-brokers-for-beginners',\n    'low-spread': 'low-spread-forex-brokers',\n    mt5: 'mt5-forex-brokers',\n    gold: 'gold-forex-brokers',\n    scalping: 'forex-brokers-for-scalping',\n    islamic: 'islamic-forex-brokers',\n    ecn: 'ecn-forex-brokers',\n    'copy-trading': 'copy-trading-forex-brokers',\n    'swing-trading': 'forex-brokers-for-swing-trading',\n    'high-leverage': 'high-leverage-forex-brokers',\n  };\n  return `/${map[slug] || slug}`;\n}\n"
+              s = s.replace(marker, insert + marker)
+          s = s.replace("<a href=\"/best\">Best Forex Brokers</a>", "<a href=\"/forex-brokers-for-beginners\">Best Forex Brokers</a>")
+          s = s.replace("path: `/best/${p.slug}`", "path: globalBestForPath(p.slug)")
+          s = s.replace("{ name: 'Best Forex Brokers', path: '/best' }", "{ name: 'Best Forex Brokers', path: globalBestForPath(p.slug) }")
+          s = s.replace("writePage(`/best/${p.slug}`, { title, description, path: `/best/${p.slug}` }", "writePage(globalBestForPath(p.slug), { title, description, path: globalBestForPath(p.slug) }")
+          p.write_text(s)
+          PY
+      - name: Commit target changes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/pages/BestFor.tsx src/pages/Admin.tsx scripts/prerender.mjs
+          git commit -m 'Fix global Best-For hubs and country hub previews'
+          git push origin seo/canonical-page-ownership-current-develop
+      - name: Remove temporary workflow from target
+        if: always()
+        run: |
+          git rm .github/workflows/apply-global-hub-fix.yml || true
+          git commit -m 'Remove one-time global hub fix workflow' || true
+          git push origin seo/canonical-page-ownership-current-develop || true
