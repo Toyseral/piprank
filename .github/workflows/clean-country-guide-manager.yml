@@ -17,19 +17,9 @@ jobs:
           from pathlib import Path
           p = Path('src/components/PageManager.tsx')
           s = p.read_text()
-
-          old = "const docs=contentDocs.map(d=>({...d,route:d.content_type==='broker'&&d.slug?`/brokers/${d.slug}`:d.country_slug&&d.topic_slug?`/${d.country_slug}/${d.topic_slug}`:d.country_slug?`/${d.country_slug}`:d.slug?`/${d.slug}`:'#',entityType:(d.content_type==='broker'?'broker':d.country_slug?'country':'document') as ManagedPage['entityType']}));"
-          new = "const docs=contentDocs.filter(d=>d.content_type!=='country-best-for').map(d=>({...d,route:d.content_type==='broker'&&d.slug?`/brokers/${d.slug}`:d.content_type==='country-guide'&&d.country_slug&&d.slug?`/${d.country_slug}/guides/${d.slug}`:d.country_slug&&d.topic_slug?`/${d.country_slug}/${d.topic_slug}`:d.country_slug?`/${d.country_slug}`:d.slug?`/${d.slug}`:'#',entityType:(d.content_type==='broker'?'broker':d.country_slug?'country':'document') as ManagedPage['entityType']}));"
-          if old not in s:
-              raise SystemExit('docs mapping pattern not found')
-          s=s.replace(old,new,1)
-
-          old = "document?{...document,settings:document.settings||{}}:{content_key:'',content_type:'country-topic',country_slug:'',topic_slug:'',slug:'',title:'',excerpt:'',html:'',blocks:[],seo_title:'',seo_description:'',indexable:true,published:false,settings:{}}"
-          new = "document?{...document,settings:document.settings||{}}:{content_key:'',content_type:'country-guide',country_slug:'',topic_slug:'',slug:'',title:'',excerpt:'',html:'',blocks:[],seo_title:'',seo_description:'',indexable:true,published:false,settings:{}}"
-          if old not in s:
-              raise SystemExit('editor default pattern not found')
-          s=s.replace(old,new,1)
-
+          s = s.replace("const docs=contentDocs.map(d=>", "const docs=contentDocs.filter(d=>d.content_type!=='country-best-for').map(d=>", 1)
+          s = s.replace("d.country_slug&&d.topic_slug?`/${d.country_slug}/${d.topic_slug}`", "d.content_type==='country-guide'&&d.country_slug&&d.slug?`/${d.country_slug}/guides/${d.slug}`:d.country_slug&&d.topic_slug?`/${d.country_slug}/${d.topic_slug}`", 1)
+          s = s.replace("content_type:'country-topic'", "content_type:'country-guide'", 1)
           p.write_text(s)
           PY
       - name: Validate build
