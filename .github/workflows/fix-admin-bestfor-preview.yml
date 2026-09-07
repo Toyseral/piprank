@@ -1,0 +1,48 @@
+name: Fix admin Best-For preview
+on:
+  push:
+    branches:
+      - seo/canonical-page-ownership-current-develop
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: seo/canonical-page-ownership-current-develop
+          fetch-depth: 0
+      - name: Patch admin preview links
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('src/pages/Admin.tsx')
+          s = p.read_text()
+          old1 = 'href={`/countries/${selected.slug}/best/${page.slug}`}'
+          new1 = 'href={`/${selected.slug}/${SUPERSEDED_INTENT_TO_TOPIC[page.slug] ?? page.slug}`}'
+          old2 = 'to={SUPERSEDED_INTENT_TO_TOPIC[p.slug] ? `/${p.country_slug}/${SUPERSEDED_INTENT_TO_TOPIC[p.slug]}` : `/countries/${p.country_slug}/best/${p.slug}`} '
+          new2 = 'to={`/${p.country_slug}/${SUPERSEDED_INTENT_TO_TOPIC[p.slug] ?? p.slug}`} '
+          changed = False
+          if old1 in s:
+              s = s.replace(old1, new1)
+              changed = True
+          if old2 in s:
+              s = s.replace(old2, new2)
+              changed = True
+          if not changed:
+              raise SystemExit('No admin Best-For preview links matched')
+          p.write_text(s)
+          PY
+      - name: Commit and remove
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/pages/Admin.tsx
+          git commit -m 'Fix admin country Best-For preview paths'
+          git push origin seo/canonical-page-ownership-current-develop
+          git rm .github/workflows/fix-admin-bestfor-preview.yml
+          git commit -m 'Remove one-shot admin Best-For preview workflow'
+          git push origin seo/canonical-page-ownership-current-develop
+
+# trigger
