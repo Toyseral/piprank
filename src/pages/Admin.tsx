@@ -35,10 +35,12 @@ import {
   Users,
   Link2,
   Globe2,
+  Languages,
   X,
 } from 'lucide-react';
 import AnalyticsPanel from './AnalyticsPanel';
 import supabase from '../lib/supabase';
+import LocalizationWorkspace from '../components/admin/LocalizationWorkspace';
 import type { Broker, BrokerContent, CountryBestFor, CountryPage, FAQ, Guide, GuideSection, Intent, Promotion, Regulation, Review, TestResult, ContentDocument, CountryLanguage, LocalizedSeoPage } from '../lib/types';
 import { legacySectionsToBlocks, brokerContentToLegacySections, guideSectionsToLegacySections, introCriteriaToLegacySections, faqsToBlocks, isBlockShape } from '../lib/contentBlocks';
 import Monogram from '../components/Monogram';
@@ -49,7 +51,7 @@ import PageBuilder, { blocksToHtml, type PageBlock } from '../components/PageBui
 
 /* =============================== TYPES =============================== */
 
-type Tab = 'overview' | 'brokers' | 'countries' | 'global' | 'authors' | 'commercial' | 'analytics' | 'team';
+type Tab = 'overview' | 'brokers' | 'countries' | 'global' | 'localization' | 'authors' | 'commercial' | 'analytics' | 'team';
 
 interface Sub {
   id: number;
@@ -88,6 +90,7 @@ const ROLE_ACCESS: Record<string, string[]> = {
   brokers: ['super_admin', 'admin', 'brokers_admin'],
   countries: ['super_admin', 'admin', 'content_admin', 'brokers_admin'],
   global: ['super_admin', 'admin', 'content_admin'],
+  localization: ['super_admin', 'admin', 'content_admin'],
   authors: ['super_admin', 'admin', 'content_admin'],
   commercial: ['super_admin', 'admin'],
   analytics: ['super_admin', 'admin', 'brokers_admin', 'content_admin', 'moderator'],
@@ -99,6 +102,7 @@ const TABS: { key: Tab; label: string; icon: typeof Landmark; desc: string }[] =
   { key: 'brokers', label: 'Broker Workspace', icon: Landmark, desc: 'Manage broker profile, rich content, trading data, countries, reviews, promotions and affiliate coverage.' },
   { key: 'countries', label: 'Country Hub', icon: Globe2, desc: 'Manage country overview, publishing, SEO, brokers, best-for pages, guides, FAQs and internal links.' },
   { key: 'global', label: 'Global Hub', icon: BookOpen, desc: 'Manage guides and best-for pages that are not country-specific.' },
+  { key: 'localization', label: 'Localization', icon: Languages, desc: 'Manage translated guides and localized Best-For content by country and language.' },
   { key: 'authors', label: 'Author Hub', icon: Users, desc: 'Manage public author profiles, bios, expertise, credentials, photos, links and attribution.' },
   { key: 'commercial', label: 'Commercial', icon: Link2, desc: 'Affiliate links, promotions and conversion reporting.' },
   { key: 'analytics', label: 'Analytics', icon: BarChart3, desc: 'CTA performance, quiz funnel, layouts and conversions by date range.' },
@@ -110,7 +114,7 @@ const DEFAULT_ADMIN_TAB: Tab = 'overview';
 const VALID_ADMIN_TAB_KEYS = new Set<Tab>(TABS.map((tab) => tab.key));
 
 function normalizeAdminTab(value: string | null): string | null {
-  if (value === 'pages' || value === 'content' || value === 'rankings' || value === 'localization') return 'countries';
+  if (value === 'pages' || value === 'content' || value === 'rankings') return 'countries';
   if (value === 'reviews') return 'brokers';
   if (value === 'promos' || value === 'affiliate' || value === 'conversions' || value === 'subs') return 'commercial';
   return value;
@@ -685,6 +689,16 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
                     onNewCountryBestFor={() => setEditingCountryBestFor('new')}
                     onEditContentDoc={(d) => setEditingContentDoc(d)}
                     onNewCountryContentDoc={(slug) => { setNewDocDefaultCountry(slug); setEditingContentDoc('new'); }}
+                  />
+                )}
+                {activeTab === 'localization' && (
+                  <LocalizationWorkspace
+                    countries={countries}
+                    languages={countryLanguages}
+                    pages={localizedPages}
+                    contentDocs={contentDocs}
+                    mutate={mutate}
+                    accessToken={session.access_token}
                   />
                 )}
                 {activeTab === 'global' && (
