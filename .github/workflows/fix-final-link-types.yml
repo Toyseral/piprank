@@ -1,0 +1,26 @@
+name: Fix final link and type issues
+on:
+  push:
+    branches:
+      - seo/canonical-page-ownership-current-develop
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('src/pages/Admin.tsx'); s=p.read_text(); s=s.replace("safeJson(fetch('/api/track?resource=clicks', { headers: headers() }), {})", "safeJson(fetch('/api/track?resource=clicks', { headers: headers() }), { total: 0, byBroker: {}, byDay: [], recent: [] })"); p.write_text(s)
+          p=Path('src/components/Navbar.tsx'); s=p.read_text(); s=s.replace("import { bestForPath } from '../lib/seo';", "import { bestForPath, BEST_FOR_CANONICAL } from '../lib/seo';"); s=s.replace("Object.values(bestForPath).some(() => false) || location.pathname.includes('forex-brokers-for-') || location.pathname.includes('-forex-brokers')", "Object.values(BEST_FOR_CANONICAL).some((path) => location.pathname === `/${path}`)"); p.write_text(s)
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/pages/Admin.tsx src/components/Navbar.tsx
+          git commit -m "fix: type admin loader and canonical nav state" || true
+          git rm .github/workflows/fix-final-link-types.yml
+          git commit -m "chore: remove temporary final fix workflow" || true
+          git push
