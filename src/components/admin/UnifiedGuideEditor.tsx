@@ -120,5 +120,5 @@ export default function UnifiedGuideEditor({ document, countries, brokers, token
 }
 
 function Toggle({ label, value, setValue }: { label: string; value: boolean; setValue: (v: boolean) => void }) {
-  return <button type="button" onClick={() => setValue(!value)} className="flex w-full items-center justify-between rounded-xl bg-paper px-3 py-2.5 text-xs font-bold"><span>{label}</span><span className={`h-5 w-9 rounded-full p-0.5 ${value ? 'bg-emerald-500' : 'bg-slate-300'}`}><span className={`block h-4 w-4 rounded-full bg-white ${value ? 'translate-x-4' : ''}/></span></span></button>;
+  return <button type="button" onClick={() => setValue(!value)} className="flex w-full items-center justify-between rounded-xl bg-paper px-3 py-2.5 text-xs font-bold"><span>{label}</span><span className={`h-5 w-9 rounded-full p-0.5 ${value ? 'bg-emerald-500' : 'bg-slate-300'}`}><span className={`block h-4 w-4 rounded-full bg-white ${value ? 'translate-x-4' : ''}`}></span></span></button>;
 }
