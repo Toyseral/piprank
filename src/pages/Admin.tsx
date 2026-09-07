@@ -1326,9 +1326,9 @@ function GlobalHub({ guides, intents, onNewGuide, onEditGuide, onNewIntent, onEd
             <div key={i.id} className="flex items-center gap-3 px-5 py-3.5">
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-bold text-ink-900">{i.label}</p>
-                <p className="text-xs text-slate-400">/best/{i.slug}</p>
+                <p className="text-xs text-slate-400">/{SUPERSEDED_INTENT_TO_TOPIC[i.slug] ?? i.slug}</p>
               </div>
-              <a href={`/best/${i.slug}`} target="_blank" rel="noreferrer" className="rounded-lg p-2 text-slate-400 hover:bg-paper hover:text-ink-900" title="Preview live page"><Eye size={14} /></a>
+              <a href={`/${SUPERSEDED_INTENT_TO_TOPIC[i.slug] ?? i.slug}`} target="_blank" rel="noreferrer" className="rounded-lg p-2 text-slate-400 hover:bg-paper hover:text-ink-900" title="Preview live page"><Eye size={14} /></a>
               <button onClick={() => onEditIntent(i)} className="rounded-lg p-2 text-slate-400 hover:bg-paper hover:text-ink-900" title="Edit page"><Pencil size={14} /></button>
             </div>
           ))}
@@ -2840,7 +2840,7 @@ function ContentTab({
             <div key={i.id} className="flex items-center gap-3 px-5 py-3.5">
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-bold text-ink-900">{i.title}</p>
-                <p className="text-xs text-slate-400">/best/{i.slug}</p>
+                <p className="text-xs text-slate-400">/{SUPERSEDED_INTENT_TO_TOPIC[i.slug] ?? i.slug}</p>
               </div>
               <Link
                 to={`/best/${i.slug}`}
@@ -2974,7 +2974,7 @@ function ContentTab({
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-bold text-ink-900">{c.name}</p>
                 <p className="text-xs text-slate-400">
-                  /countries/{c.slug} · {c.recommended.length} picks
+                  /{c.slug} · {c.recommended.length} picks
                   {c.unavailable.length > 0 && ` · ${c.unavailable.length} excluded`}
                 </p>
               </div>
