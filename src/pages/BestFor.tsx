@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useLocation, useParams } from 'react-router-dom';
 import {
   ArrowRight,
   Check,
@@ -87,7 +87,9 @@ function reasonFor(slug: string, b: Broker): string {
 }
 
 export default function BestFor() {
-  const { slug, countrySlug } = useParams<{ slug: string; countrySlug: string }>();
+  const { slug: paramSlug, countrySlug } = useParams<{ slug: string; countrySlug: string }>();
+  const { pathname } = useLocation();
+  const slug = paramSlug ?? (BEST_FOR_CANONICAL[pathname.slice(1)] ? pathname.slice(1) : undefined);
   const [intent, setIntent] = useState<Intent | CountryBestFor | null>(null);
   const [country, setCountry] = useState<CountryPage | null>(null);
   const [brokers, setBrokers] = useState<Broker[]>([]);

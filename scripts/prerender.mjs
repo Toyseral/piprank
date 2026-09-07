@@ -44,6 +44,21 @@ const COUNTRY_ISO2 = {
   thailand: 'TH', vietnam: 'VN', turkey: 'TR', kuwait: 'KW', lebanon: 'LB',
   oman: 'OM', qatar: 'QA', 'saudi-arabia': 'SA', 'south-korea': 'KR', indonesia: 'ID',
 };
+function globalBestForPath(slug) {
+  const map = {
+    beginners: 'forex-brokers-for-beginners',
+    'low-spread': 'low-spread-forex-brokers',
+    mt5: 'mt5-forex-brokers',
+    gold: 'gold-forex-brokers',
+    scalping: 'forex-brokers-for-scalping',
+    islamic: 'islamic-forex-brokers',
+    ecn: 'ecn-forex-brokers',
+    'copy-trading': 'copy-trading-forex-brokers',
+    'swing-trading': 'forex-brokers-for-swing-trading',
+    'high-leverage': 'high-leverage-forex-brokers',
+  };
+  return `/${map[slug] || slug}`;
+}
 function englishSlugForTopicKey(topicKey) {
   if (!topicKey || topicKey === 'all') return null;
   const topic = countrySeoTopics.find((t) => t.key === topicKey);
@@ -174,7 +189,7 @@ async function main() {
   // silently regenerating from the template every time.
   const contentDocByKey = new Map();
   try {
-    const { data: cd, error: cde } = await supabase.from('content_documents').select('*').eq('content_type', 'country-topic');
+    const { data: cd, error: cde } = await supabase.from('content_documents').select('*').in('content_type', ['country-topic', 'country-guide']);
     if (cde) {
       warn(`content_documents unavailable during prerender; country-topic pages will use template defaults only. ${cde.message}`);
     } else {
@@ -614,9 +629,9 @@ async function main() {
     const ranked = brokers.filter((b) => Array.isArray(b.best_for) && b.best_for.includes(p.slug)).sort((a,b) => (b.rating ?? 0) - (a.rating ?? 0) || (b.trust_score ?? 0) - (a.trust_score ?? 0));
     const sectionHtml = sections.map((section) => `<section><h2>${esc(section.heading || '')}</h2>${(section.body ?? []).map((x) => `<p>${esc(x)}</p>`).join('')}${(section.bullets ?? []).length ? `<ul>${section.bullets.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}</section>`).join('');
     const faqHtml = faqs.length ? `<h2>Frequently Asked Questions</h2>${faqs.map((f) => `<details><summary>${esc(f.q)}</summary><p>${esc(f.a)}</p></details>`).join('')}` : '';
-    const content = `<main><nav aria-label="Breadcrumb"><a href="/">Home</a> &rsaquo; <a href="/best">Best Forex Brokers</a> &rsaquo; <span>${esc(p.title)}</span></nav><h1>${esc(p.title)}</h1>${(p.intro ?? []).map((x) => `<p>${esc(x)}</p>`).join('')}${criteria.length ? `<h2>How PipRank ranks this category</h2><ul>${criteria.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}<h2>${esc(p.title)}</h2><ol>${ranked.slice(0,10).map((b) => `<li><a href="/brokers/${esc(b.slug)}">${esc(b.name)}</a> — ${esc(b.tagline || 'Broker profile and comparison')}</li>`).join('')}</ol>${sectionHtml}${faqHtml}<p><a href="/countries">Find brokers by country</a> · <a href="/quiz">Get a personal broker match</a></p></main>`;
-    const jsonLd = [webPageJsonLd(title, description, `/best/${p.slug}`, 'WebPage'), breadcrumbJsonLd([{ name: 'Home', path: '/' }, { name: 'Best Forex Brokers', path: '/best' }, { name: p.title, path: `/best/${p.slug}` }]), itemListJsonLd(p.title, ranked.slice(0,10).map((b) => ({ name: b.name, path: `/brokers/${b.slug}` }))), ...(faqs.length ? [faqPageJsonLd(faqs.map((f) => ({ question: f.q, answer: f.a })))] : [])];
-    writePage(`/best/${p.slug}`, { title, description, path: `/best/${p.slug}` }, jsonLd, content, shell, writtenPaths);
+    const content = `<main><nav aria-label="Breadcrumb"><a href="/">Home</a> &rsaquo; <a href="/forex-brokers-for-beginners">Best Forex Brokers</a> &rsaquo; <span>${esc(p.title)}</span></nav><h1>${esc(p.title)}</h1>${(p.intro ?? []).map((x) => `<p>${esc(x)}</p>`).join('')}${criteria.length ? `<h2>How PipRank ranks this category</h2><ul>${criteria.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}<h2>${esc(p.title)}</h2><ol>${ranked.slice(0,10).map((b) => `<li><a href="/brokers/${esc(b.slug)}">${esc(b.name)}</a> — ${esc(b.tagline || 'Broker profile and comparison')}</li>`).join('')}</ol>${sectionHtml}${faqHtml}<p><a href="/countries">Find brokers by country</a> · <a href="/quiz">Get a personal broker match</a></p></main>`;
+    const jsonLd = [webPageJsonLd(title, description, `/best/${p.slug}`, 'WebPage'), breadcrumbJsonLd([{ name: 'Home', path: '/' }, { name: 'Best Forex Brokers', path: globalBestForPath(p.slug) }, { name: p.title, path: globalBestForPath(p.slug) }]), itemListJsonLd(p.title, ranked.slice(0,10).map((b) => ({ name: b.name, path: `/brokers/${b.slug}` }))), ...(faqs.length ? [faqPageJsonLd(faqs.map((f) => ({ question: f.q, answer: f.a })))] : [])];
+    writePage(`/best/${p.slug}`, { title, description, path: globalBestForPath(p.slug) }, jsonLd, content, shell, writtenPaths);
     written++;
   }
 

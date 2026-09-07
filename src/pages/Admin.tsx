@@ -2979,7 +2979,7 @@ function ContentTab({
                 </p>
               </div>
               <Link
-                to={`/countries/${c.slug}`}
+                to={`/${c.slug}`}
                 target="_blank"
                 className="rounded-lg p-2 text-slate-400 transition hover:bg-paper hover:text-ink-900"
                 title="View public page"
