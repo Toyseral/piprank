@@ -1,0 +1,51 @@
+name: Fix Best-For route and admin preview
+on:
+  push:
+    branches:
+      - seo/canonical-page-ownership-current-develop
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: seo/canonical-page-ownership-current-develop
+          fetch-depth: 0
+      - name: Patch files
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          best = Path('src/pages/BestFor.tsx')
+          s = best.read_text()
+          old = "  const slug = paramSlug ?? (BEST_FOR_CANONICAL[pathname.slice(1)] ? pathname.slice(1) : undefined);"
+          new = "  const slug = paramSlug ?? Object.entries(BEST_FOR_CANONICAL).find(([, canonical]) => canonical === pathname.slice(1))?.[0];"
+          if old in s:
+              best.write_text(s.replace(old, new, 1))
+          elif "Object.entries(BEST_FOR_CANONICAL).find(([, canonical]) => canonical === pathname.slice(1))?.[0]" not in s:
+              raise SystemExit('BestFor slug line not found')
+          admin = Path('src/pages/Admin.tsx')
+          a = admin.read_text()
+          old_admin = "to={`/countries/${c.slug}`}"
+          count = a.count(old_admin)
+          if count:
+              admin.write_text(a.replace(old_admin, "to={`/${c.slug}`}"))
+          print(f'Patched {count} Admin country preview link(s)')
+          PY
+      - name: Commit changes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/pages/BestFor.tsx src/pages/Admin.tsx
+          git diff --cached --quiet && exit 0
+          git commit -m "Fix Best-For route slug and admin country preview"
+          git push origin seo/canonical-page-ownership-current-develop
+      - name: Remove one-shot workflow
+        run: |
+          git rm .github/workflows/fix-bestfor-empty-and-admin-country-preview.yml
+          git commit -m "Remove one-shot Best-For fix workflow"
+          git push origin seo/canonical-page-ownership-current-develop
+
+# trigger
