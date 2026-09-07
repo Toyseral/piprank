@@ -2843,7 +2843,7 @@ function ContentTab({
                 <p className="text-xs text-slate-400">/{SUPERSEDED_INTENT_TO_TOPIC[i.slug] ?? i.slug}</p>
               </div>
               <Link
-                to={`/best/${i.slug}`}
+                to={`/${SUPERSEDED_INTENT_TO_TOPIC[i.slug] ?? i.slug}`}
                 target="_blank"
                 className="rounded-lg p-2 text-slate-400 transition hover:bg-paper hover:text-ink-900"
                 title="View public page"
@@ -2915,7 +2915,7 @@ function ContentTab({
                 </p>
               </div>
               <Link
-                to={SUPERSEDED_INTENT_TO_TOPIC[p.slug] ? `/${p.country_slug}/${SUPERSEDED_INTENT_TO_TOPIC[p.slug]}` : `/countries/${p.country_slug}/best/${p.slug}`}
+                to={SUPERSEDED_INTENT_TO_TOPIC[p.slug] ? `/${p.country_slug}/${SUPERSEDED_INTENT_TO_TOPIC[p.slug]}` : `/${p.country_slug}/${SUPERSEDED_INTENT_TO_TOPIC[p.slug] ?? p.slug}`}
                 target="_blank"
                 className="rounded-lg p-2 text-slate-400 transition hover:bg-paper hover:text-ink-900"
                 title={SUPERSEDED_INTENT_TO_TOPIC[p.slug] ? 'View the live canonical page (this row now redirects there)' : 'View public page'}
