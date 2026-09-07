@@ -1,6 +1,8 @@
 name: Fix Best-For route and admin preview
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - seo/canonical-page-ownership-current-develop
 
 jobs:
   patch:
@@ -21,18 +23,18 @@ jobs:
           s = best.read_text()
           old = "  const slug = paramSlug ?? (BEST_FOR_CANONICAL[pathname.slice(1)] ? pathname.slice(1) : undefined);"
           new = "  const slug = paramSlug ?? Object.entries(BEST_FOR_CANONICAL).find(([, canonical]) => canonical === pathname.slice(1))?.[0];"
-          if old not in s:
+          if old in s:
+              best.write_text(s.replace(old, new, 1))
+          elif "Object.entries(BEST_FOR_CANONICAL).find(([, canonical]) => canonical === pathname.slice(1))?.[0]" not in s:
               raise SystemExit('BestFor slug line not found')
-          best.write_text(s.replace(old, new, 1))
 
           admin = Path('src/pages/Admin.tsx')
           a = admin.read_text()
           old_admin = "to={`/countries/${c.slug}`}"
           count = a.count(old_admin)
-          if count == 0:
-              raise SystemExit('Admin country preview link not found')
-          a = a.replace(old_admin, "to={`/${c.slug}`}")
-          admin.write_text(a)
+          if count:
+              a = a.replace(old_admin, "to={`/${c.slug}`}")
+              admin.write_text(a)
           print(f'Patched {count} Admin country preview link(s)')
           PY
       - name: Commit changes
@@ -40,7 +42,8 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add src/pages/BestFor.tsx src/pages/Admin.tsx
-          git commit -m "Fix Best-For route slug and admin country preview" || exit 0
+          git diff --cached --quiet && exit 0
+          git commit -m "Fix Best-For route slug and admin country preview"
           git push origin seo/canonical-page-ownership-current-develop
       - name: Remove one-shot workflow
         run: |
