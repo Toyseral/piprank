@@ -1,0 +1,41 @@
+name: Fix admin clicks fallback
+
+on:
+  workflow_dispatch:
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: seo/canonical-page-ownership-current-develop
+          fetch-depth: 0
+      - name: Patch fallback
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('src/pages/Admin.tsx')
+          s = p.read_text()
+          old = "safeJson<ClicksAgg>(fetch('/api/track?resource=clicks', { headers: headers() }), { total: 0, byBroker: {}, byDay: [], recent: [] })"
+          new = "safeJson<ClicksAgg>(fetch('/api/track?resource=clicks', { headers: headers() }), { total: 0, byBroker: {}, byPage: {}, byDay: [], recent: [] })"
+          if old not in s:
+              raise SystemExit('expected typed clicks fallback not found')
+          p.write_text(s.replace(old, new, 1))
+          PY
+      - name: Validate build
+        run: |
+          npm ci
+          npm run build
+      - name: Commit and remove workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/pages/Admin.tsx
+          git commit -m "fix: complete admin clicks fallback shape"
+          git push origin HEAD:seo/canonical-page-ownership-current-develop
+          git rm .github/workflows/fix-admin-clicks-fallback.yml
+          git commit -m "chore: remove temporary admin fix workflow"
+          git push origin HEAD:seo/canonical-page-ownership-current-develop
