@@ -89,7 +89,7 @@ function reasonFor(slug: string, b: Broker): string {
 export default function BestFor() {
   const { slug: paramSlug, countrySlug } = useParams<{ slug: string; countrySlug: string }>();
   const { pathname } = useLocation();
-  const slug = paramSlug ?? (BEST_FOR_CANONICAL[pathname.slice(1)] ? pathname.slice(1) : undefined);
+  const slug = paramSlug ?? Object.entries(BEST_FOR_CANONICAL).find(([, canonical]) => canonical === pathname.slice(1))?.[0];
   const [intent, setIntent] = useState<Intent | CountryBestFor | null>(null);
   const [country, setCountry] = useState<CountryPage | null>(null);
   const [brokers, setBrokers] = useState<Broker[]>([]);
