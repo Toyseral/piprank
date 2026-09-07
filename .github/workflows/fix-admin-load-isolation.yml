@@ -1,0 +1,45 @@
+name: Harden admin data loading
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - seo/canonical-page-ownership-current-develop
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: seo/canonical-page-ownership-current-develop
+          fetch-depth: 0
+
+      - name: Isolate admin endpoint failures
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('src/pages/Admin.tsx')
+          s = p.read_text()
+          old = '''      const [b, r, g, i, co, cb, s, c, cd, cl, lp] = await Promise.all([\n        fetch('/api/brokers').then((x) => x.json()),\n        fetch('/api/reviews', { headers: headers() }).then((x) => x.json()),\n        fetch('/api/guides').then((x) => x.json()),\n        fetch('/api/intents').then((x) => x.json()),\n        fetch('/api/countries').then((x) => x.json()),\n        fetch('/api/country-best-for').then((x) => x.json()),\n        fetch('/api/newsletter', { headers: headers() }).then((x) => x.json()),\n        fetch('/api/track?resource=clicks', { headers: headers() }).then((x) => x.json()),\n        fetch('/api/content-documents').then((x) => x.json()),\n        fetch('/api/country-languages?admin=true', { headers: headers() }).then((x) => x.json()),\n        fetch('/api/localized-seo-pages?admin=true', { headers: headers() }).then((x) => x.json()),\n      ]);'''
+          new = '''      const safeJson = async <T,>(request: Promise<Response>, fallback: T): Promise<T> => {\n        try {\n          const response = await request;\n          if (!response.ok) return fallback;\n          return (await response.json()) as T;\n        } catch {\n          return fallback;\n        }\n      };\n      const [b, r, g, i, co, cb, s, c, cd, cl, lp] = await Promise.all([\n        safeJson(fetch('/api/brokers'), []),\n        safeJson(fetch('/api/reviews', { headers: headers() }), []),\n        safeJson(fetch('/api/guides'), []),\n        safeJson(fetch('/api/intents'), []),\n        safeJson(fetch('/api/countries'), []),\n        safeJson(fetch('/api/country-best-for'), []),\n        safeJson(fetch('/api/newsletter', { headers: headers() }), []),\n        safeJson(fetch('/api/track?resource=clicks', { headers: headers() }), {}),\n        safeJson(fetch('/api/content-documents'), []),\n        safeJson(fetch('/api/country-languages?admin=true', { headers: headers() }), []),\n        safeJson(fetch('/api/localized-seo-pages?admin=true', { headers: headers() }), []),\n      ]);'''
+          if old not in s:
+              raise SystemExit('Expected admin load block not found')
+          p.write_text(s.replace(old, new, 1))
+          PY
+
+      - name: Commit and remove workflow
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/pages/Admin.tsx
+          git commit -m 'fix: prevent one admin endpoint from blanking all data' || true
+          git push origin HEAD:seo/canonical-page-ownership-current-develop
+          git rm .github/workflows/fix-admin-load-isolation.yml
+          git commit -m 'chore: remove temporary admin load workflow'
+          git push origin HEAD:seo/canonical-page-ownership-current-develop
