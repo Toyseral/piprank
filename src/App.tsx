@@ -11,6 +11,7 @@ import { GeoProvider } from './lib/GeoContext';
 const SmartCTA = lazy(() => import('./components/SmartCTA'));
 const About = lazy(() => import('./pages/About'));
 const Admin = lazy(() => import('./pages/Admin'));
+const AdminLocalization = lazy(() => import('./pages/AdminLocalization'));
 const Authors = lazy(() => import('./pages/Authors'));
 const BestFor = lazy(() => import('./pages/BestFor'));
 const LegacyBestForRedirect = lazy(() => import('./pages/LegacyBestForRedirect'));
@@ -27,6 +28,7 @@ const GuideDetail = lazy(() => import('./pages/GuideDetail'));
 const Guides = lazy(() => import('./pages/Guides'));
 const Methodology = lazy(() => import('./pages/Methodology'));
 const GuideTopic = lazy(() => import('./pages/GuideTopic'));
+const LocalizedGuide = lazy(() => import('./pages/LocalizedGuide'));
 const Promotions = lazy(() => import('./pages/Promotions'));
 const Quiz = lazy(() => import('./pages/Quiz'));
 const Tools = lazy(() => import('./pages/Tools'));
@@ -87,7 +89,9 @@ export function Shell() {
           <Route path="/countries" element={<Countries />} />
           <Route path="/countries/:slug" element={<CountryDetail />} />
           <Route path="/promotions" element={<Promotions />} />
+          <Route path="/archypage/localization" element={<AdminLocalization />} />
           <Route path="/archypage" element={<Admin />} />
+          <Route path="/:countrySlug/:locale/guides/:slug" element={<LocalizedGuide />} />
           <Route path="/:countrySlug/:locale/:topicSlug" element={<LocalizedCountrySeoTopic />} />
           <Route path="/:countrySlug/:topicSlug" element={<CountryPathRouter />} />
           <Route path="/:slug" element={<CountryDetail />} />
