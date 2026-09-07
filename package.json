@@ -9,7 +9,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "check:function-count": "node scripts/check-function-count.mjs",
-    "check:seo-matrix": "node scripts/validate-country-seo-matrix.mjs"
+    "check:seo-matrix": "node scripts/validate-country-seo-matrix.mjs",
+    "check:keyword-ownership": "node scripts/validate-keyword-ownership.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.4",
