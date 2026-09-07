@@ -1,0 +1,44 @@
+name: Fix guide and canonical links
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: seo/canonical-page-ownership-current-develop
+      - name: Patch
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path('src/pages/BestFor.tsx')
+          s = p.read_text()
+          s = s.replace("to={`/best/${intent.slug}`}", "to={bestForPath(intent.slug)}")
+          s = s.replace("{ name: 'Best Forex Brokers', path: '/best' }", "{ name: 'Best Forex Brokers', path: bestForPath(intent.slug) }")
+          s = s.replace("import { buildBreadcrumbJsonLd, buildFAQPageJsonLd, buildItemListJsonLd, intentSeo, countryBestForSeo, type SeoInput } from '../lib/seo';", "import { buildBreadcrumbJsonLd, buildFAQPageJsonLd, buildItemListJsonLd, intentSeo, countryBestForSeo, bestForPath, BEST_FOR_CANONICAL, type SeoInput } from '../lib/seo';")
+          s = s.replace("LEGACY_TOPIC_TO_NEW[x.slug] ? `/${countrySlug}/${LEGACY_TOPIC_TO_NEW[x.slug]}` : `/countries/${countrySlug}/best/${x.slug}`", "`/${countrySlug}/${BEST_FOR_CANONICAL[x.slug] ?? x.slug}`")
+          s = s.replace("to={`/countries/${c.slug}`}", "to={`/${c.slug}/${BEST_FOR_CANONICAL[intent.slug] ?? intent.slug}`}")
+          p.write_text(s)
+
+          p = Path('src/pages/GuideTopic.tsx')
+          s = p.read_text()
+          s = s.replace("content.content_type !== 'country-guide'", "content.content_type !== 'country-guide' && content.content_type !== 'guide'")
+          p.write_text(s)
+          PY
+      - name: Commit
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/pages/BestFor.tsx src/pages/GuideTopic.tsx
+          git diff --cached --quiet || git commit -m 'Fix guide fallback and canonical Best-For links'
+          git push origin seo/canonical-page-ownership-current-develop
+      - name: Remove workflow
+        if: always()
+        run: |
+          git rm .github/workflows/fix-guide-and-links.yml || true
+          git commit -m 'Remove one-time guide and link patch workflow' || true
+          git push origin seo/canonical-page-ownership-current-develop || true
