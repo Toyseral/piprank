@@ -40,7 +40,7 @@ export default function GuideTopic() {
     setMissing(false);
     Promise.all([fetchCountry(countrySlug), fetchContentDocument(`country-guide:${countrySlug}:${slug}`)])
       .then(([c, content]) => {
-        if (!content || content.published === false || content.content_type !== 'country-guide') {
+        if (!content || content.published === false || content.content_type !== 'country-guide' && content.content_type !== 'guide') {
           setMissing(true);
           return;
         }
