@@ -1,6 +1,7 @@
 name: Fix guide and canonical links
 on:
-  workflow_dispatch:
+  push:
+    branches: [seo/canonical-page-ownership-current-develop]
 permissions:
   contents: write
 jobs:
@@ -29,16 +30,14 @@ jobs:
           s = s.replace("content.content_type !== 'country-guide'", "content.content_type !== 'country-guide' && content.content_type !== 'guide'")
           p.write_text(s)
           PY
-      - name: Commit
+      - name: Commit and remove
+        if: always()
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add src/pages/BestFor.tsx src/pages/GuideTopic.tsx
           git diff --cached --quiet || git commit -m 'Fix guide fallback and canonical Best-For links'
-          git push origin seo/canonical-page-ownership-current-develop
-      - name: Remove workflow
-        if: always()
-        run: |
+          git push origin seo/canonical-page-ownership-current-develop || true
           git rm .github/workflows/fix-guide-and-links.yml || true
           git commit -m 'Remove one-time guide and link patch workflow' || true
           git push origin seo/canonical-page-ownership-current-develop || true
