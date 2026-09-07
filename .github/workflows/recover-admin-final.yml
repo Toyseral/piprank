@@ -1,0 +1,53 @@
+name: Finalize admin recovery
+
+on:
+  push:
+    branches:
+      - seo/canonical-page-ownership-current-develop
+
+permissions:
+  contents: write
+
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: seo/canonical-page-ownership-current-develop
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Restore and patch Admin
+        shell: bash
+        run: |
+          git show 327a94240a16de320cacfdcd8b5fa24da3224063:src/pages/Admin.tsx > src/pages/Admin.tsx
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p = Path('src/pages/Admin.tsx')
+          s = p.read_text()
+          pattern = r"safeJson(?:<[^>]+>)?\(fetch\('/api/track\?resource=clicks', \{ headers: headers\(\) \}\), \{[^\n]+\}\),"
+          replacement = "safeJson<ClicksAgg>(fetch('/api/track?resource=clicks', { headers: headers() }), { total: 0, byBroker: {}, byPage: {}, byDay: {}, recent: [] }),"
+          s2, count = re.subn(pattern, replacement, s, count=1)
+          if count != 1:
+              raise SystemExit('clicks loader line not found')
+          p.write_text(s2)
+          PY
+          test "$(wc -l < src/pages/Admin.tsx)" -gt 4000
+      - name: Build
+        run: npm ci && npm run build
+      - name: Commit restore and cleanup
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/pages/Admin.tsx
+          git commit -m 'fix: restore full admin and correct clicks fallback'
+          git push origin HEAD:seo/canonical-page-ownership-current-develop
+          for f in .github/workflows/recover-admin-final.yml .github/workflows/recover-admin-now.yml .github/workflows/restore-admin-build.yml .github/workflows/fix-admin-clicks-fallback.yml .github/workflows/fix-admin-clicks-type.yml; do
+            git rm -f "$f" 2>/dev/null || true
+          done
+          git commit -m 'chore: remove temporary admin repair workflows' || true
+          git push origin HEAD:seo/canonical-page-ownership-current-develop
