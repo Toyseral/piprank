@@ -19,7 +19,6 @@ function rankBrokers(topic: Parameters<typeof rankCountryTopicBrokers>[2], broke
   return rankCountryTopicBrokers(brokers, country, topic);
 }
 
-
 export default function CountrySeoTopic() {
   const { countrySlug, topicSlug } = useParams<{ countrySlug: string; topicSlug: string }>();
   const topic = topicSlug ? getCountrySeoTopic(topicSlug) : null;
@@ -54,9 +53,17 @@ export default function CountrySeoTopic() {
     const base = rankBrokers(topic, brokers, country);
     const excluded = new Set(Array.isArray(pageSettings.excludedBrokerSlugs) ? pageSettings.excludedBrokerSlugs : []);
     const filtered = base.filter(b => !excluded.has(b.slug));
+
+    // Automatic mode preserves the existing country/topic ranking exactly.
+    // Manual mode is an explicit editorial list: only selected brokers are shown,
+    // and their array order is the public display order. Country/topic eligibility
+    // remains a hard constraint because the list is intersected with `base`.
     if (pageSettings.rankingMode === 'manual' && Array.isArray(pageSettings.pinnedBrokerSlugs)) {
-      const order = new Map(pageSettings.pinnedBrokerSlugs.map((slug: string, i: number) => [slug, i]));
-      return [...filtered].sort((a,b) => (order.has(a.slug)?Number(order.get(a.slug)):9999) - (order.has(b.slug)?Number(order.get(b.slug)):9999));
+      const eligible = new Map(filtered.map(b => [b.slug, b]));
+      return pageSettings.pinnedBrokerSlugs
+        .filter((slug: string, i: number, list: string[]) => Boolean(slug) && list.indexOf(slug) === i)
+        .map((slug: string) => eligible.get(slug))
+        .filter((b: Broker | undefined): b is Broker => Boolean(b));
     }
     return filtered;
   }, [country, brokers, topic, richContent]);
@@ -93,7 +100,6 @@ export default function CountrySeoTopic() {
       })
       .catch(() => setLocalizedAlts([]));
   }, [countrySlug, topic?.key]);
-
 
   useSEO(
     seo,
