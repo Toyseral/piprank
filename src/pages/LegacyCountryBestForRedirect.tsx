@@ -13,12 +13,16 @@ const LEGACY_TO_CANONICAL: Record<string, string> = {
   'high-leverage': 'high-leverage-forex-brokers',
 };
 
+const CANONICAL_SLUGS = new Set(Object.values(LEGACY_TO_CANONICAL));
+
 export default function LegacyCountryBestForRedirect() {
   const { countrySlug, slug } = useParams<{ countrySlug: string; slug: string }>();
   const pathname = useLocation().pathname;
   const explicitTopic = pathname.match(/\/best-(.+)$/)?.[1];
   const legacySlug = slug || explicitTopic;
-  const canonical = legacySlug ? LEGACY_TO_CANONICAL[legacySlug] : undefined;
+  const canonical = legacySlug
+    ? LEGACY_TO_CANONICAL[legacySlug] || (CANONICAL_SLUGS.has(legacySlug) ? legacySlug : undefined)
+    : undefined;
   if (!countrySlug || !canonical) return <Navigate to="/countries" replace />;
   return <Navigate to={`/${countrySlug}/${canonical}`} replace />;
 }
