@@ -535,7 +535,7 @@ async function main() {
 
     const countryBestForLinks = countryBestFors.filter((p) => p.country_slug === c.slug && p.indexable);
     const bestForHtml = countryBestForLinks.length
-      ? `<h2>Best Forex Brokers by Trading Need</h2><ul>${countryBestForLinks.map((p) => `<li><a href="${INTENT_TO_TOPIC[p.slug] ? `/${esc(c.slug)}/${esc(INTENT_TO_TOPIC[p.slug])}` : `/countries/${esc(c.slug)}/best/${esc(p.slug)}`}">${esc(p.label || p.title)}</a> — ${esc(p.intro?.[0] || '')}</li>`).join('')}</ul>`
+      ? `<h2>Best Forex Brokers by Trading Need</h2><ul>${countryBestForLinks.map((p) => `<li><a href="${INTENT_TO_TOPIC[p.slug] ? `/${esc(c.slug)}/${esc(INTENT_TO_TOPIC[p.slug])}` : `/${esc(c.slug)}/${esc(p.slug)}`}">${esc(p.label || p.title)}</a> — ${esc(p.intro?.[0] || '')}</li>`).join('')}</ul>`
       : '';
     const categoryHtml = category.map(([label, list]) => `
       <section>
