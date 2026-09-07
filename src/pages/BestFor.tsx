@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useLocation, useParams } from 'react-router-dom';
 import {
   ArrowRight,
   Check,
@@ -44,7 +44,7 @@ import { blocksToHtml } from '../components/PageBuilder';
 import { isBlockShape } from '../lib/contentBlocks';
 import { fmtMoney } from '../lib/format';
 import { useSEO } from '../hooks/useSEO';
-import { buildBreadcrumbJsonLd, buildFAQPageJsonLd, buildItemListJsonLd, intentSeo, countryBestForSeo, type SeoInput } from '../lib/seo';
+import { buildBreadcrumbJsonLd, buildFAQPageJsonLd, buildItemListJsonLd, intentSeo, countryBestForSeo, bestForPath, BEST_FOR_CANONICAL, type SeoInput } from '../lib/seo';
 import { allInCost, healthScore, scoreColors, tierBest } from '../lib/score';
 import NotFound from './NotFound';
 
@@ -87,7 +87,9 @@ function reasonFor(slug: string, b: Broker): string {
 }
 
 export default function BestFor() {
-  const { slug, countrySlug } = useParams<{ slug: string; countrySlug: string }>();
+  const { slug: paramSlug, countrySlug } = useParams<{ slug: string; countrySlug: string }>();
+  const { pathname } = useLocation();
+  const slug = paramSlug ?? Object.entries(BEST_FOR_CANONICAL).find(([, canonical]) => canonical === pathname.slice(1))?.[0];
   const [intent, setIntent] = useState<Intent | CountryBestFor | null>(null);
   const [country, setCountry] = useState<CountryPage | null>(null);
   const [brokers, setBrokers] = useState<Broker[]>([]);
@@ -189,7 +191,7 @@ export default function BestFor() {
       { name: 'Countries', path: '/countries' },
       { name: country?.name ?? countrySlug, path: `/countries/${countrySlug}` },
       { name: intent.title, path: seoInput.path },
-    ] : [{ name: 'Home', path: '/' }, { name: 'Best Forex Brokers', path: '/best' }, { name: intent.title, path: seoInput.path }]),
+    ] : [{ name: 'Home', path: '/' }, { name: 'Best Forex Brokers', path: bestForPath(intent.slug) }, { name: intent.title, path: seoInput.path }]),
     buildItemListJsonLd(intent.title, ranked.slice(0, 10).map((b) => ({ name: b.name, path: `/brokers/${b.slug}` }))),
     ...('faqs' in intent && intent.faqs?.length ? [buildFAQPageJsonLd(intent.faqs.map((f) => ({ question: f.q, answer: f.a })))] : []),
   ] : undefined;
@@ -253,8 +255,8 @@ export default function BestFor() {
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
           {country && <Link to={`/countries/${country.slug}`} className="rounded-full border border-emerald-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-emerald-400">All {country.name} brokers</Link>}
-          <Link to={`/best/${intent.slug}`} className="rounded-full border border-emerald-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-emerald-400">Global {intent.title}</Link>
-          {countrySlug && countryBestForPages.filter((x) => x.slug !== intent.slug).slice(0, 6).map((x) => <Link key={x.slug} to={LEGACY_TOPIC_TO_NEW[x.slug] ? `/${countrySlug}/${LEGACY_TOPIC_TO_NEW[x.slug]}` : `/countries/${countrySlug}/best/${x.slug}`} className="rounded-full border border-line bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:border-emerald-400">More: {x.title}</Link>)}
+          <Link to={bestForPath(intent.slug)} className="rounded-full border border-emerald-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-emerald-400">Global {intent.title}</Link>
+          {countrySlug && countryBestForPages.filter((x) => x.slug !== intent.slug).slice(0, 6).map((x) => <Link key={x.slug} to={`/${countrySlug}/${BEST_FOR_CANONICAL[x.slug] ?? x.slug}`} className="rounded-full border border-line bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:border-emerald-400">More: {x.title}</Link>)}
         </div>
       </section>
 
@@ -323,7 +325,7 @@ export default function BestFor() {
           <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Local versions</p>
           <h2 id="country-variants" className="mt-1 font-display text-xl font-bold text-ink-900">Best {intent.title.toLowerCase()} by country</h2>
           <div className="mt-4 flex flex-wrap gap-2">
-            {countries.slice(0, 12).map((c) => <Link key={c.slug} to={`/countries/${c.slug}`} className="rounded-full border border-line bg-paper px-3.5 py-2 text-xs font-semibold text-slate-600 hover:border-emerald-400 hover:text-ink-900">{c.name}</Link>)}
+            {countries.slice(0, 12).map((c) => <Link key={c.slug} to={`/${c.slug}/${BEST_FOR_CANONICAL[intent.slug] ?? intent.slug}`} className="rounded-full border border-line bg-paper px-3.5 py-2 text-xs font-semibold text-slate-600 hover:border-emerald-400 hover:text-ink-900">{c.name}</Link>)}
           </div>
         </section>
       )}
@@ -333,7 +335,7 @@ export default function BestFor() {
           <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Local versions</p>
           <h2 id="country-variants" className="mt-1 font-display text-xl font-bold text-ink-900">Explore {intent.title.toLowerCase()} by country</h2>
           <div className="mt-4 flex flex-wrap gap-2">
-            {countries.slice(0, 12).map((c) => <Link key={c.slug} to={`/countries/${c.slug}`} className="rounded-full border border-line bg-paper px-3.5 py-2 text-xs font-semibold text-slate-600 hover:border-emerald-400 hover:text-ink-900">{c.name}</Link>)}
+            {countries.slice(0, 12).map((c) => <Link key={c.slug} to={`/${c.slug}/${BEST_FOR_CANONICAL[intent.slug] ?? intent.slug}`} className="rounded-full border border-line bg-paper px-3.5 py-2 text-xs font-semibold text-slate-600 hover:border-emerald-400 hover:text-ink-900">{c.name}</Link>)}
           </div>
         </section>
       )}

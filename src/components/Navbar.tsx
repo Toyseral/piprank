@@ -16,6 +16,7 @@ import { fetchBrokers, fetchCountries, fetchIntents } from '../lib/api';
 import { GEO_OPTIONS } from '../lib/geo';
 import { useGeo } from '../lib/GeoContext';
 import { btnCls } from './Button';
+import { bestForPath, BEST_FOR_CANONICAL } from '../lib/seo';
 import type { Broker, CountryPage, Intent } from '../lib/types';
 
 let intentsCache: Promise<Intent[]> | null = null;
@@ -278,7 +279,7 @@ export default function Navbar() {
           <div className="relative">
             <button
               onClick={() => toggleDesktop('guides')}
-              className={dropBtnCls(openMenu === 'guides' || location.pathname.startsWith('/guides') || location.pathname.startsWith('/best'))}
+              className={dropBtnCls(openMenu === 'guides' || location.pathname.startsWith('/guides') || Object.values(BEST_FOR_CANONICAL).some((path) => location.pathname === `/${path}`))}
               aria-expanded={openMenu === 'guides'}
             >
               Guides <ChevronDown size={14} className={`transition ${openMenu === 'guides' ? 'rotate-180' : ''}`} />
@@ -290,7 +291,7 @@ export default function Navbar() {
                     <p className="px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Best brokers by category</p>
                     <div className="mt-2 grid grid-cols-2 gap-1">
                       {intents.slice(0, 10).map((i) => (
-                        <Link key={i.slug} to={`/best/${i.slug}`} className={dropItemCls}>
+                        <Link key={i.slug} to={bestForPath(i.slug)} className={dropItemCls}>
                           {i.title.replace(/ \(\d{4}\)/, '')}
                         </Link>
                       ))}
@@ -460,7 +461,7 @@ export default function Navbar() {
                 <MobileLink to="/guides" onClick={closeMobile}>Guides</MobileLink>
                 <MobileLink to="/compare" onClick={closeMobile}>Side-by-side broker comparisons</MobileLink>
                 {intents.slice(0, 6).map((i) => (
-                  <MobileLink key={i.slug} to={`/best/${i.slug}`} onClick={closeMobile}>{i.title.replace(/ \(\d{4}\)/, '')}</MobileLink>
+                  <MobileLink key={i.slug} to={bestForPath(i.slug)} onClick={closeMobile}>{i.title.replace(/ \(\d{4}\)/, '')}</MobileLink>
                 ))}
                 <MobileLink to="/#categories" onClick={closeMobile}>See all categories →</MobileLink>
               </div>

@@ -35,10 +35,12 @@ import {
   Users,
   Link2,
   Globe2,
+  Languages,
   X,
 } from 'lucide-react';
 import AnalyticsPanel from './AnalyticsPanel';
 import supabase from '../lib/supabase';
+import LocalizationWorkspace from '../components/admin/LocalizationWorkspace';
 import type { Broker, BrokerContent, CountryBestFor, CountryPage, FAQ, Guide, GuideSection, Intent, Promotion, Regulation, Review, TestResult, ContentDocument, CountryLanguage, LocalizedSeoPage } from '../lib/types';
 import { legacySectionsToBlocks, brokerContentToLegacySections, guideSectionsToLegacySections, introCriteriaToLegacySections, faqsToBlocks, isBlockShape } from '../lib/contentBlocks';
 import Monogram from '../components/Monogram';
@@ -49,7 +51,7 @@ import PageBuilder, { blocksToHtml, type PageBlock } from '../components/PageBui
 
 /* =============================== TYPES =============================== */
 
-type Tab = 'overview' | 'brokers' | 'countries' | 'global' | 'authors' | 'commercial' | 'analytics' | 'team';
+type Tab = 'overview' | 'brokers' | 'countries' | 'global' | 'localization' | 'authors' | 'commercial' | 'analytics' | 'team';
 
 interface Sub {
   id: number;
@@ -88,6 +90,7 @@ const ROLE_ACCESS: Record<string, string[]> = {
   brokers: ['super_admin', 'admin', 'brokers_admin'],
   countries: ['super_admin', 'admin', 'content_admin', 'brokers_admin'],
   global: ['super_admin', 'admin', 'content_admin'],
+  localization: ['super_admin', 'admin', 'content_admin'],
   authors: ['super_admin', 'admin', 'content_admin'],
   commercial: ['super_admin', 'admin'],
   analytics: ['super_admin', 'admin', 'brokers_admin', 'content_admin', 'moderator'],
@@ -99,6 +102,7 @@ const TABS: { key: Tab; label: string; icon: typeof Landmark; desc: string }[] =
   { key: 'brokers', label: 'Broker Workspace', icon: Landmark, desc: 'Manage broker profile, rich content, trading data, countries, reviews, promotions and affiliate coverage.' },
   { key: 'countries', label: 'Country Hub', icon: Globe2, desc: 'Manage country overview, publishing, SEO, brokers, best-for pages, guides, FAQs and internal links.' },
   { key: 'global', label: 'Global Hub', icon: BookOpen, desc: 'Manage guides and best-for pages that are not country-specific.' },
+  { key: 'localization', label: 'Localization', icon: Languages, desc: 'Manage translated guides and localized Best-For content by country and language.' },
   { key: 'authors', label: 'Author Hub', icon: Users, desc: 'Manage public author profiles, bios, expertise, credentials, photos, links and attribution.' },
   { key: 'commercial', label: 'Commercial', icon: Link2, desc: 'Affiliate links, promotions and conversion reporting.' },
   { key: 'analytics', label: 'Analytics', icon: BarChart3, desc: 'CTA performance, quiz funnel, layouts and conversions by date range.' },
@@ -110,7 +114,7 @@ const DEFAULT_ADMIN_TAB: Tab = 'overview';
 const VALID_ADMIN_TAB_KEYS = new Set<Tab>(TABS.map((tab) => tab.key));
 
 function normalizeAdminTab(value: string | null): string | null {
-  if (value === 'pages' || value === 'content' || value === 'rankings' || value === 'localization') return 'countries';
+  if (value === 'pages' || value === 'content' || value === 'rankings') return 'countries';
   if (value === 'reviews') return 'brokers';
   if (value === 'promos' || value === 'affiliate' || value === 'conversions' || value === 'subs') return 'commercial';
   return value;
@@ -409,18 +413,27 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
 
   const load = useCallback(async () => {
     try {
+      const safeJson = async <T,>(request: Promise<Response>, fallback: T): Promise<T> => {
+        try {
+          const response = await request;
+          if (!response.ok) return fallback;
+          return (await response.json()) as T;
+        } catch {
+          return fallback;
+        }
+      };
       const [b, r, g, i, co, cb, s, c, cd, cl, lp] = await Promise.all([
-        fetch('/api/brokers').then((x) => x.json()),
-        fetch('/api/reviews', { headers: headers() }).then((x) => x.json()),
-        fetch('/api/guides').then((x) => x.json()),
-        fetch('/api/intents').then((x) => x.json()),
-        fetch('/api/countries').then((x) => x.json()),
-        fetch('/api/country-best-for').then((x) => x.json()),
-        fetch('/api/newsletter', { headers: headers() }).then((x) => x.json()),
-        fetch('/api/track?resource=clicks', { headers: headers() }).then((x) => x.json()),
-        fetch('/api/content-documents').then((x) => x.json()),
-        fetch('/api/country-languages?admin=true', { headers: headers() }).then((x) => x.json()),
-        fetch('/api/localized-seo-pages?admin=true', { headers: headers() }).then((x) => x.json()),
+        safeJson(fetch('/api/brokers'), []),
+        safeJson(fetch('/api/reviews', { headers: headers() }), []),
+        safeJson(fetch('/api/guides'), []),
+        safeJson(fetch('/api/intents'), []),
+        safeJson(fetch('/api/countries'), []),
+        safeJson(fetch('/api/country-best-for'), []),
+        safeJson(fetch('/api/newsletter', { headers: headers() }), []),
+        safeJson<ClicksAgg>(fetch('/api/track?resource=clicks', { headers: headers() }), { total: 0, byBroker: {}, byPage: {}, byDay: {}, recent: [] }),
+        safeJson(fetch('/api/content-documents'), []),
+        safeJson(fetch('/api/country-languages?admin=true', { headers: headers() }), []),
+        safeJson(fetch('/api/localized-seo-pages?admin=true', { headers: headers() }), []),
       ]);
       if (Array.isArray(b)) setBrokers(b);
       if (Array.isArray(r)) setReviews(r);
@@ -676,6 +689,16 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
                     onNewCountryBestFor={() => setEditingCountryBestFor('new')}
                     onEditContentDoc={(d) => setEditingContentDoc(d)}
                     onNewCountryContentDoc={(slug) => { setNewDocDefaultCountry(slug); setEditingContentDoc('new'); }}
+                  />
+                )}
+                {activeTab === 'localization' && (
+                  <LocalizationWorkspace
+                    countries={countries}
+                    languages={countryLanguages}
+                    pages={localizedPages}
+                    contentDocs={contentDocs}
+                    mutate={mutate}
+                    accessToken={session.access_token}
                   />
                 )}
                 {activeTab === 'global' && (
@@ -1026,7 +1049,7 @@ function CountryHub({ countries, brokers, countryBestFors, contentDocs, countryL
   const bestFor = selected ? countryBestFors.filter((page) => page.country_id === selected.id || page.country_slug === selected.slug) : [];
   const docs = selected ? contentDocs.filter((doc) => doc.country_slug === selected.slug || doc.content_key.includes(`:${selected.slug}:`) || doc.slug === selected.slug) : [];
   const publishedState = String((selected as any)?.publishing_state ?? ((selected as any)?.status ?? 'published'));
-  return <div className="grid gap-5 lg:grid-cols-[300px_1fr]"><section className="rounded-2xl border border-line bg-white p-4"><div className="flex items-center justify-between"><h2 className="font-display text-lg font-bold text-ink-900">Countries</h2><button onClick={onNewCountry} className="rounded-lg bg-ink-950 px-3 py-1.5 text-xs font-bold text-white"><Plus size={13} className="inline"/> New</button></div><div className="mt-3 flex items-center gap-2 rounded-xl border border-line bg-paper px-3"><Search size={14} className="text-slate-400"/><input value={query} onChange={(e)=>setQuery(e.target.value)} placeholder="Search countries…" className="h-10 flex-1 bg-transparent text-sm outline-none"/></div><div className="mt-3 max-h-[560px] space-y-1 overflow-auto">{filtered.map((country)=><button key={country.id} onClick={()=>setSelectedSlug(country.slug)} className={`w-full rounded-xl px-3 py-2 text-left text-sm transition ${selected?.id===country.id?'bg-emerald-50 text-emerald-800':'hover:bg-paper'}`}><span className="font-bold">{country.flag} {country.name}</span><span className="block text-xs text-slate-400">/{country.slug}</span></button>)}</div></section>{selected&&<section className="space-y-5"><div className="rounded-2xl border border-line bg-white p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Country Workspace</p><h2 className="font-display text-2xl font-bold text-ink-900">{selected.flag} {selected.name}</h2><p className="mt-1 text-sm text-slate-500">Overview, publishing, SEO, brokers, best-for pages, guides, FAQs and internal links in one place.</p></div><button onClick={()=>onEditCountry(selected)} className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-4 py-2 text-xs font-bold text-white"><Pencil size={14}/> Edit country hub</button></div><div className="mt-4 grid gap-3 sm:grid-cols-3"><HubMetric label="Publishing" value={publishedState} sub="draft · published · closed"/><HubMetric label="Best-For" value={String(bestFor.length)} sub="country category pages"/><HubMetric label="Country content" value={String(docs.length)} sub="guides and SEO docs"/></div></div><div className="grid gap-5 xl:grid-cols-2"><EntityPanel title="SEO QA" items={[selected.seo_title?'SEO title present':'Missing SEO title',selected.seo_description?'Meta description present':'Missing meta description',(selected.seo_intro?.length||0)>0?'Intro present':'Missing SEO intro',(selected.seo_sections?.length||0)>0?'Structured sections present':'Missing sections',(selected.seo_faqs?.length||0)>0?'FAQs present':'Missing FAQs']}/><EntityPanel title="Broker coverage" items={[`${selected.recommended.length} recommended brokers`,`${selected.unavailable.length} unavailable broker flags`,`${brokers.length} brokers in database`,'Use Broker Workspace for searchable eligibility states']}/></div><div className="rounded-2xl border border-line bg-white p-5"><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-display text-lg font-bold text-ink-900">Best-For pages</h3><button onClick={()=>onNewCountryBestFor(selected.slug)} className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3.5 py-1.5 text-xs font-bold text-white"><Plus size={13}/> Add new page</button></div><div className="mt-3 divide-y divide-line rounded-xl border border-line">{bestFor.map((page)=><div key={page.id} className="flex items-center justify-between px-4 py-3"><button onClick={()=>onEditCountryBestFor(page)} className="min-w-0 flex-1 text-left"><span className="block text-sm font-bold text-ink-900">{page.label}</span><span className="text-xs text-slate-400">/{selected.slug}/{page.slug} · {page.indexable?'Indexable':'Noindex'}</span></button><div className="flex shrink-0 items-center gap-1"><a href={`/countries/${selected.slug}/best/${page.slug}`} target="_blank" rel="noreferrer" className="rounded-lg p-2 text-slate-400 hover:bg-paper" title="Preview live page"><Eye size={14}/></a><button onClick={()=>onEditCountryBestFor(page)} className="rounded-lg p-2 text-slate-400 hover:bg-paper" title="Edit page"><Pencil size={14}/></button></div></div>)}{!bestFor.length&&<p className="p-4 text-sm text-slate-400">No country best-for pages yet.</p>}</div></div><div className="rounded-2xl border border-line bg-white p-5"><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-display text-lg font-bold text-ink-900">Country guides and SEO content</h3><button onClick={()=>onNewCountryContentDoc(selected.slug)} className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3.5 py-1.5 text-xs font-bold text-white"><Plus size={13}/> Add new page</button></div><div className="mt-3 divide-y divide-line rounded-xl border border-line">{docs.map((doc)=><div key={doc.id} className="flex items-center justify-between px-4 py-3"><button onClick={()=>onEditContentDoc(doc)} className="min-w-0 flex-1 text-left"><span className="block text-sm font-bold text-ink-900">{doc.title || doc.content_key}</span><span className="text-xs text-slate-400">{doc.content_type} · {doc.published?'Published':'Draft'} · {doc.indexable?'Indexable':'Noindex'}</span></button><div className="flex shrink-0 items-center gap-1">{doc.topic_slug&&<a href={`/${selected.slug}/${doc.topic_slug}`} target="_blank" rel="noreferrer" className="rounded-lg p-2 text-slate-400 hover:bg-paper" title="Preview live page (only works for registered topics)"><Eye size={14}/></a>}<button onClick={()=>onEditContentDoc(doc)} className="rounded-lg p-2 text-slate-400 hover:bg-paper" title="Edit page"><Pencil size={14}/></button></div></div>)}{!docs.length&&<p className="p-4 text-sm text-slate-400">No country-specific rich content found.</p>}</div></div><CountryLanguagesPanel country={selected} countryLanguages={countryLanguages} localizedPages={localizedPages} token={token} notify={notify} reload={reloadLocalization} onEditContentDoc={onEditContentDoc}/></section>}</div>;
+  return <div className="grid gap-5 lg:grid-cols-[300px_1fr]"><section className="rounded-2xl border border-line bg-white p-4"><div className="flex items-center justify-between"><h2 className="font-display text-lg font-bold text-ink-900">Countries</h2><button onClick={onNewCountry} className="rounded-lg bg-ink-950 px-3 py-1.5 text-xs font-bold text-white"><Plus size={13} className="inline"/> New</button></div><div className="mt-3 flex items-center gap-2 rounded-xl border border-line bg-paper px-3"><Search size={14} className="text-slate-400"/><input value={query} onChange={(e)=>setQuery(e.target.value)} placeholder="Search countries…" className="h-10 flex-1 bg-transparent text-sm outline-none"/></div><div className="mt-3 max-h-[560px] space-y-1 overflow-auto">{filtered.map((country)=><button key={country.id} onClick={()=>setSelectedSlug(country.slug)} className={`w-full rounded-xl px-3 py-2 text-left text-sm transition ${selected?.id===country.id?'bg-emerald-50 text-emerald-800':'hover:bg-paper'}`}><span className="font-bold">{country.flag} {country.name}</span><span className="block text-xs text-slate-400">/{country.slug}</span></button>)}</div></section>{selected&&<section className="space-y-5"><div className="rounded-2xl border border-line bg-white p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Country Workspace</p><h2 className="font-display text-2xl font-bold text-ink-900">{selected.flag} {selected.name}</h2><p className="mt-1 text-sm text-slate-500">Overview, publishing, SEO, brokers, best-for pages, guides, FAQs and internal links in one place.</p></div><button onClick={()=>onEditCountry(selected)} className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-4 py-2 text-xs font-bold text-white"><Pencil size={14}/> Edit country hub</button></div><div className="mt-4 grid gap-3 sm:grid-cols-3"><HubMetric label="Publishing" value={publishedState} sub="draft · published · closed"/><HubMetric label="Best-For" value={String(bestFor.length)} sub="country category pages"/><HubMetric label="Country content" value={String(docs.length)} sub="guides and SEO docs"/></div></div><div className="grid gap-5 xl:grid-cols-2"><EntityPanel title="SEO QA" items={[selected.seo_title?'SEO title present':'Missing SEO title',selected.seo_description?'Meta description present':'Missing meta description',(selected.seo_intro?.length||0)>0?'Intro present':'Missing SEO intro',(selected.seo_sections?.length||0)>0?'Structured sections present':'Missing sections',(selected.seo_faqs?.length||0)>0?'FAQs present':'Missing FAQs']}/><EntityPanel title="Broker coverage" items={[`${selected.recommended.length} recommended brokers`,`${selected.unavailable.length} unavailable broker flags`,`${brokers.length} brokers in database`,'Use Broker Workspace for searchable eligibility states']}/></div><div className="rounded-2xl border border-line bg-white p-5"><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-display text-lg font-bold text-ink-900">Best-For pages</h3><button onClick={()=>onNewCountryBestFor(selected.slug)} className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3.5 py-1.5 text-xs font-bold text-white"><Plus size={13}/> Add new page</button></div><div className="mt-3 divide-y divide-line rounded-xl border border-line">{bestFor.map((page)=><div key={page.id} className="flex items-center justify-between px-4 py-3"><button onClick={()=>onEditCountryBestFor(page)} className="min-w-0 flex-1 text-left"><span className="block text-sm font-bold text-ink-900">{page.label}</span><span className="text-xs text-slate-400">/{selected.slug}/{page.slug} · {page.indexable?'Indexable':'Noindex'}</span></button><div className="flex shrink-0 items-center gap-1"><a href={`/${selected.slug}/${SUPERSEDED_INTENT_TO_TOPIC[page.slug] ?? page.slug}`} target="_blank" rel="noreferrer" className="rounded-lg p-2 text-slate-400 hover:bg-paper" title="Preview live page"><Eye size={14}/></a><button onClick={()=>onEditCountryBestFor(page)} className="rounded-lg p-2 text-slate-400 hover:bg-paper" title="Edit page"><Pencil size={14}/></button></div></div>)}{!bestFor.length&&<p className="p-4 text-sm text-slate-400">No country best-for pages yet.</p>}</div></div><div className="rounded-2xl border border-line bg-white p-5"><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-display text-lg font-bold text-ink-900">Country guides and SEO content</h3><button onClick={()=>onNewCountryContentDoc(selected.slug)} className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3.5 py-1.5 text-xs font-bold text-white"><Plus size={13}/> Add new page</button></div><div className="mt-3 divide-y divide-line rounded-xl border border-line">{docs.map((doc)=><div key={doc.id} className="flex items-center justify-between px-4 py-3"><button onClick={()=>onEditContentDoc(doc)} className="min-w-0 flex-1 text-left"><span className="block text-sm font-bold text-ink-900">{doc.title || doc.content_key}</span><span className="text-xs text-slate-400">{doc.content_type} · {doc.published?'Published':'Draft'} · {doc.indexable?'Indexable':'Noindex'}</span></button><div className="flex shrink-0 items-center gap-1">{(doc.content_type === 'country-guide' ? doc.slug : doc.topic_slug)&&<a href={doc.content_type === 'country-guide' ? `/${selected.slug}/guides/${doc.slug}` : `/${selected.slug}/${doc.topic_slug}`} target="_blank" rel="noreferrer" className="rounded-lg p-2 text-slate-400 hover:bg-paper" title="Preview live page"><Eye size={14}/></a>}<button onClick={()=>onEditContentDoc(doc)} className="rounded-lg p-2 text-slate-400 hover:bg-paper" title="Edit page"><Pencil size={14}/></button></div></div>)}{!docs.length&&<p className="p-4 text-sm text-slate-400">No country-specific rich content found.</p>}</div></div><CountryLanguagesPanel country={selected} countryLanguages={countryLanguages} localizedPages={localizedPages} token={token} notify={notify} reload={reloadLocalization} onEditContentDoc={onEditContentDoc}/></section>}</div>;
 }
 
 function CountryLanguagesPanel({ country, countryLanguages, localizedPages, token, notify, reload, onEditContentDoc }: { country: CountryPage; countryLanguages: CountryLanguage[]; localizedPages: LocalizedSeoPage[]; token: string; notify: (msg: string) => void; reload: () => void; onEditContentDoc: (doc: ContentDocument) => void }) {
@@ -1157,10 +1180,15 @@ function CountryLanguagesPanel({ country, countryLanguages, localizedPages, toke
               </div>
               <div className="divide-y divide-line border-t border-line">
                 {pages.map((page) => (
-                  <button key={page.id} onClick={() => setEditingPage(page)} className="flex w-full items-center justify-between px-4 py-2.5 text-left hover:bg-paper">
-                    <span><span className="block text-xs font-bold text-ink-900">{page.title || page.slug}</span><span className="text-[11px] text-slate-400">{page.topic_key} · {page.published ? 'Published' : 'Draft'} · {page.indexable ? 'Indexable' : 'Noindex'}</span></span>
-                    <Pencil size={12} className="text-slate-400" />
-                  </button>
+                  <div key={page.id} className="flex items-center justify-between px-4 py-2.5 hover:bg-paper">
+                    <button onClick={() => setEditingPage(page)} className="min-w-0 flex-1 text-left">
+                      <span><span className="block text-xs font-bold text-ink-900">{page.title || page.slug}</span><span className="text-[11px] text-slate-400">{page.topic_key} · {page.published ? 'Published' : 'Draft'} · {page.indexable ? 'Indexable' : 'Noindex'}</span></span>
+                    </button>
+                    <div className="flex shrink-0 items-center gap-1">
+                      <a href={`/${country.slug}/${lang.url_prefix}/${page.slug}?preview=1`} target="_blank" rel="noreferrer" className="rounded-lg p-1.5 text-slate-400 hover:bg-white hover:text-ink-900" title="Preview localized page"><Eye size={13} /></a>
+                      <button onClick={() => setEditingPage(page)} className="rounded-lg p-1.5 text-slate-400 hover:bg-white hover:text-ink-900" title="Edit localized page"><Pencil size={12} /></button>
+                    </div>
+                  </div>
                 ))}
                 {!pages.length && <p className="px-4 py-3 text-xs text-slate-400">No localized pages for this language yet.</p>}
               </div>
@@ -1321,9 +1349,9 @@ function GlobalHub({ guides, intents, onNewGuide, onEditGuide, onNewIntent, onEd
             <div key={i.id} className="flex items-center gap-3 px-5 py-3.5">
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-bold text-ink-900">{i.label}</p>
-                <p className="text-xs text-slate-400">/best/{i.slug}</p>
+                <p className="text-xs text-slate-400">/{SUPERSEDED_INTENT_TO_TOPIC[i.slug] ?? i.slug}</p>
               </div>
-              <a href={`/best/${i.slug}`} target="_blank" rel="noreferrer" className="rounded-lg p-2 text-slate-400 hover:bg-paper hover:text-ink-900" title="Preview live page"><Eye size={14} /></a>
+              <a href={`/${SUPERSEDED_INTENT_TO_TOPIC[i.slug] ?? i.slug}`} target="_blank" rel="noreferrer" className="rounded-lg p-2 text-slate-400 hover:bg-paper hover:text-ink-900" title="Preview live page"><Eye size={14} /></a>
               <button onClick={() => onEditIntent(i)} className="rounded-lg p-2 text-slate-400 hover:bg-paper hover:text-ink-900" title="Edit page"><Pencil size={14} /></button>
             </div>
           ))}
@@ -2835,10 +2863,10 @@ function ContentTab({
             <div key={i.id} className="flex items-center gap-3 px-5 py-3.5">
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-bold text-ink-900">{i.title}</p>
-                <p className="text-xs text-slate-400">/best/{i.slug}</p>
+                <p className="text-xs text-slate-400">/{SUPERSEDED_INTENT_TO_TOPIC[i.slug] ?? i.slug}</p>
               </div>
               <Link
-                to={`/best/${i.slug}`}
+                to={`/${SUPERSEDED_INTENT_TO_TOPIC[i.slug] ?? i.slug}`}
                 target="_blank"
                 className="rounded-lg p-2 text-slate-400 transition hover:bg-paper hover:text-ink-900"
                 title="View public page"
@@ -2910,7 +2938,7 @@ function ContentTab({
                 </p>
               </div>
               <Link
-                to={SUPERSEDED_INTENT_TO_TOPIC[p.slug] ? `/${p.country_slug}/${SUPERSEDED_INTENT_TO_TOPIC[p.slug]}` : `/countries/${p.country_slug}/best/${p.slug}`}
+                to={SUPERSEDED_INTENT_TO_TOPIC[p.slug] ? `/${p.country_slug}/${SUPERSEDED_INTENT_TO_TOPIC[p.slug]}` : `/${p.country_slug}/${SUPERSEDED_INTENT_TO_TOPIC[p.slug] ?? p.slug}`}
                 target="_blank"
                 className="rounded-lg p-2 text-slate-400 transition hover:bg-paper hover:text-ink-900"
                 title={SUPERSEDED_INTENT_TO_TOPIC[p.slug] ? 'View the live canonical page (this row now redirects there)' : 'View public page'}
@@ -2969,12 +2997,12 @@ function ContentTab({
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-bold text-ink-900">{c.name}</p>
                 <p className="text-xs text-slate-400">
-                  /countries/{c.slug} · {c.recommended.length} picks
+                  /{c.slug} · {c.recommended.length} picks
                   {c.unavailable.length > 0 && ` · ${c.unavailable.length} excluded`}
                 </p>
               </div>
               <Link
-                to={`/countries/${c.slug}`}
+                to={`/${c.slug}`}
                 target="_blank"
                 className="rounded-lg p-2 text-slate-400 transition hover:bg-paper hover:text-ink-900"
                 title="View public page"
@@ -3032,7 +3060,7 @@ function ContentDocumentEditor({ document, countries, token, defaultCountrySlug,
       {err && <p className="rounded-xl bg-rose-50 px-4 py-2.5 text-sm text-rose-600">{err}</p>}
       <div className="grid gap-3 sm:grid-cols-2">
         <label><FieldLabel hint="Stable identifier used by the page renderer">Content key</FieldLabel><input value={form.content_key} onChange={e=>setForm({...form,content_key:e.target.value})} className={input} placeholder="country-topic:ghana:gold-forex-brokers" /></label>
-        <label><FieldLabel>Content type</FieldLabel><select value={form.content_type} onChange={e=>setForm({...form,content_type:e.target.value})} className={input}><option value="country-topic">Country topic</option><option value="country">Country</option><option value="guide">Guide</option><option value="broker">Broker</option><option value="page">Page</option><option value="section">Additional section</option><option value="author">Author profile</option></select></label>
+        <label><FieldLabel>Content type</FieldLabel><select value={form.content_type} onChange={e=>setForm({...form,content_type:e.target.value})} className={input}><option value="country-topic">Country topic</option><option value="country-guide">Country guide</option><option value="country">Country</option><option value="guide">Guide</option><option value="broker">Broker</option><option value="page">Page</option><option value="section">Additional section</option><option value="author">Author profile</option></select></label>
         <label><FieldLabel>Country</FieldLabel><select value={form.country_slug || ''} onChange={e=>setForm({...form,country_slug:e.target.value})} className={input}><option value="">Global</option>{countries.map(c=><option key={c.id} value={c.slug}>{c.name}</option>)}</select></label>
         <label><FieldLabel hint="Topic slug from the SEO matrix">Topic slug</FieldLabel><input value={form.topic_slug || ''} onChange={e=>setForm({...form,topic_slug:e.target.value})} className={input} placeholder="gold-forex-brokers" /></label>
       </div>

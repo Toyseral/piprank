@@ -2,6 +2,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Mail, Sparkles } from 'lucide-react';
 import { ButtonLink } from './Button';
 import { Logo } from './Navbar';
+import { bestForPath } from '../lib/seo';
 
 const BEST_FOR = [
   { slug: 'beginners', label: 'Beginners' },
@@ -66,7 +67,7 @@ export default function Footer() {
             <ul className="mt-4 space-y-2.5 text-sm">
               {BEST_FOR.map((b) => (
                 <li key={b.slug}>
-                  <Link to={`/best/${b.slug}`} className="transition hover:text-emerald-400">
+                  <Link to={bestForPath(b.slug)} className="transition hover:text-emerald-400">
                     {b.label}
                   </Link>
                 </li>

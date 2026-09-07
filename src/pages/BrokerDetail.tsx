@@ -21,6 +21,7 @@ import { createReview, fetchBroker, fetchBrokerAvailability, fetchBrokerContent,
 import { blocksToHtml } from '../components/PageBuilder';
 import { track } from '../lib/track';
 import { getSupabase } from '../lib/supabase-lazy';
+import { bestForPath } from '../lib/seo';
 import { useSEO } from '../hooks/useSEO';
 import { brokerSeo, buildBreadcrumbJsonLd, buildWebPageJsonLd, buildFAQPageJsonLd, absoluteUrl } from '../lib/seo';
 import BrokerCard from '../components/BrokerCard';

@@ -13,6 +13,7 @@ import NotFound from './NotFound';
 import { fmtMoney } from '../lib/format';
 import { allInCost, INTENT_LABELS, scoreColors } from '../lib/score';
 import { countrySeoTopics, rankCountryTopicBrokers } from '../data/countrySeoTopics';
+import { bestForPath } from '../lib/seo';
 import { useSEO } from '../hooks/useSEO';
 import { countrySeo, buildBreadcrumbJsonLd, buildWebPageJsonLd, buildItemListJsonLd, buildFAQPageJsonLd } from '../lib/seo';
 import { useGeo } from '../lib/GeoContext';
@@ -482,7 +483,7 @@ export default function CountryDetail() {
                 <p className="mt-1 text-xs leading-relaxed text-slate-500">{page.intro?.[0] ?? page.title}</p>
                 <span className="mt-3 flex flex-wrap items-center gap-3 text-xs font-bold text-emerald-700">
                   <span className="inline-flex items-center gap-1">Compare options <ArrowRight size={12} className="transition group-hover:translate-x-0.5" /></span>
-                  {page.slug && <Link to={`/best/${page.slug}`} className="text-slate-500 hover:text-ink-900">Global version</Link>}
+                  {page.slug && <Link to={bestForPath(page.slug)} className="text-slate-500 hover:text-ink-900">Global version</Link>}
                 </span>
               </Link>
             ))}
