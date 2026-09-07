@@ -1,4 +1,4 @@
-import { Navigate, useParams } from 'react-router-dom';
+import { Navigate, useLocation, useParams } from 'react-router-dom';
 
 const LEGACY_TO_CANONICAL: Record<string, string> = {
   beginners: 'forex-brokers-for-beginners',
@@ -13,9 +13,17 @@ const LEGACY_TO_CANONICAL: Record<string, string> = {
   'high-leverage': 'high-leverage-forex-brokers',
 };
 
+const CANONICAL_TO_LEGACY_TOPIC: Record<string, string> = Object.fromEntries(Object.entries(LEGACY_TO_CANONICAL).map(([legacy, canonical]) => [canonical, legacy]));
+
 export default function LegacyCountryBestForRedirect() {
   const { countrySlug, slug } = useParams<{ countrySlug: string; slug: string }>();
-  const canonical = slug ? LEGACY_TO_CANONICAL[slug] : undefined;
+  const pathname = useLocation().pathname;
+  const explicitTopic = pathname.match(/\/best-(.+)$/)?.[1];
+  const legacySlug = slug || explicitTopic;
+  const canonical = legacySlug
+    ? LEGACY_TO_CANONICAL[legacySlug] ?? CANONICAL_TO_LEGACY[legacySlug] && legacySlug
+    : undefined;
   if (!countrySlug || !canonical) return <Navigate to="/countries" replace />;
-  return <Navigate to={`/${countrySlug}/${canonical}`} replace />;
+  const canonicalPath = LEGACY_TO_CANONICAL[legacySlug!] ?? canonical;
+  return <Navigate to={`/${countrySlug}/${canonicalPath}`} replace />;
 }
