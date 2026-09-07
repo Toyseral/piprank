@@ -32,7 +32,18 @@ export const fetchBrokers = () => get<Broker[]>('/api/brokers');
 export const fetchGeo = () => get<{ slug: string | null; iso2: string | null; source: string }>('/api/site?resource=geo');
 export const fetchBroker = (slug: string) => get<Broker>(`/api/brokers?slug=${encodeURIComponent(slug)}`);
 export const fetchIntents = () => get<Intent[]>('/api/intents');
-export const fetchIntent = (slug: string) => get<Intent>(`/api/intents?slug=${encodeURIComponent(publicIntentSlug(slug))}`);
+
+/** Resolve both canonical public slugs and legacy DB slugs so a URL migration cannot blank a page. */
+export const fetchIntent = async (slug: string) => {
+  const mapped = publicIntentSlug(slug);
+  try {
+    return await get<Intent>(`/api/intents?slug=${encodeURIComponent(mapped)}`);
+  } catch (firstError) {
+    if (mapped === slug) throw firstError;
+    return get<Intent>(`/api/intents?slug=${encodeURIComponent(slug)}`);
+  }
+};
+
 export const fetchGuides = () => get<Guide[]>('/api/guides');
 export const fetchGuide = (slug: string) => get<Guide>(`/api/guides?slug=${encodeURIComponent(slug)}`);
 export const fetchReviews = (brokerId: number) => get<Review[]>(`/api/reviews?broker_id=${brokerId}`);
