@@ -81,13 +81,6 @@ export interface Broker {
   health: HealthFactors;
   featured: boolean;
   updated_at?: string | null;
-  /**
-   * The broker's own regulator-mandated retail loss disclosure, verbatim
-   * from their regulated entity's marketing material (e.g. "76% of retail
-   * investor accounts lose money when trading CFDs with this provider").
-   * Admin-entered and sourced per broker — never a generic/estimated figure.
-   * Null until an admin has verified and entered the real figure.
-   */
   risk_warning?: string | null;
 }
 
@@ -291,7 +284,6 @@ export interface ContentDocument {
   settings?: Record<string, unknown>;
 }
 
-
 export interface CountryLanguage {
   id: number;
   country_id: number;
@@ -324,20 +316,32 @@ export interface LocalizedSeoPage {
   meta_title?: string | null;
   meta_description?: string | null;
   h1?: string | null;
+  /** The actual keyword this language targets; it may differ from the English page. */
+  primary_keyword?: string | null;
+  /** Additional localized search terms; these are not translations that must match English. */
+  secondary_keywords?: string[];
   content: string;
-  /** Optional Content Studio document for rich body (Option B). */
   content_document_id?: number | null;
   faqs: FAQ[];
   indexable: boolean;
   published: boolean;
-  /** draft | in_review | ready | published */
   workflow_status?: string | null;
   updated_by?: string | null;
   updated_at?: string;
 }
 
 export interface CountryIntentBrokerRanking {
-  country_id:number; intent_id:number; broker_id:number; final_rank:number; final_score:number;
-  featured:boolean; force_include?:boolean; force_exclude?:boolean; manual_rank?:number|null;
-  score_adjustment?:number; featured_override?:boolean|null; editorial_note?:string|null; broker?:Broker;
+  country_id: number;
+  intent_id: number;
+  broker_id: number;
+  final_rank: number;
+  final_score: number;
+  featured: boolean;
+  force_include?: boolean;
+  force_exclude?: boolean;
+  manual_rank?: number | null;
+  score_adjustment?: number;
+  featured_override?: boolean | null;
+  editorial_note?: string | null;
+  broker?: Broker;
 }
