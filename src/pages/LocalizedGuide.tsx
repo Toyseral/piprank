@@ -11,6 +11,7 @@ export default function LocalizedGuide() {
   const [language, setLanguage] = useState<CountryLanguage | null>(null);
   const [doc, setDoc] = useState<ContentDocument | null>(null);
   const [missing, setMissing] = useState(false);
+  const isPreview = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('preview') === '1';
 
   useEffect(() => {
     let alive = true;
@@ -19,18 +20,19 @@ export default function LocalizedGuide() {
         if (!alive) return;
         const lang = (langs || []).find((item) => item.url_prefix === locale || item.code === locale) ?? null;
         setCountry(c); setLanguage(lang); setDoc(d && d.content_type === 'localized-guide' ? d : null);
-        setMissing(!c || !lang || !d || d.content_type !== 'localized-guide' || (!d.published && new URLSearchParams(window.location.search).get('preview') !== '1'));
+        setMissing(!c || !lang || !d || d.content_type !== 'localized-guide' || (!d.published && !isPreview));
       }).catch(() => alive && setMissing(true));
     return () => { alive = false; };
-  }, [countrySlug, locale, slug]);
+  }, [countrySlug, locale, slug, isPreview]);
 
-  const isPreview = new URLSearchParams(window.location.search).get('preview') === '1';
-  useSEO({
-    title: doc?.seo_title || doc?.title || `${slug} | PipRank`,
-    description: doc?.seo_description || doc?.excerpt || '',
-    canonical: country && language ? `/${country.slug}/${language.url_prefix}/guides/${doc?.slug || slug}` : undefined,
-    noindex: missing || !doc?.indexable || isPreview,
-  });
+  useSEO(doc ? {
+    title: doc.seo_title || doc.title,
+    description: doc.seo_description || doc.excerpt || '',
+    path: country && language ? `/${country.slug}/${language.url_prefix}/guides/${doc.slug || slug}` : `/${countrySlug}/${locale}/guides/${slug}`,
+    noindex: missing || !doc.indexable || isPreview,
+    type: 'article',
+    lang: language?.locale || language?.code || undefined,
+  } : null);
 
   if (missing) return <main className="mx-auto max-w-3xl px-5 py-20"><h1 className="font-display text-3xl font-bold text-ink-950">Guide not found</h1><p className="mt-3 text-slate-500">This localized guide is not published.</p></main>;
   if (!doc) return null;
