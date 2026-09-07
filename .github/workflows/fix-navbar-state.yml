@@ -1,0 +1,31 @@
+name: Fix navbar canonical state
+on:
+  push:
+    branches:
+      - seo/canonical-page-ownership-current-develop
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch navbar
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('src/components/Navbar.tsx')
+          s=p.read_text()
+          s=s.replace("import { bestForPath } from '../lib/seo';", "import { bestForPath, BEST_FOR_CANONICAL } from '../lib/seo';")
+          s=s.replace("Object.values(bestForPath).some(() => false) || location.pathname.includes('forex-brokers-for-') || location.pathname.includes('-forex-brokers')", "Object.values(BEST_FOR_CANONICAL).some((path) => location.pathname === `/${path}`)")
+          p.write_text(s)
+          q=Path('CANONICAL_LINK_FIX_TRIGGER.md')
+          if q.exists(): q.unlink()
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/components/Navbar.tsx CANONICAL_LINK_FIX_TRIGGER.md
+          git commit -m "fix: use canonical best-for nav state" || true
+          git rm .github/workflows/fix-navbar-state.yml
+          git commit -m "chore: remove temporary navbar workflow" || true
+          git push
