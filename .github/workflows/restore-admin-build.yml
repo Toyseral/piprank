@@ -18,18 +18,6 @@ jobs:
       - name: Restore Admin.tsx from known-good commit
         run: |
           git show 61b8655f41fe79a25926881c60e85a37f4c7d693:src/pages/Admin.tsx > src/pages/Admin.tsx
-          python - <<'PY'
-          from pathlib import Path
-          import re
-          p = Path('src/pages/Admin.tsx')
-          s = p.read_text()
-          pattern = r"safeJson(?:<[^>]+>)?\(fetch\('/api/track\?resource=clicks', \{ headers: headers\(\) \}\), \{[^\n]+\}\),"
-          replacement = "safeJson<ClicksAgg>(fetch('/api/track?resource=clicks', { headers: headers() }), { total: 0, byBroker: {}, byPage: {}, byDay: [], recent: [] }),"
-          s2, count = re.subn(pattern, replacement, s, count=1)
-          if count != 1:
-              raise SystemExit('clicks loader line not found')
-          p.write_text(s2)
-          PY
       - name: Build
         run: npm ci && npm run build
       - name: Commit restored Admin
@@ -37,7 +25,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add src/pages/Admin.tsx
-          git commit -m "fix: restore admin and correct clicks fallback"
+          git commit -m "fix: restore admin after bad edit"
           git push origin HEAD:seo/canonical-page-ownership-current-develop
           git rm .github/workflows/restore-admin-build.yml
           git commit -m "chore: remove temporary admin restore workflow"
