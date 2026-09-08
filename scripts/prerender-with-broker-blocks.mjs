@@ -88,7 +88,7 @@ const replacement = [
   "    return b.html || '';",
   "  }).join('\\n');",
   ''
-].join('\\n');
+].join('\n');
 
 const patched = source.slice(0, start) + replacement + source.slice(end);
 writeFileSync(runtimePath, patched, 'utf8');

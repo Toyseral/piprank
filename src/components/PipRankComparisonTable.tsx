@@ -38,7 +38,9 @@ function winnerIndex(field: ComparisonField, brokers: Broker[]) {
 }
 
 export default function PipRankComparisonTable({ brokers, fields, title = 'Broker comparison', ctaLabel, ctaHref = '/compare' }: Props) {
-  const rows = fields?.length ? fields : ['rating', 'trust_score', 'min_deposit', 'spread_eurusd'];
+  const rows: ComparisonField[] = fields?.length
+  ? fields
+  : ['rating', 'trust_score', 'min_deposit', 'spread_eurusd'];
   if (brokers.length < 2) return null;
 
   return (
