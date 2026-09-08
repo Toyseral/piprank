@@ -4,7 +4,6 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowLeft, BadgeCheck, Check, ChevronDown, FlaskConical, Landmark, Loader2, MapPin, MessageSquare, Scale, ShieldCheck, ThumbsUp, X } from 'lucide-react';
 import type { Broker, BrokerContent, BrokerCountryAvailability, BrokerCountryVerification, PlatformDetail, Review, ContentDocument } from '../lib/types';
 import { createReview, fetchBroker, fetchBrokerAvailability, fetchBrokerContent, fetchBrokers, fetchBrokerVerification, fetchReviews, fetchContentDocument, voteHelpful } from '../lib/api';
-import { blocksToHtml } from '../components/PageBuilder';
 import PageBlocksRenderer from '../components/PageBlocksRenderer';
 import { track } from '../lib/track';
 import { getSupabase } from '../lib/supabase-lazy';

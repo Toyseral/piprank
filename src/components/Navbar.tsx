@@ -91,9 +91,17 @@ export default function Navbar() {
   const { country: activeGeo, setCountry } = useGeo();
 
   useEffect(() => {
-    loadIntents().then(setIntents).catch(() => {});
-    loadCountries().then(setCountries).catch(() => {});
-    loadBrokers().then(setBrokers).catch(() => {});
+    loadIntents()
+  .then((data) => setIntents(Array.isArray(data) ? data : []))
+  .catch(() => setIntents([]));
+
+loadCountries()
+  .then((data) => setCountries(Array.isArray(data) ? data : []))
+  .catch(() => setCountries([]));
+
+loadBrokers()
+  .then((data) => setBrokers(Array.isArray(data) ? data : []))
+  .catch(() => setBrokers([]));
   }, []);
 
   useEffect(() => {
