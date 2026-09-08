@@ -1,0 +1,3 @@
+export const GLOBAL_BEST_FOR_CANONICAL: Record<string,string> = { beginners:'/forex-brokers-for-beginners', 'low-spread':'/low-spread-forex-brokers', mt4:'/mt4-forex-brokers', mt5:'/mt5-forex-brokers', gold:'/gold-forex-brokers', scalping:'/forex-brokers-for-scalping', islamic:'/islamic-forex-brokers', ecn:'/ecn-forex-brokers', 'copy-trading':'/copy-trading-forex-brokers', 'swing-trading':'/forex-brokers-for-swing-trading', 'high-leverage':'/high-leverage-forex-brokers' };
+export const BROKER_EDITOR_ZONES = ['overview','editorial_before_pricing','pricing','platforms','trust','editorial_after_trust','faq','final_cta'] as const;
+export const BEST_FOR_EDITOR_ZONES = ['intro','after_rankings','editorial','faq','final_cta'] as const;
