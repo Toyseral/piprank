@@ -2,60 +2,18 @@ import type { PageBlock, StructuredBrokerSection } from '../components/PageBuild
 import type { BrokerContent, FAQ, GuideSection } from './types';
 
 export interface LegacySection { heading?: string; paragraphs: string[]; bullets?: string[]; }
-
-let blockIdCounter = 0;
-function newBlockId(): string { blockIdCounter += 1; return `seed-${Date.now()}-${blockIdCounter}`; }
-function escapeHtml(s: string): string { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-function paragraphsToHtml(paragraphs: string[], bullets?: string[]): string { const parts:string[]=[]; for(const p of paragraphs) if(p&&p.trim()) parts.push(`<p>${escapeHtml(p)}</p>`); if(bullets?.length){const items=bullets.filter(b=>b&&b.trim());if(items.length)parts.push(`<ul>${items.map(b=>`<li>${escapeHtml(b)}</li>`).join('')}</ul>`);} return parts.join('\n'); }
-
+let blockIdCounter=0;
+function newBlockId():string{blockIdCounter+=1;return `seed-${Date.now()}-${blockIdCounter}`;}
+function escapeHtml(s:string):string{return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function paragraphsToHtml(paragraphs:string[],bullets?:string[]):string{const parts:string[]=[];for(const p of paragraphs)if(p&&p.trim())parts.push(`<p>${escapeHtml(p)}</p>`);if(bullets?.length){const items=bullets.filter(b=>b&&b.trim());if(items.length)parts.push(`<ul>${items.map(b=>`<li>${escapeHtml(b)}</li>`).join('')}</ul>`);}return parts.join('\n');}
 const STRUCTURED_MARKER='__STRUCTURED_BROKER_DATA__:';
 
-export function legacySectionsToBlocks(sections: LegacySection[]): PageBlock[] {
-  const blocks:PageBlock[]=[];
-  for(const section of sections){
-    if(section.heading?.startsWith(STRUCTURED_MARKER)){
-      const sectionName=section.heading.slice(STRUCTURED_MARKER.length) as StructuredBrokerSection;
-      blocks.push({id:newBlockId(),type:'structured_broker_data',section:sectionName});
-      continue;
-    }
-    const html=paragraphsToHtml(section.paragraphs,section.bullets);
-    if(!html&&!section.heading) continue;
-    if(section.heading) blocks.push({id:newBlockId(),type:'heading',title:section.heading});
-    if(html) blocks.push({id:newBlockId(),type:'richtext',html});
-  }
-  return blocks;
-}
-
+export function legacySectionsToBlocks(sections:LegacySection[]):PageBlock[]{const blocks:PageBlock[]=[];for(const section of sections){if(section.heading?.startsWith(STRUCTURED_MARKER)){const raw=section.heading.slice(STRUCTURED_MARKER.length).split(':');const brokerId=Number(raw[0]);const sectionName=raw[1] as StructuredBrokerSection;if(Number.isFinite(brokerId)&&sectionName)blocks.push({id:newBlockId(),type:'structured_broker_data',brokerId,section:sectionName});continue;}const html=paragraphsToHtml(section.paragraphs,section.bullets);if(!html&&!section.heading)continue;if(section.heading)blocks.push({id:newBlockId(),type:'heading',title:section.heading});if(html)blocks.push({id:newBlockId(),type:'richtext',html});}return blocks;}
 export function faqsToBlocks(faqs:FAQ[],headingTitle='Frequently asked questions'):PageBlock[]{const real=faqs.filter(f=>f.q?.trim()||f.a?.trim());if(!real.length)return[];const blocks:PageBlock[]=[{id:newBlockId(),type:'heading',title:headingTitle}];for(const f of real)blocks.push({id:newBlockId(),type:'richtext',html:`<p><strong>${escapeHtml(f.q)}</strong></p><p>${escapeHtml(f.a)}</p>`});return blocks;}
 export function blocksHaveContent(blocks:unknown[]|undefined|null):boolean{if(!Array.isArray(blocks)||!blocks.length)return false;return blocks.some(raw=>{const block=raw as Partial<PageBlock>;if(block.type==='richtext')return Boolean(block.html&&block.html.replace(/<[^>]+>/g,'').trim());if(block.type==='heading')return Boolean(block.title&&block.title.trim());return true;});}
 
-const BROKER_FIELD_HEADINGS:[keyof BrokerContent,string][]=[['overview','Overview'],['verdict','Our verdict'],['why_recommend','Why we recommend this broker'],['best_for_detail','Best for'],['avoid_if','Consider avoiding if'],['regulation_detail','Regulation'],['fees_detail','Fees & costs'],['platform_intro','Trading platforms'],['accounts_intro','Account types'],['funding_intro','Deposits & withdrawals']];
-
-export function brokerContentToLegacySections(content:BrokerContent|null|undefined):LegacySection[]{
-  if(!content)return[];
-  const sections:LegacySection[]=[];
-  const addStructured=(s:StructuredBrokerSection)=>sections.push({heading:`${STRUCTURED_MARKER}${s}`,paragraphs:[]});
-  const addText=(field:keyof BrokerContent,heading:string)=>{const paragraphs=(content[field] as string[]|undefined)??[];if(paragraphs.some(p=>p&&p.trim()))sections.push({heading,paragraphs});};
-
-  addStructured('overview');
-  addText('overview','Overview');
-  addStructured('pricing');
-  addText('verdict','Our verdict');
-  addText('why_recommend','Why we recommend this broker');
-  addStructured('trust');
-  addText('regulation_detail','Regulation');
-  addText('fees_detail','Fees & costs');
-  addStructured('platforms');
-  addText('platform_intro','Trading platforms');
-  addText('accounts_intro','Account types');
-  addStructured('features');
-  addText('best_for_detail','Best for');
-  addText('avoid_if','Consider avoiding if');
-  addStructured('editorial');
-  addText('funding_intro','Deposits & withdrawals');
-  return sections;
-}
-
+const BROKER_FIELD_HEADINGS:[keyof BrokerContent,string][]=[['overview','Overview'],['verdict','Our verdict'],['why_recommend','Why we recommend this broker'],['best_for_detail','Best for'],['avoid_if','Consider avoiding if'],['regulation_detail','Regulation'],['fees_detail,'Fees & costs'],['platform_intro','Trading platforms'],['accounts_intro','Account types'],['funding_intro','Deposits & withdrawals']];
+export function brokerContentToLegacySections(content:BrokerContent|null|undefined):LegacySection[]{if(!content)return[];const sections:LegacySection[]=[];const addStructured=(s:StructuredBrokerSection)=>sections.push({heading:`${STRUCTURED_MARKER}${content.broker_id}:${s}`,paragraphs:[]});const addText=(field:keyof BrokerContent,heading:string)=>{const paragraphs=(content[field] as string[]|undefined)??[];if(paragraphs.some(p=>p&&p.trim()))sections.push({heading,paragraphs});};addStructured('overview');addText('overview','Overview');addStructured('pricing');addText('verdict','Our verdict');addText('why_recommend','Why we recommend this broker');addStructured('trust');addText('regulation_detail','Regulation');addText('fees_detail','Fees & costs');addStructured('platforms');addText('platform_intro','Trading platforms');addText('accounts_intro','Account types');addStructured('features');addText('best_for_detail','Best for');addText('avoid_if','Consider avoiding if');addStructured('editorial');addText('funding_intro','Deposits & withdrawals');return sections;}
 export function guideSectionsToLegacySections(sections:GuideSection[]|undefined|null):LegacySection[]{if(!Array.isArray(sections))return[];return sections.map(s=>({heading:s.heading,paragraphs:s.body??[],bullets:s.bullets}));}
 export function introCriteriaToLegacySections(intro:string[]|undefined,criteria:string[]|undefined,sections:{heading:string;body:string[];bullets?:string[]}[]|undefined):LegacySection[]{const out:LegacySection[]=[];if(intro?.some(p=>p&&p.trim()))out.push({paragraphs:intro});if(criteria?.some(p=>p&&p.trim()))out.push({heading:'What to look for',paragraphs:[],bullets:criteria});for(const s of sections??[])out.push({heading:s.heading,paragraphs:s.body??[],bullets:s.bullets});return out;}
 export function isBlockShape(sections:unknown):sections is PageBlock[]{if(!Array.isArray(sections)||!sections.length)return false;const first=sections[0] as Record<string,unknown>;return typeof first==='object'&&first!==null&&'type' in first&&'id' in first;}
