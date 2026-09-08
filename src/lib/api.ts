@@ -40,7 +40,15 @@ export const fetchCountries = () => get<CountryPage[]>('/api/countries');
 export const fetchCountry = (slug: string) => get<CountryPage>(`/api/countries?slug=${encodeURIComponent(slug)}`);
 export const fetchCountryIntentRankings = (countrySlug: string, intentSlug: string) => get<CountryIntentBrokerRanking[]>(`/api/country-intent-rankings?country=${encodeURIComponent(countrySlug)}&intent=${encodeURIComponent(publicIntentSlug(intentSlug))}`);
 export const fetchCountryBestFors = (countrySlug: string) => get<CountryBestFor[]>(`/api/country-best-for?country=${encodeURIComponent(countrySlug)}`);
-export const fetchCountryBestFor = (countrySlug: string, slug: string) => get<CountryBestFor>(`/api/country-best-for?country=${encodeURIComponent(countrySlug)}&slug=${encodeURIComponent(publicIntentSlug(slug))}`);
+export const fetchCountryBestFor = async (countrySlug: string, slug: string) => {
+  const mapped = publicIntentSlug(slug);
+  try {
+    return await get<CountryBestFor>(`/api/country-best-for?country=${encodeURIComponent(countrySlug)}&slug=${encodeURIComponent(mapped)}`);
+  } catch (e) {
+    if (mapped === slug) throw e;
+    return get<CountryBestFor>(`/api/country-best-for?country=${encodeURIComponent(countrySlug)}&slug=${encodeURIComponent(slug)}`);
+  }
+};
 export const createReview = async (payload: { broker_id: number; author: string; country: string; rating: number; title: string; body: string }, authToken?: string): Promise<Review> => { const res = await fetch('/api/reviews', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}) }, body: JSON.stringify(payload) }); const data = await res.json().catch(() => ({})); if (!res.ok) throw new Error((data as { error?: string }).error || `Request failed (${res.status})`); return data as Review; };
 export const voteHelpful = (id: number) => send<Review>('/api/reviews', 'PUT', { id });
 export const subscribeNewsletter = (email: string) => send<{ ok: boolean; duplicate?: boolean }>('/api/newsletter', 'POST', { email });
@@ -80,7 +88,7 @@ export const fetchContentDocumentById = (id: number) => get<ContentDocument | nu
 export const fetchCountryLanguages = (countrySlug?: string) => get<CountryLanguage[]>(`/api/country-languages${countrySlug ? `?country=${encodeURIComponent(countrySlug)}` : ''}`);
 export const fetchLocalizedSeoPage = (countrySlug: string, languageCode: string, slug: string) => get<LocalizedSeoPage | null>(`/api/localized-seo-pages?country=${encodeURIComponent(countrySlug)}&language=${encodeURIComponent(languageCode)}&slug=${encodeURIComponent(slug)}`);
 export const fetchLocalizedSeoPagesForCountry = (countrySlug: string) => get<LocalizedSeoPage[]>(`/api/localized-seo-pages?country=${encodeURIComponent(countrySlug)}`);
-export const fetchLocalizationUiPack = (languageCode: string) => get<{ language_code: string; strings: Record<string, string> } | null>(`/api/localization-ui-packs?language=${encodeURIComponent(languageCode)}`);
+export const fetchLocalizationUiPack = (languageCode: string) => get<{ language_code: string; strings: Record<string, string> | null } | null>(`/api/localization-ui-packs?language=${encodeURIComponent(languageCode)}`);
 export const fetchLocalizationGlossary = (languageCode?: string) => get<{ id: number; language_code: string; term_en: string; term_local: string; notes?: string }[]>(`/api/localization-glossary${languageCode ? `?language=${encodeURIComponent(languageCode)}` : ''}`);
 export const fetchLocalizedSeoPagePreview = (countrySlug: string, languageCode: string, slug: string, token: string) => get<LocalizedSeoPage | null>(`/api/localized-seo-pages?country=${encodeURIComponent(countrySlug)}&language=${encodeURIComponent(languageCode)}&slug=${encodeURIComponent(slug)}&preview=1`, token);
 export const fetchLocalizationHealth = (token: string) => get<{ totals: { pages: number; published: number; issues: number }; issues: { id: number; type: string; message: string; slug?: string; country?: string }[] }>('/api/localization-health', token);
