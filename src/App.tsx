@@ -11,6 +11,7 @@ import { GeoProvider } from './lib/GeoContext';
 const SmartCTA = lazy(() => import('./components/SmartCTA'));
 const About = lazy(() => import('./pages/About'));
 const Admin = lazy(() => import('./pages/Admin'));
+const AdminCanonicalWorkspace = lazy(() => import('./pages/AdminCanonicalWorkspace'));
 const AdminLocalization = lazy(() => import('./pages/AdminLocalization'));
 const Authors = lazy(() => import('./pages/Authors'));
 const BestFor = lazy(() => import('./pages/BestFor'));
@@ -91,6 +92,7 @@ export function Shell() {
           <Route path="/countries/:slug" element={<CountryDetail />} />
           <Route path="/promotions" element={<Promotions />} />
           <Route path="/archypage/localization" element={<AdminLocalization />} />
+          <Route path="/archypage/cms" element={<AdminCanonicalWorkspace />} />
           <Route path="/archypage" element={<Admin />} />
           <Route path="/:countrySlug/:locale/guides/:slug" element={<LocalizedGuide />} />
           <Route path="/:countrySlug/:locale/:topicSlug" element={<LocalizedCountrySeoTopic />} />
