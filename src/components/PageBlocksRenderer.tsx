@@ -25,7 +25,7 @@ export default function PageBlocksRenderer({ blocks, brokers, intent, countrySlu
         if (block.type === 'comparison_table') {
           const selected = (block.brokerIds || []).map((id) => brokers.find((b) => b.id === Number(id))).filter(Boolean) as Broker[];
           if (selected.length < 2) return null;
-          return <PipRankComparisonTable key={block.id || index} brokers={selected} fields={block.fields} title={block.title} ctaLabel={block.ctaLabel} ctaHref={block.ctaHref} />;
+          return <PipRankComparisonTable key={block.id || index} brokers={selected} fields={block.fields} title={block.title} ctaLabel={block.ctaLabel} showCta={block.showCta === true || Boolean(block.ctaLabel)} />;
         }
         if (block.type === 'piprank_verdict') {
           const broker = brokers.find((b) => b.id === Number(block.brokerId));
