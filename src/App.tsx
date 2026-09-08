@@ -23,7 +23,6 @@ const Compare = lazy(() => import('./pages/Compare'));
 const ComparePair = lazy(() => import('./pages/ComparePair'));
 const Countries = lazy(() => import('./pages/Countries'));
 const CountryDetail = lazy(() => import('./pages/CountryDetail'));
-const CountryPathRouter = lazy(() => import('./pages/CountryPathRouter'));
 const LocalizedCountrySeoTopic = lazy(() => import('./pages/LocalizedCountrySeoTopic'));
 const GuideDetail = lazy(() => import('./pages/GuideDetail'));
 const Guides = lazy(() => import('./pages/Guides'));
@@ -61,6 +60,7 @@ export function Shell() {
           {/* Canonical global Best-For URLs. */}
           <Route path="/forex-brokers-for-beginners" element={<BestFor />} />
           <Route path="/low-spread-forex-brokers" element={<BestFor />} />
+          <Route path="/mt4-forex-brokers" element={<BestFor />} />
           <Route path="/mt5-forex-brokers" element={<BestFor />} />
           <Route path="/gold-forex-brokers" element={<BestFor />} />
           <Route path="/forex-brokers-for-scalping" element={<BestFor />} />
