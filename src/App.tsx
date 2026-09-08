@@ -26,6 +26,7 @@ const Countries = lazy(() => import('./pages/Countries'));
 const CountryDetail = lazy(() => import('./pages/CountryDetail'));
 const LocalizedCountrySeoTopic = lazy(() => import('./pages/LocalizedCountrySeoTopic'));
 const GuideDetail = lazy(() => import('./pages/GuideDetail'));
+const CanonicalGuideDetail = lazy(() => import('./pages/CanonicalGuideDetail'));
 const Guides = lazy(() => import('./pages/Guides'));
 const Methodology = lazy(() => import('./pages/Methodology'));
 const GuideTopic = lazy(() => import('./pages/GuideTopic'));
@@ -53,7 +54,7 @@ export function Shell() {
           <Route path="/quiz" element={<Quiz />} />
           <Route path="/tools" element={<Tools />} />
           <Route path="/guides" element={<Guides />} />
-          <Route path="/guides/:slug" element={<GuideDetail />} />
+          <Route path="/guides/:slug" element={<CanonicalGuideDetail />} />
           <Route path="/methodology" element={<Methodology />} />
           <Route path="/about" element={<About />} />
           <Route path="/authors" element={<Authors />} />
