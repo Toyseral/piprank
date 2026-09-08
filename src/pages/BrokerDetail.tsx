@@ -89,7 +89,6 @@ export default function BrokerDetail() {
       return [];
     }
   });
-  // review form
   const [form, setForm] = useState({ author: '', country: '', rating: 5, title: '', body: '' });
   const [formErr, setFormErr] = useState('');
   const [formBusy, setFormBusy] = useState(false);
@@ -123,9 +122,6 @@ export default function BrokerDetail() {
       .finally(() => setLoading(false));
   }, [slug, countrySlug]);
 
-  // Full page metadata (title, description, canonical, OG, Twitter, JSON-LD).
-  // useSEO is a no-op while seoInput is null (loading / not found); the
-  // previous page's tags simply remain until this resolves, then update.
   const reviewer = useMemo(() => reviewerFor(broker?.slug ?? slug ?? ''), [broker, slug]);
   const profileSettings = (richProfile?.settings ?? {}) as Record<string, any>;
   const seoInput = broker ? { ...brokerSeo(broker), title: richProfile?.seo_title || brokerSeo(broker).title, description: richProfile?.seo_description || brokerSeo(broker).description } : null;
@@ -144,9 +140,6 @@ export default function BrokerDetail() {
       : undefined,
   );
 
-  // Identity for the verified-review badge. Deferred until the browser is idle
-  // (or after a short fallback delay) so the Supabase client — only needed for
-  // this optional feature — doesn't compete with initial page-load resources.
   useEffect(() => {
     let cancelled = false;
     let unsubscribe: (() => void) | undefined;
@@ -174,7 +167,6 @@ export default function BrokerDetail() {
     };
   }, []);
 
-  // Sticky mobile CTA: appears once the hero scrolls out of view; stays closed if dismissed.
   useEffect(() => {
     const onScroll = () => {
       setStickyShown(window.scrollY > 560);
@@ -184,7 +176,6 @@ export default function BrokerDetail() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  // Active-tab tracking: highlights the tab whose section is currently in view.
   useEffect(() => {
     if (!broker) return;
     const sections = TABS.map((t) => document.getElementById(t.id)).filter((el): el is HTMLElement => !!el);
@@ -332,7 +323,6 @@ export default function BrokerDetail() {
       )
     : null;
 
-
   const accountRows = extras?.accounts?.length
     ? extras.accounts
     : broker.account_types.map((n) => ({
@@ -354,7 +344,6 @@ export default function BrokerDetail() {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
-      {/* breadcrumb */}
       <nav className="flex items-center gap-1.5 text-xs font-medium text-slate-400">
         <Link to="/" className="transition hover:text-ink-900">Home</Link>
         <span>/</span>
@@ -363,7 +352,6 @@ export default function BrokerDetail() {
         <span className="text-ink-900">{broker.name}</span>
       </nav>
 
-      {/* ============ HEADER CARD ============ */}
       <div className="mt-5 overflow-hidden rounded-3xl border border-line bg-white shadow-soft">
         <div className="relative overflow-hidden bg-ink-950 px-6 py-8 sm:px-8">
           <div className="absolute inset-0 bg-grid-dark" />
@@ -429,7 +417,6 @@ export default function BrokerDetail() {
           </div>
         </div>
 
-        {/* tab bar */}
         <div className="flex gap-1 overflow-x-auto border-b border-line bg-white px-4 py-2 scrollbar-none sm:px-6">
           {TABS.map((t) => (
             <a
@@ -460,9 +447,7 @@ export default function BrokerDetail() {
       </section>
 
       <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_320px]">
-        {/* ================= MAIN COLUMN ================= */}
         <div className="min-w-0 space-y-10">
-          {/* OVERVIEW */}
           <section id="overview" className="scroll-mt-28 rounded-3xl border border-line bg-white p-6 sm:p-8">
             <h2 className="font-display text-2xl font-bold text-ink-900">Our {broker.name} review</h2>
             <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-500">
@@ -484,7 +469,7 @@ export default function BrokerDetail() {
             <div className="prose-sm mt-4 space-y-4 text-[15px] leading-relaxed text-slate-600">
               {broker.review.map((p, i) => (<p key={i}>{p}</p>))}
               {extras?.overview?.map((p, i) => <p key={`extra-overview-${i}`}>{p}</p>)}
-              {richProfile?.published && richProfile.html ? <div className="piprank-rich-content mt-5" dangerouslySetInnerHTML={{__html: (Array.isArray(richProfile.blocks) && richProfile.blocks.length ? blocksToHtml(richProfile.blocks as any) : richProfile.html)}} /> : null}
+              {richProfile?.published && richProfile.html ? <div className="mt-5 prose prose-slate max-w-none prose-headings:font-display prose-img:rounded-2xl prose-table:w-full prose-th:border prose-th:border-line prose-th:bg-paper prose-th:px-3 prose-th:py-2 prose-td:border prose-td:border-line prose-td:px-3 prose-td:py-2" dangerouslySetInnerHTML={{__html: (Array.isArray(richProfile.blocks) && richProfile.blocks.length ? blocksToHtml(richProfile.blocks as any) : richProfile.html)}} /> : null}
               {Array.isArray(profileSettings.internalLinks) && profileSettings.internalLinks.length > 0 && <div className="mt-8 border-t border-line pt-6"><p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Related PipRank pages</p><div className="mt-3 grid gap-2 sm:grid-cols-2">{profileSettings.internalLinks.map((link:any,i:number)=><Link key={i} to={link.href} className="rounded-xl border border-line px-4 py-3 text-sm font-semibold text-ink-900 hover:border-emerald-300 hover:bg-emerald-50">{link.label}</Link>)}</div></div>}
             </div>
             <div className="mt-7 grid gap-5 sm:grid-cols-2">
@@ -513,7 +498,6 @@ export default function BrokerDetail() {
             </div>
           </section>
 
-          {/* QUICK VERDICT */}
           <section className="rounded-3xl border border-emerald-200 bg-emerald-50/50 p-6 sm:p-8">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
@@ -542,7 +526,6 @@ export default function BrokerDetail() {
           {extras?.why_recommend?.length ? <section className="rounded-3xl border border-line bg-white p-6 sm:p-8"><h2 className="font-display text-2xl font-bold text-ink-900">Why PipRank recommends {broker.name}</h2><div className="mt-4 space-y-3 text-[15px] leading-relaxed text-slate-600">{extras.why_recommend.map((p,i)=><p key={i}>{p}</p>)}</div></section> : null}
           {extras?.avoid_if?.length ? <section className="rounded-3xl border border-rose-200 bg-rose-50/50 p-6 sm:p-8"><h2 className="font-display text-2xl font-bold text-ink-900">Consider alternatives if…</h2><ul className="mt-4 space-y-2.5">{extras.avoid_if.map((p,i)=><li key={i} className="flex gap-2 text-sm leading-relaxed text-slate-700"><X size={15} className="mt-0.5 shrink-0 text-rose-500"/>{p}</li>)}</ul></section> : null}
 
-          {/* WHO SHOULD CHOOSE */}
           <section className="rounded-3xl border border-line bg-white p-6 sm:p-8">
             <h2 className="font-display text-2xl font-bold text-ink-900">Who should choose {broker.name}?</h2>
             <div className="mt-5 grid gap-5 md:grid-cols-2">
@@ -561,7 +544,6 @@ export default function BrokerDetail() {
             </div>
           </section>
 
-          {/* FEES */}
           <section id="fees" className="scroll-mt-28 rounded-3xl border border-line bg-white p-6 sm:p-8">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <h2 className="font-display text-2xl font-bold text-ink-900">Fees & spread analysis</h2>{extras?.fees_detail?.length ? <div className="mt-3 space-y-2 text-sm leading-relaxed text-slate-600">{extras.fees_detail.map((p,i)=><p key={i}>{p}</p>)}</div> : null}
@@ -595,7 +577,6 @@ export default function BrokerDetail() {
             </div>
           </section>
 
-          {/* REGULATION */}
           <section id="regulation" className="scroll-mt-28 rounded-3xl border border-line bg-white p-6 sm:p-8">
             <h2 className="font-display text-2xl font-bold text-ink-900">Regulation & safety</h2>{extras?.regulation_detail?.length ? <div className="mt-3 space-y-2 text-sm leading-relaxed text-slate-600">{extras.regulation_detail.map((p,i)=><p key={i}>{p}</p>)}</div> : null}
             <div className="mt-5 overflow-hidden rounded-2xl border border-line">
@@ -647,7 +628,6 @@ export default function BrokerDetail() {
             </div>
           </section>
 
-          {/* PLATFORMS */}
           <section id="platforms" className="scroll-mt-28 rounded-3xl border border-line bg-white p-6 sm:p-8">
             <h2 className="font-display text-2xl font-bold text-ink-900">
               Trading platforms at {broker.name}
@@ -665,7 +645,6 @@ export default function BrokerDetail() {
               )}
             </div>
 
-            {/* platform tab bar */}
             <div className="mt-5 flex gap-1 overflow-x-auto border-b border-line scrollbar-none">
               {platformContent.map((p, i) => (
                 <button
@@ -682,7 +661,6 @@ export default function BrokerDetail() {
               ))}
             </div>
 
-            {/* active platform panel */}
             {activePlatform && (
               <div className="mt-5 rounded-2xl border border-line bg-paper p-5 sm:p-6">
                 <h3 className="font-display text-lg font-bold text-ink-900">
@@ -729,7 +707,6 @@ export default function BrokerDetail() {
             </div>
           </section>
 
-          {/* ACCOUNT TYPES */}
           <section id="accounts" className="scroll-mt-28 rounded-3xl border border-line bg-white p-6 sm:p-8">
             <div className="flex items-center gap-2.5">
               <Landmark size={20} className="text-emerald-600" />
@@ -764,7 +741,6 @@ export default function BrokerDetail() {
             </div>
           </section>
 
-          {/* DEPOSITS & WITHDRAWALS */}
           <section id="funding" className="scroll-mt-28 rounded-3xl border border-line bg-white p-6 sm:p-8">
             <div className="flex items-center gap-2.5">
               <FlaskConical size={20} className="text-emerald-600" />
@@ -838,7 +814,6 @@ export default function BrokerDetail() {
             </div>
           </section>
 
-          {/* FAQ */}
           <section id="faq" className="scroll-mt-28 rounded-3xl border border-line bg-white p-6 sm:p-8">
             <h2 className="font-display text-2xl font-bold text-ink-900">{broker.name} FAQs</h2>
             <div className="mt-5 space-y-2.5">
@@ -864,7 +839,6 @@ export default function BrokerDetail() {
             </div>
           </section>
 
-{/* COMMUNITY */}
           <section id="community" className="scroll-mt-28 rounded-3xl border border-line bg-white p-6 sm:p-8">
             <button
               type="button"
@@ -929,11 +903,9 @@ export default function BrokerDetail() {
               ))}
             </div>
 
-            {/* form */}
             <div className="mt-6 rounded-2xl border border-line bg-paper p-5 sm:p-6">
               <p className="font-display text-lg font-bold text-ink-900">Share your experience</p>
 
-              {/* verified-identity strip */}
               {auth ? (
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-2.5 text-xs font-semibold text-emerald-700">
                   <span className="inline-flex items-center gap-1.5">
@@ -1059,8 +1031,6 @@ export default function BrokerDetail() {
             )}
           </section>
 
-
-          {/* METHODOLOGY */}
           <section id="methodology" className="scroll-mt-28 rounded-3xl border border-line bg-white p-6 sm:p-8">
             <h2 className="font-display text-2xl font-bold text-ink-900">How PipRank evaluates {broker.name}</h2>
             <p className="mt-3 max-w-3xl text-[15px] leading-relaxed text-slate-600">
@@ -1077,7 +1047,6 @@ export default function BrokerDetail() {
             <Link to="/methodology" className="mt-5 inline-flex text-sm font-bold text-emerald-700 underline-offset-2 hover:underline">Read the full PipRank methodology →</Link>
           </section>
 
-          {/* ALTERNATIVES */}
           <section>
             <h2 className="font-display text-2xl font-bold text-ink-900">
               Alternatives to {broker.name}
@@ -1090,7 +1059,6 @@ export default function BrokerDetail() {
           </section>
         </div>
 
-        {/* ================= SIDEBAR ================= */}
         <aside className="space-y-5 lg:sticky lg:top-24 lg:self-start">
           <div className="rounded-3xl border border-line bg-white p-6 shadow-soft">
             <div className="flex items-center gap-4">
@@ -1187,7 +1155,6 @@ export default function BrokerDetail() {
         </aside>
       </div>
 
-      {/* ============ STICKY MOBILE CTA BAR ============ */}
       <AnimatePresence>
         {stickyShown && !stickyClosed && (
           <motion.div
