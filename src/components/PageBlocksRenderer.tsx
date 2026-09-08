@@ -5,10 +5,27 @@ import PipRankComparisonTable from './PipRankComparisonTable';
 import { blocksToHtml, type PageBlock } from './PageBuilder';
 import type { Broker } from '../lib/types';
 
-type Props = { blocks: PageBlock[]; brokers: Broker[]; intent?: string; countrySlug?: string; className?: string };
+type Props = {
+  blocks: PageBlock[];
+  brokers: Broker[];
+  intent?: string;
+  countrySlug?: string;
+  className?: string;
+  zone?: string;
+  excludeZone?: string;
+};
 
-export default function PageBlocksRenderer({ blocks, brokers, intent, countrySlug, className = '' }: Props) {
-  const normalized = useMemo(() => Array.isArray(blocks) ? blocks : [], [blocks]);
+export default function PageBlocksRenderer({ blocks, brokers, intent, countrySlug, className = '', zone, excludeZone }: Props) {
+  const normalized = useMemo(
+    () => (Array.isArray(blocks) ? blocks : []).filter((block: any) => {
+      const blockZone = typeof block?.zone === 'string' ? block.zone : undefined;
+      if (zone && blockZone !== zone) return false;
+      if (excludeZone && blockZone === excludeZone) return false;
+      return true;
+    }),
+    [blocks, zone, excludeZone],
+  );
+
   return (
     <div className={className}>
       {normalized.map((block, index) => {
