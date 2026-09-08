@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Compass } from 'lucide-react';
-import type { CountryPage, ContentDocument } from '../lib/types';
-import { fetchCountry, fetchContentDocument } from '../lib/api';
+import type { Broker, CountryPage, ContentDocument } from '../lib/types';
+import { fetchBrokers, fetchCountry, fetchContentDocument } from '../lib/api';
 import { useSEO } from '../hooks/useSEO';
 import { buildBreadcrumbJsonLd, buildFAQPageJsonLd, buildWebPageJsonLd, absoluteUrl } from '../lib/seo';
-import { blocksToHtml } from '../components/PageBuilder';
+import PageBlocksRenderer from '../components/PageBlocksRenderer';
 import Monogram from '../components/Monogram';
 import { ButtonLink } from '../components/Button';
 import { reviewerFor } from '../lib/team';
@@ -26,6 +26,7 @@ import { reviewerFor } from '../lib/team';
 export default function GuideTopic() {
   const { countrySlug, slug } = useParams<{ countrySlug: string; slug: string }>();
   const [country, setCountry] = useState<CountryPage | null>(null);
+  const [brokers, setBrokers] = useState<Broker[]>([]);
   const [doc, setDoc] = useState<ContentDocument | null>(null);
   const [loading, setLoading] = useState(true);
   const [missing, setMissing] = useState(false);
@@ -38,13 +39,18 @@ export default function GuideTopic() {
     }
     setLoading(true);
     setMissing(false);
-    Promise.all([fetchCountry(countrySlug), fetchContentDocument(`country-guide:${countrySlug}:${slug}`)])
-      .then(([c, content]) => {
-        if (!content || content.published === false || content.content_type !== 'country-guide' && content.content_type !== 'guide') {
+    Promise.all([
+      fetchCountry(countrySlug),
+      fetchBrokers(),
+      fetchContentDocument(`country-guide:${countrySlug}:${slug}`),
+    ])
+      .then(([c, b, content]) => {
+        if (!content || content.published === false || (content.content_type !== 'country-guide' && content.content_type !== 'guide')) {
           setMissing(true);
           return;
         }
         setCountry(c);
+        setBrokers(b);
         setDoc(content);
       })
       .catch(() => setMissing(true))
@@ -125,10 +131,13 @@ export default function GuideTopic() {
       </div>
       {doc.excerpt && <p className="mt-4 max-w-2xl text-base leading-relaxed text-slate-500">{doc.excerpt}</p>}
 
-      <div
-        className="piprank-rich-content mt-8 rounded-3xl border border-line bg-white p-6 sm:p-8"
-        dangerouslySetInnerHTML={{ __html: Array.isArray(doc.blocks) && doc.blocks.length ? blocksToHtml(doc.blocks as never) : doc.html }}
-      />
+      <div className="piprank-rich-content mt-8 rounded-3xl border border-line bg-white p-6 sm:p-8">
+        {Array.isArray(doc.blocks) && doc.blocks.length ? (
+          <PageBlocksRenderer blocks={doc.blocks as any} brokers={brokers} countrySlug={country.slug} className="space-y-8" />
+        ) : doc.html ? (
+          <div dangerouslySetInnerHTML={{ __html: doc.html }} />
+        ) : null}
+      </div>
 
       {faqs.length > 0 && (
         <section className="mt-8 space-y-4">
