@@ -1,1 +1,0 @@
-Temporary architecture probe; will be removed in the same change.
