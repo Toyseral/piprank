@@ -14,7 +14,7 @@ async function send<T>(url: string, method: string, body: unknown): Promise<T> {
 }
 
 export const CANONICAL_INTENT_SLUGS: Record<string, string> = {
-  'forex-brokers-for-beginners': 'beginners', 'low-spread-forex-brokers': 'low-spread', mt5: 'mt5', gold: 'gold',
+  'forex-brokers-for-beginners': 'beginners', 'low-spread-forex-brokers': 'low-spread', mt4: 'mt4', mt5: 'mt5', gold: 'gold',
   'forex-brokers-for-scalping': 'scalping', 'islamic-forex-brokers': 'islamic', 'ecn-forex-brokers': 'ecn',
   'copy-trading-forex-brokers': 'copy-trading', 'forex-brokers-for-swing-trading': 'swing-trading', 'high-leverage-forex-brokers': 'high-leverage',
 };
@@ -42,12 +42,8 @@ export const fetchCountryIntentRankings = (countrySlug: string, intentSlug: stri
 export const fetchCountryBestFors = (countrySlug: string) => get<CountryBestFor[]>(`/api/country-best-for?country=${encodeURIComponent(countrySlug)}`);
 export const fetchCountryBestFor = async (countrySlug: string, slug: string) => {
   const mapped = publicIntentSlug(slug);
-  try {
-    return await get<CountryBestFor>(`/api/country-best-for?country=${encodeURIComponent(countrySlug)}&slug=${encodeURIComponent(mapped)}`);
-  } catch (e) {
-    if (mapped === slug) throw e;
-    return get<CountryBestFor>(`/api/country-best-for?country=${encodeURIComponent(countrySlug)}&slug=${encodeURIComponent(slug)}`);
-  }
+  try { return await get<CountryBestFor>(`/api/country-best-for?country=${encodeURIComponent(countrySlug)}&slug=${encodeURIComponent(mapped)}`); }
+  catch (e) { if (mapped === slug) throw e; return get<CountryBestFor>(`/api/country-best-for?country=${encodeURIComponent(countrySlug)}&slug=${encodeURIComponent(slug)}`); }
 };
 export const createReview = async (payload: { broker_id: number; author: string; country: string; rating: number; title: string; body: string }, authToken?: string): Promise<Review> => { const res = await fetch('/api/reviews', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}) }, body: JSON.stringify(payload) }); const data = await res.json().catch(() => ({})); if (!res.ok) throw new Error((data as { error?: string }).error || `Request failed (${res.status})`); return data as Review; };
 export const voteHelpful = (id: number) => send<Review>('/api/reviews', 'PUT', { id });
@@ -83,7 +79,6 @@ export const fetchLocalizedGuide = async (countrySlug: string, languageCode: str
   const lang = languageCode.toLowerCase();
   return Array.isArray(docs) ? docs.find((doc) => String(doc.settings?.languageCode || '').toLowerCase() === lang) ?? null : null;
 };
-
 export const fetchContentDocumentById = (id: number) => get<ContentDocument | null>(`/api/content-documents?id=${id}`);
 export const fetchCountryLanguages = (countrySlug?: string) => get<CountryLanguage[]>(`/api/country-languages${countrySlug ? `?country=${encodeURIComponent(countrySlug)}` : ''}`);
 export const fetchLocalizedSeoPage = (countrySlug: string, languageCode: string, slug: string) => get<LocalizedSeoPage | null>(`/api/localized-seo-pages?country=${encodeURIComponent(countrySlug)}&language=${encodeURIComponent(languageCode)}&slug=${encodeURIComponent(slug)}`);
