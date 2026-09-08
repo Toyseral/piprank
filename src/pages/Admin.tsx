@@ -41,6 +41,7 @@ import {
 import AnalyticsPanel from './AnalyticsPanel';
 import supabase from '../lib/supabase';
 import LocalizationWorkspace from '../components/admin/LocalizationWorkspace';
+import SharedGuideEditor from '../components/admin/GuideEditor';
 import type { Broker, BrokerContent, CountryBestFor, CountryPage, FAQ, Guide, GuideSection, Intent, Promotion, Regulation, Review, TestResult, ContentDocument, CountryLanguage, LocalizedSeoPage } from '../lib/types';
 import { legacySectionsToBlocks, brokerContentToLegacySections, guideSectionsToLegacySections, introCriteriaToLegacySections, faqsToBlocks, isBlockShape } from '../lib/contentBlocks';
 import Monogram from '../components/Monogram';
@@ -688,7 +689,7 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
                     onEditCountryBestFor={(p) => setEditingCountryBestFor(p)}
                     onNewCountryBestFor={() => setEditingCountryBestFor('new')}
                     onEditContentDoc={(d) => setEditingContentDoc(d)}
-                    onNewCountryContentDoc={(slug) => { setNewDocDefaultCountry(slug); setEditingContentDoc('new'); }}
+                    onNewCountryContentDoc={(slug) => setEditingContentDoc({ id: 0, content_key: '', content_type: 'country-guide', country_slug: slug, topic_slug: null, slug: '', title: '', excerpt: '', html: '', blocks: [], seo_title: '', seo_description: '', indexable: false, published: false, updated_by: null, created_at: '', updated_at: '', settings: {} } as ContentDocument)}
                   />
                 )}
                 {activeTab === 'localization' && (
@@ -756,8 +757,9 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
         />
       )}
       {editingGuide && (
-        <GuideEditor
-          guide={editingGuide === 'new' ? null : editingGuide}
+        <SharedGuideEditor
+          document={editingGuide === 'new' ? null : editingGuide}
+          context="global"
           token={session.access_token}
           onClose={() => setEditingGuide(null)}
           onSave={async (fields, isNew) => {
@@ -819,7 +821,20 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
           }}
         />
       )}
-      {editingContentDoc && (
+      {editingContentDoc && editingContentDoc !== 'new' && editingContentDoc.content_type === 'country-guide' ? (
+        <SharedGuideEditor
+          document={editingContentDoc}
+          context="country"
+          countries={countries}
+          token={session.access_token}
+          countrySlug={editingContentDoc.country_slug || undefined}
+          onClose={() => setEditingContentDoc(null)}
+          onSave={async (fields, isNew) => {
+            await mutate('/api/content-documents', isNew ? 'POST' : 'PUT', fields, isNew ? 'Country guide published' : 'Country guide saved');
+            setEditingContentDoc(null);
+          }}
+        />
+      ) : editingContentDoc ? (
         <ContentDocumentEditor
           document={editingContentDoc === 'new' ? null : editingContentDoc}
           countries={countries}
@@ -832,7 +847,7 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
             setNewDocDefaultCountry(undefined);
           }}
         />
-      )}
+      ) : null}
     </div>
   );
 }
