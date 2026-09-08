@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ArrowDown, ArrowUp, Copy, Database, Eye, GripVertical, Image as ImageIcon, Link2, Plus, Quote, Save, Table2, Trash2, Type } from 'lucide-react';
 import RichTextEditor from './RichTextEditor';
+import BrokerCard from './BrokerCard';
 import type { Broker } from '../lib/types';
 import { fetchBrokers } from '../lib/api';
 
@@ -37,7 +38,7 @@ type Props = {
 };
 
 const uid = () => `b_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-const esc = (v: unknown) => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[c] as string));
+const esc = (v: unknown) => String(v ?? '').replace(/[&<>\"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', "'": '&#039;' }[c] as string));
 
 const legacyHtmlToBlocks = (html: string): PageBlock[] => {
   if (!html?.trim() || typeof DOMParser === 'undefined') return [];
@@ -237,6 +238,20 @@ function BrokerBlockEditor({ block, brokers, onChange }: { block: PageBlock; bro
   return null;
 }
 
+function BrokerVisualPreview({ block, brokers }: { block: PageBlock; brokers: Broker[] }) {
+  if (block.type === 'broker_card') {
+    const broker = brokers.find(b => b.id === Number(block.brokerId));
+    if (!broker) return <div className="rounded-xl border border-dashed border-line p-5 text-xs text-slate-400">Select a broker to preview the live BrokerCard.</div>;
+    return <div className="max-w-md"><BrokerCard broker={broker} /></div>;
+  }
+  if (block.type === 'broker_grid') {
+    const selected = (block.brokerIds || []).map(id => brokers.find(b => b.id === Number(id))).filter(Boolean) as Broker[];
+    if (!selected.length) return <div className="rounded-xl border border-dashed border-line p-5 text-xs text-slate-400">Select brokers to preview the live broker cards.</div>;
+    return <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{selected.map((broker, i) => <BrokerCard key={broker.id} broker={broker} rank={i + 1} />)}</div>;
+  }
+  return null;
+}
+
 function BlockEditor({ block, index, total, brokers, onChange, onMove, onDuplicate, onRemove, onUploadImage }: { block: PageBlock; index: number; total: number; brokers: Broker[]; onChange: (p: Partial<PageBlock>) => void; onMove: (i: number, d: number) => void; onDuplicate: (i: number) => void; onRemove: (i: number) => void; onUploadImage?: (file: File) => Promise<string> }) {
   return <div className="rounded-2xl border border-line bg-white shadow-sm"><div className="flex items-center gap-2 border-b border-line px-3 py-2"><span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{block.type.replaceAll('_',' ')}</span><span className="text-[10px] text-slate-300">#{index + 1}</span><span className="flex-1"/><button onClick={() => onDuplicate(index)} title="Duplicate" className="iconbtn"><Copy size={14}/></button><button disabled={index === 0} onClick={() => onMove(index, -1)} title="Move up" className="iconbtn"><ArrowUp size={14}/></button><button disabled={index === total - 1} onClick={() => onMove(index, 1)} title="Move down" className="iconbtn"><ArrowDown size={14}/></button><button onClick={() => onRemove(index)} title="Delete" className="iconbtn text-rose-500"><Trash2 size={14}/></button></div><div className="p-3">
     {block.type === 'heading' && <input value={block.title || ''} onChange={e => onChange({ title: e.target.value })} className="w-full rounded-xl border border-line px-3 py-2.5 font-display text-xl font-bold"/>}
@@ -246,7 +261,8 @@ function BlockEditor({ block, index, total, brokers, onChange, onMove, onDuplica
     {block.type === 'links' && <LinksBlock block={block} onChange={onChange}/>} 
     {block.type === 'callout' && <div><select value={block.tone || 'neutral'} onChange={e => onChange({ tone: e.target.value as any })} className="mb-2 rounded-lg border border-line px-2 py-1 text-xs"><option>neutral</option><option>success</option><option>warning</option><option>dark</option></select><RichTextEditor value={block.html || ''} onChange={html => onChange({ html })}/></div>}
     {block.type === 'divider' && <hr/>}
-    {['structured_broker_data','broker_card','broker_grid','comparison_table','broker_cta'].includes(block.type) && <BrokerBlockEditor block={block} brokers={brokers} onChange={onChange}/>} 
+    {['structured_broker_data','comparison_table','broker_cta'].includes(block.type) && <BrokerBlockEditor block={block} brokers={brokers} onChange={onChange}/>} 
+    {['broker_card','broker_grid'].includes(block.type) && <div className="space-y-4"><BrokerBlockEditor block={block} brokers={brokers} onChange={onChange}/><div className="rounded-xl border border-emerald-100 bg-emerald-50/30 p-3"><div className="mb-2 text-[10px] font-bold uppercase tracking-widest text-emerald-700">Live production card preview</div><BrokerVisualPreview block={block} brokers={brokers}/></div></div>}
   </div></div>;
 }
 
