@@ -1,0 +1,11 @@
+import { useState } from 'react';
+import type { Broker, ContentDocument, CountryPage, Guide } from '../../lib/types';
+import GuideContentEditor from './GuideContentEditor';
+import { fetchContentDocument } from '../../lib/api';
+
+export default function CanonicalGuideList({ guides, brokers, countries, token, countrySlug, onSaved }: { guides:Guide[]; brokers:Broker[]; countries:CountryPage[]; token:string; countrySlug?:string; onSaved:()=>Promise<void>|void }) {
+ const [editing,setEditing]=useState<ContentDocument|null>(null); const [loading,setLoading]=useState(false);
+ const open=async(g:Guide)=>{setLoading(true);try{const key=countrySlug?`country-guide:${countrySlug}:${g.slug}`:`guide:${g.slug}`;const d=await fetchContentDocument(key);setEditing(d??{id:0,content_key:key,content_type:countrySlug?'country-guide':'guide',country_slug:countrySlug??null,topic_slug:null,slug:g.slug,title:g.title,excerpt:g.excerpt,html:'',blocks:[],seo_title:null,seo_description:null,indexable:true,published:true,updated_by:null,created_at:'',updated_at:'',settings:{}} as ContentDocument)}finally{setLoading(false)}};
+ if(editing)return <GuideContentEditor document={editing} brokers={brokers} token={token} onClose={()=>setEditing(null)} onSave={async(d,isNew)=>{const r=await fetch('/api/content-documents',{method:isNew?'POST':'PUT',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({...d,content_key:editing.content_key,content_type:editing.content_type,country_slug:editing.country_slug})});const out=await r.json().catch(()=>({}));if(!r.ok)throw new Error(out.error||'Could not save guide');await onSaved();setEditing(null)}}/>;
+ return <div className="overflow-hidden rounded-2xl border border-line bg-white">{guides.map(g=><div key={g.id} className="flex items-center gap-3 border-b border-line px-5 py-4 last:border-0"><div className="min-w-0 flex-1"><p className="font-display text-sm font-bold text-ink-950">{g.title}</p><p className="text-xs text-slate-400">{countrySlug?`/${countrySlug}/guides/${g.slug}`:`/guides/${g.slug}`}</p></div><button disabled={loading} onClick={()=>open(g)} className="rounded-lg bg-ink-950 px-3 py-2 text-xs font-bold text-white">Edit in PageBuilder</button></div>)}</div>;
+}
