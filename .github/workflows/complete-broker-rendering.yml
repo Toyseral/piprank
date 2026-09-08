@@ -24,8 +24,6 @@ jobs:
           from pathlib import Path
           import re
 
-          # GuideTopic: load the live broker catalogue and render dynamic blocks
-          # through the same production BrokerCard renderer used by GuideDetail.
           p = Path('src/pages/GuideTopic.tsx')
           s = p.read_text()
           s = s.replace("import type { CountryPage, ContentDocument } from '../lib/types';", "import type { Broker, CountryPage, ContentDocument } from '../lib/types';")
@@ -35,46 +33,66 @@ jobs:
           s = s.replace("Promise.all([fetchCountry(countrySlug), fetchContentDocument(`country-guide:${countrySlug}:${slug}`)])", "Promise.all([fetchCountry(countrySlug), fetchContentDocument(`country-guide:${countrySlug}:${slug}`), fetchBrokers()])")
           s = s.replace(".then(([c, content]) => {", ".then(([c, content, b]) => {")
           s = s.replace("        setDoc(content);", "        setDoc(content);\n        setBrokers(b);")
-          old = """      <div\n        className=\"piprank-rich-content mt-8 rounded-3xl border border-line bg-white p-6 sm:p-8\"\n        dangerouslySetInnerHTML={{ __html: Array.isArray(doc.blocks) && doc.blocks.length ? blocksToHtml(doc.blocks as never) : doc.html }}\n      />"""
-          new = """      <div className=\"piprank-rich-content mt-8 rounded-3xl border border-line bg-white p-6 sm:p-8\">\n        {Array.isArray(doc.blocks) && doc.blocks.length ? (\n          <PageBlocksRenderer blocks={doc.blocks as any} brokers={brokers} countrySlug={country.slug} />\n        ) : (\n          <div dangerouslySetInnerHTML={{ __html: doc.html || '' }} />\n        )}\n      </div>"""
+          old = """      <div
+        className=\"piprank-rich-content mt-8 rounded-3xl border border-line bg-white p-6 sm:p-8\"
+        dangerouslySetInnerHTML={{ __html: Array.isArray(doc.blocks) && doc.blocks.length ? blocksToHtml(doc.blocks as never) : doc.html }}
+      />"""
+          new = """      <div className=\"piprank-rich-content mt-8 rounded-3xl border border-line bg-white p-6 sm:p-8\">
+        {Array.isArray(doc.blocks) && doc.blocks.length ? (
+          <PageBlocksRenderer blocks={doc.blocks as any} brokers={brokers} countrySlug={country.slug} />
+        ) : (
+          <div dangerouslySetInnerHTML={{ __html: doc.html || '' }} />
+        )}
+      </div>"""
           if old not in s: raise SystemExit('GuideTopic content block not found')
           s = s.replace(old, new)
           p.write_text(s)
 
-          # CountrySeoTopic: rich Content Studio blocks now resolve broker IDs
-          # against the already-loaded country broker catalogue.
           p = Path('src/pages/CountrySeoTopic.tsx')
           s = p.read_text()
           s = s.replace("import { blocksToHtml } from '../components/PageBuilder';", "import PageBlocksRenderer from '../components/PageBlocksRenderer';")
           old = """          <div className=\"piprank-rich-content mt-6\" dangerouslySetInnerHTML={{ __html: (Array.isArray(richContent.blocks) && richContent.blocks.length ? blocksToHtml(richContent.blocks as any) : richContent.html) }} />"""
-          new = """          <div className=\"piprank-rich-content mt-6\">\n            {Array.isArray(richContent.blocks) && richContent.blocks.length ? (\n              <PageBlocksRenderer blocks={richContent.blocks as any} brokers={brokers} intent={topic.key} countrySlug={country.slug} />\n            ) : (\n              <div dangerouslySetInnerHTML={{ __html: richContent.html || '' }} />\n            )}\n          </div>"""
+          new = """          <div className=\"piprank-rich-content mt-6\">
+            {Array.isArray(richContent.blocks) && richContent.blocks.length ? (
+              <PageBlocksRenderer blocks={richContent.blocks as any} brokers={brokers} intent={topic.key} countrySlug={country.slug} />
+            ) : (
+              <div dangerouslySetInnerHTML={{ __html: richContent.html || '' }} />
+            )}
+          </div>"""
           if old not in s: raise SystemExit('CountrySeoTopic content block not found')
           s = s.replace(old, new)
           p.write_text(s)
 
-          # LocalizedCountrySeoTopic: keep blocks as blocks instead of flattening
-          # them into HTML before React renders, so broker cards remain live.
           p = Path('src/pages/LocalizedCountrySeoTopic.tsx')
           s = p.read_text()
           s = s.replace("import { blocksToHtml } from '../components/PageBuilder';", "import PageBlocksRenderer from '../components/PageBlocksRenderer';")
-          s = s.replace("  const studioHtml = studioDoc\n    ? (Array.isArray(studioDoc.blocks) && studioDoc.blocks.length\n        ? blocksToHtml(studioDoc.blocks as any)\n        : studioDoc.html)\n    : '';", "  const hasStudioBlocks = Boolean(studioDoc && Array.isArray(studioDoc.blocks) && studioDoc.blocks.length);\n  const studioHtml = studioDoc && !hasStudioBlocks ? (studioDoc.html || '') : '';")
-          old = """        {studioHtml ? (\n          <div className=\"piprank-rich-content mt-4 max-w-3xl text-sm leading-7 text-slate-300\" dangerouslySetInnerHTML={{ __html: studioHtml }} />\n        ) : ("""
-          new = """        {hasStudioBlocks ? (\n          <div className=\"piprank-rich-content mt-4 max-w-3xl text-sm leading-7 text-slate-300\">\n            <PageBlocksRenderer blocks={studioDoc!.blocks as any} brokers={brokers} intent={topic?.key} countrySlug={country.slug} />\n          </div>\n        ) : studioHtml ? (\n          <div className=\"piprank-rich-content mt-4 max-w-3xl text-sm leading-7 text-slate-300\" dangerouslySetInnerHTML={{ __html: studioHtml }} />\n        ) : ("""
+          s = s.replace("  const studioHtml = studioDoc
+    ? (Array.isArray(studioDoc.blocks) && studioDoc.blocks.length
+        ? blocksToHtml(studioDoc.blocks as any)
+        : studioDoc.html)
+    : '';", "  const hasStudioBlocks = Boolean(studioDoc && Array.isArray(studioDoc.blocks) && studioDoc.blocks.length);\n  const studioHtml = studioDoc && !hasStudioBlocks ? (studioDoc.html || '') : '';")
+          old = """        {studioHtml ? (
+          <div className=\"piprank-rich-content mt-4 max-w-3xl text-sm leading-7 text-slate-300\" dangerouslySetInnerHTML={{ __html: studioHtml }} />
+        ) : ("""
+          new = """        {hasStudioBlocks ? (
+          <div className=\"piprank-rich-content mt-4 max-w-3xl text-sm leading-7 text-slate-300\">
+            <PageBlocksRenderer blocks={studioDoc!.blocks as any} brokers={brokers} intent={topic?.key} countrySlug={country.slug} />
+          </div>
+        ) : studioHtml ? (
+          <div className=\"piprank-rich-content mt-4 max-w-3xl text-sm leading-7 text-slate-300\" dangerouslySetInnerHTML={{ __html: studioHtml }} />
+        ) : ("""
           if old not in s: raise SystemExit('Localized content block not found')
           s = s.replace(old, new)
           p.write_text(s)
 
-          # BrokerDetail already loads the full broker catalogue into `all`.
           p = Path('src/pages/BrokerDetail.tsx')
           s = p.read_text()
           s = s.replace("import { blocksToHtml } from '../components/PageBuilder';", "import PageBlocksRenderer from '../components/PageBlocksRenderer';")
-          old = """              {richProfile?.published && richProfile.html ? <div className=\"mt-5 prose prose-slate max-w-none prose-headings:font-display prose-headings:text-ink-900 prose-table:w-full prose-th:..."""
-          # Use a targeted regex because the production class list is intentionally long.
           pattern = r"\{richProfile\?\.published && richProfile\.html \? <div className=\"mt-5 ([^\"]+)\" dangerouslySetInnerHTML=\{\{__html: \(Array\.isArray\(richProfile\.blocks\) && richProfile\.blocks\.length \? blocksToHtml\(richProfile\.blocks as any\) : richProfile\.html\)\}\} /> : null\}"
           m = re.search(pattern, s)
           if not m: raise SystemExit('BrokerDetail rich profile block not found')
           classes = m.group(1)
-          replacement = "{richProfile?.published ? <div className=\"mt-5 " + classes + "\">{Array.isArray(richProfile.blocks) && richProfile.blocks.length ? <PageBlocksRenderer blocks={richProfile.blocks as any} brokers={all} intent={undefined} countrySlug={countrySlug} /> : richProfile.html ? <div dangerouslySetInnerHTML={{ __html: richProfile.html }} /> : null}</div> : null}"
+          replacement = "{richProfile?.published ? <div className=\"mt-5 " + classes + "\">{Array.isArray(richProfile.blocks) && richProfile.blocks.length ? <PageBlocksRenderer blocks={richProfile.blocks as any} brokers={all} countrySlug={countrySlug} /> : richProfile.html ? <div dangerouslySetInnerHTML={{ __html: richProfile.html }} /> : null}</div> : null}"
           s = s[:m.start()] + replacement + s[m.end():]
           p.write_text(s)
           PY
@@ -82,10 +100,11 @@ jobs:
       - name: Typecheck
         run: npx tsc -b
 
-      - name: Commit migration
+      - name: Commit migration and remove temporary workflow
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add src/pages/GuideTopic.tsx src/pages/CountrySeoTopic.tsx src/pages/LocalizedCountrySeoTopic.tsx src/pages/BrokerDetail.tsx
-          git commit -m "Apply complete public broker block rendering" || exit 0
+          git rm .github/workflows/complete-broker-rendering.yml
+          git commit -m "Apply complete public broker block rendering"
           git push origin feature/pagebuilder-broker-workspace-current
