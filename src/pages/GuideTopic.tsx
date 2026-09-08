@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Compass } from 'lucide-react';
-import type { CountryPage, ContentDocument } from '../lib/types';
-import { fetchCountry, fetchContentDocument } from '../lib/api';
+import type { Broker, CountryPage, ContentDocument } from '../lib/types';
+import { fetchBrokers, fetchCountry, fetchContentDocument } from '../lib/api';
 import { useSEO } from '../hooks/useSEO';
 import { buildBreadcrumbJsonLd, buildFAQPageJsonLd, buildWebPageJsonLd, absoluteUrl } from '../lib/seo';
 import { blocksToHtml } from '../components/PageBuilder';
@@ -10,23 +10,11 @@ import Monogram from '../components/Monogram';
 import { ButtonLink } from '../components/Button';
 import { reviewerFor } from '../lib/team';
 
-/**
- * Generic country guide page. One route, one component, works for any
- * country — replaces the old MalaysiaTopic.tsx/GhanaTopic.tsx pattern,
- * where every new country needed its own hardcoded route, component and
- * static data file.
- *
- * Unlike the ranking-topic matrix (CountrySeoTopic.tsx), there is no
- * template fallback here: a guide is informational content that has to be
- * genuinely written for that country, so content_documents
- * (content_type: 'country-guide') is the only source of truth. If no
- * published document exists for this country+slug, the page 404s with a
- * real noindex — not a generic fallback pretending content exists.
- */
 export default function GuideTopic() {
   const { countrySlug, slug } = useParams<{ countrySlug: string; slug: string }>();
   const [country, setCountry] = useState<CountryPage | null>(null);
   const [doc, setDoc] = useState<ContentDocument | null>(null);
+  const [brokers, setBrokers] = useState<Broker[]>([]);
   const [loading, setLoading] = useState(true);
   const [missing, setMissing] = useState(false);
 
@@ -38,14 +26,15 @@ export default function GuideTopic() {
     }
     setLoading(true);
     setMissing(false);
-    Promise.all([fetchCountry(countrySlug), fetchContentDocument(`country-guide:${countrySlug}:${slug}`)])
-      .then(([c, content]) => {
+    Promise.all([fetchCountry(countrySlug), fetchContentDocument(`country-guide:${countrySlug}:${slug}`), fetchBrokers()])
+      .then(([c, content, brokerRows]) => {
         if (!content || content.published === false || content.content_type !== 'country-guide') {
           setMissing(true);
           return;
         }
         setCountry(c);
         setDoc(content);
+        setBrokers(brokerRows);
       })
       .catch(() => setMissing(true))
       .finally(() => setLoading(false));
@@ -127,7 +116,7 @@ export default function GuideTopic() {
 
       <div
         className="piprank-rich-content mt-8 rounded-3xl border border-line bg-white p-6 sm:p-8"
-        dangerouslySetInnerHTML={{ __html: Array.isArray(doc.blocks) && doc.blocks.length ? blocksToHtml(doc.blocks as never) : doc.html }}
+        dangerouslySetInnerHTML={{ __html: Array.isArray(doc.blocks) && doc.blocks.length ? blocksToHtml(doc.blocks as never, brokers) : doc.html }}
       />
 
       {faqs.length > 0 && (
