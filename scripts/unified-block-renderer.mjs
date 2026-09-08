@@ -73,7 +73,9 @@ function ctaHtml(block, brokers) {
   const broker = brokers.find((x) => x.id === Number(block.brokerId));
   if (!broker) return '';
   const href = block.ctaHref || brokerHref(broker);
-  return `<aside class="piprank-broker-cta piprank-broker-cta-${esc(block.variant || 'primary')}"><strong>${esc(block.title || `Trade with ${broker.name}`)}</strong><a href="${esc(href)}">${esc(block.ctaLabel || `View ${broker.name}`)}</a></aside>`;
+  const headline = block.headline ?? block.title ?? `Trade with ${broker.name}`;
+  const buttonLabel = block.buttonLabel ?? block.ctaLabel ?? `View ${broker.name}`;
+  return `<aside class="piprank-broker-cta piprank-broker-cta-${esc(block.variant || 'primary')}"><strong>${esc(headline)}</strong><a href="${esc(href)}">${esc(buttonLabel)}</a></aside>`;
 }
 
 export function blocksToHtmlServer(blocks, brokers = []) {
