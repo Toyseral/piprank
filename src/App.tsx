@@ -14,6 +14,7 @@ const Admin = lazy(() => import('./pages/Admin'));
 const AdminLocalization = lazy(() => import('./pages/AdminLocalization'));
 const Authors = lazy(() => import('./pages/Authors'));
 const BestFor = lazy(() => import('./pages/BestFor'));
+const CountryBestForRoute = lazy(() => import('./pages/CountryBestForRoute'));
 const LegacyBestForRedirect = lazy(() => import('./pages/LegacyBestForRedirect'));
 const LegacyCountryBestForRedirect = lazy(() => import('./pages/LegacyCountryBestForRedirect'));
 const BrokerDetail = lazy(() => import('./pages/BrokerDetail'));
@@ -93,7 +94,8 @@ export function Shell() {
           <Route path="/archypage" element={<Admin />} />
           <Route path="/:countrySlug/:locale/guides/:slug" element={<LocalizedGuide />} />
           <Route path="/:countrySlug/:locale/:topicSlug" element={<LocalizedCountrySeoTopic />} />
-          <Route path="/:countrySlug/:topicSlug" element={<CountryPathRouter />} />
+          {/* DB-backed country Best-For pages must be checked before the generic two-segment country topic router. */}
+          <Route path="/:countrySlug/:topicSlug" element={<CountryBestForRoute />} />
           <Route path="/:slug" element={<CountryDetail />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
