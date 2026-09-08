@@ -4,20 +4,103 @@ import type { Broker, ContentDocument } from '../../lib/types';
 import PageBuilder, { blocksToHtml, type PageBlock } from '../PageBuilder';
 
 export type CanonicalEditorKind = 'broker' | 'best-for';
-export type CanonicalSlot = 'overview'|'editorial_before_pricing'|'pricing'|'platforms'|'trust'|'editorial_after_trust'|'faq'|'final_cta'|'intro'|'after_rankings'|'editorial';
-type Props={kind:CanonicalEditorKind;document:ContentDocument|null;brokers:Broker[];token:string;onClose:()=>void;onSave:(document:ContentDocument,isNew:boolean)=>Promise<void>};
-const BROKER_SLOTS:{key:CanonicalSlot;label:string}[]=[{key:'overview',label:'Broker Overview'},{key:'editorial_before_pricing',label:'Editorial Zone — before Pricing'},{key:'pricing',label:'Pricing'},{key:'platforms',label:'Platforms'},{key:'trust',label:'Regulation / Trust'},{key:'editorial_after_trust',label:'Editorial Zone — after Trust'},{key:'faq',label:'FAQ'},{key:'final_cta',label:'Final CTA'}];
-const BEST_FOR_SLOTS:{key:CanonicalSlot;label:string}[]=[{key:'intro',label:'Intro'},{key:'after_rankings',label:'Content after Broker Rankings'},{key:'editorial',label:'Editorial Zone'},{key:'faq',label:'FAQ'},{key:'final_cta',label:'Final CTA'}];
-function initialBlocks(document:ContentDocument|null){if(!document)return [];if(Array.isArray(document.blocks)&&document.blocks.length)return document.blocks as PageBlock[];if(document.html)return [{id:'legacy',type:'richtext',html:document.html} as PageBlock];return []}
-function zoneOf(block:PageBlock):CanonicalSlot{return ((block as any).zone||'editorial') as CanonicalSlot}
-export default function CanonicalPageEditor({kind,document,brokers,token,onClose,onSave}:Props){
- const [form,setForm]=useState<ContentDocument>(()=>document?{...document}:{id:0,content_key:kind==='broker'?'broker:new:main':'best-for:new',content_type:kind,country_slug:null,topic_slug:null,slug:'',title:'',excerpt:'',html:'',blocks:[],seo_title:null,seo_description:null,indexable:true,published:false,updated_by:null,created_at:'',updated_at:'',settings:{}});
- const [blocks,setBlocks]=useState<PageBlock[]>(initialBlocks(document)); const [activeSlot,setActiveSlot]=useState<CanonicalSlot>(kind==='broker'?'overview':'intro'); const [busy,setBusy]=useState(false); const [error,setError]=useState('');
- useEffect(()=>{if(document){setForm({...document});setBlocks(initialBlocks(document));}else{setBlocks([]);}},[document?.id]);
- const slots=kind==='broker'?BROKER_SLOTS:BEST_FOR_SLOTS;
- const grouped=useMemo(()=>{const m=new Map<CanonicalSlot,PageBlock[]>();slots.forEach(s=>m.set(s.key,[]));blocks.forEach(b=>{const k=zoneOf(b);if(!m.has(k))m.set(k,[]);m.get(k)!.push(b)});return m},[blocks,slots]);
- const updateSlot=(slot:CanonicalSlot,next:PageBlock[])=>setBlocks(current=>[...current.filter(b=>zoneOf(b)!==slot),...next.map(b=>({...b,zone:slot}))]);
- const save=async()=>{setBusy(true);setError('');try{await onSave({...form,blocks,html:blocksToHtml(blocks,brokers)},!document)}catch(e){setError(e instanceof Error?e.message:'Could not save content')}finally{setBusy(false)}};
- const uploadImage=async(file:File)=>{const reader=new FileReader();const data=await new Promise<string>((resolve,reject)=>{reader.onload=()=>resolve(String(reader.result));reader.onerror=reject;reader.readAsDataURL(file)});const res=await fetch('/api/content-assets',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({filename:file.name,contentType:file.type,dataBase64:data})});const out=await res.json().catch(()=>({}));if(!res.ok)throw new Error(out.error||'Image upload failed');return out.url as string};
- return <div className="fixed inset-0 z-[130] flex items-center justify-center bg-ink-950/60 p-3"><div className="flex max-h-[96vh] w-full max-w-6xl flex-col overflow-hidden rounded-3xl bg-white shadow-soft-lg"><header className="flex items-center gap-3 bg-ink-950 px-5 py-4 text-white"><div className="min-w-0 flex-1"><p className="font-display text-lg font-bold">{document?'Edit':'Create'} {kind==='broker'?'broker page':'Best-For page'}</p><p className="text-xs text-slate-400">Canonical PageBuilder workspace with fixed sections and Add Item.</p></div><button onClick={onClose} className="rounded-lg p-2 text-slate-400 hover:bg-white/10"><X size={18}/></button></header><div className="flex flex-1 overflow-hidden"><aside className="hidden w-64 shrink-0 overflow-y-auto border-r border-line bg-paper p-3 md:block"><p className="px-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">Page structure</p><div className="mt-2 space-y-1">{slots.map(s=><button key={s.key} onClick={()=>setActiveSlot(s.key)} className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeSlot===s.key?'bg-ink-950 text-white':'text-slate-600 hover:bg-white'}`}><span>{s.label}</span>{(grouped.get(s.key)?.length??0)>0&&<span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] text-emerald-700">{grouped.get(s.key)?.length}</span>}</button>)}</div></aside><main className="flex-1 overflow-y-auto p-5 sm:p-7">{error&&<p className="mb-5 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-600">{error}</p>}<div className="grid gap-4 sm:grid-cols-2"><label><span className="text-xs font-bold text-slate-600">Title</span><input value={form.title||''} onChange={e=>setForm(f=>({...f,title:e.target.value}))} className="mt-1.5 w-full rounded-xl border border-line px-3 py-2.5 text-sm"/></label><label><span className="text-xs font-bold text-slate-600">Slug</span><input value={form.slug||''} onChange={e=>setForm(f=>({...f,slug:e.target.value}))} className="mt-1.5 w-full rounded-xl border border-line px-3 py-2.5 text-sm"/></label></div><label className="mt-4 block"><span className="text-xs font-bold text-slate-600">Excerpt</span><textarea value={form.excerpt||''} onChange={e=>setForm(f=>({...f,excerpt:e.target.value}))} rows={2} className="mt-1.5 w-full rounded-xl border border-line px-3 py-2.5 text-sm"/></label><div className="mt-6 rounded-2xl border border-line bg-paper p-4"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-widest text-emerald-700">{slots.find(s=>s.key===activeSlot)?.label}</p><p className="mt-1 text-xs text-slate-500">Add as many content items as needed in this position.</p></div><button onClick={()=>updateSlot(activeSlot,[...(grouped.get(activeSlot)||[]),{id:`b_${Date.now()}`,type:'richtext',html:'<p></p>',zone:activeSlot} as any])} className="inline-flex items-center gap-1.5 rounded-xl bg-ink-950 px-3 py-2 text-xs font-bold text-white"><Plus size={13} className="text-emerald-400"/> Add Item</button></div><div className="mt-4 rounded-xl border border-line bg-white p-3"><PageBuilder value={grouped.get(activeSlot)||[]} onChange={next=>updateSlot(activeSlot,next)} onUploadImage={uploadImage}/></div></div><div className="mt-6 grid gap-4 sm:grid-cols-2"><label><span className="text-xs font-bold text-slate-600">SEO title</span><input value={form.seo_title||''} onChange={e=>setForm(f=>({...f,seo_title:e.target.value}))} className="mt-1.5 w-full rounded-xl border border-line px-3 py-2.5 text-sm"/></label><label><span className="text-xs font-bold text-slate-600">SEO description</span><textarea value={form.seo_description||''} onChange={e=>setForm(f=>({...f,seo_description:e.target.value}))} rows={2} className="mt-1.5 w-full rounded-xl border border-line px-3 py-2.5 text-sm"/></label></div><div className="mt-4 grid gap-3 sm:grid-cols-2"><label className="flex items-center justify-between rounded-xl border border-line bg-paper p-4 text-sm font-bold">Publish<input type="checkbox" checked={!!form.published} onChange={e=>setForm(f=>({...f,published:e.target.checked}))}/></label><label className="flex items-center justify-between rounded-xl border border-line bg-paper p-4 text-sm font-bold">Index<input type="checkbox" checked={!!form.indexable} onChange={e=>setForm(f=>({...f,indexable:e.target.checked}))}/></label></div></main></div><footer className="flex justify-end gap-2 border-t border-line bg-white px-5 py-4"><button onClick={onClose} className="rounded-xl border border-line px-4 py-2.5 text-xs font-bold text-slate-600">Cancel</button><button disabled={busy} onClick={save} className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2.5 text-xs font-bold text-white"><Save size={14}/>{busy?'Saving…':'Save page'}</button></footer></div></div>;
+export type CanonicalSlot = 'overview' | 'editorial_before_pricing' | 'pricing' | 'platforms' | 'trust' | 'editorial_after_trust' | 'faq' | 'final_cta' | 'intro' | 'after_rankings' | 'editorial';
+type Props = { kind: CanonicalEditorKind; document: ContentDocument | null; brokers: Broker[]; token: string; onClose: () => void; onSave: (document: ContentDocument, isNew: boolean) => Promise<void> };
+const BROKER_SLOTS: { key: CanonicalSlot; label: string }[] = [
+  { key: 'overview', label: 'Broker Overview' }, { key: 'editorial_before_pricing', label: 'Editorial — before Pricing' }, { key: 'pricing', label: 'Pricing' }, { key: 'platforms', label: 'Platforms' }, { key: 'trust', label: 'Regulation / Trust' }, { key: 'editorial_after_trust', label: 'Editorial — after Trust' }, { key: 'faq', label: 'FAQ' }, { key: 'final_cta', label: 'Final CTA' },
+];
+const BEST_FOR_SLOTS: { key: CanonicalSlot; label: string }[] = [
+  { key: 'intro', label: 'Intro' }, { key: 'after_rankings', label: 'Content after Broker Rankings' }, { key: 'editorial', label: 'Editorial Zone' }, { key: 'faq', label: 'FAQ' }, { key: 'final_cta', label: 'Final CTA' },
+];
+function blankDocument(kind: CanonicalEditorKind): ContentDocument { return { id: 0, content_key: kind === 'broker' ? 'broker:new:main' : 'best-for:new', content_type: kind, country_slug: null, topic_slug: null, slug: '', title: '', excerpt: '', html: '', blocks: [], seo_title: null, seo_description: null, indexable: true, published: false, updated_by: null, created_at: '', updated_at: '', settings: {} }; }
+function initialBlocks(document: ContentDocument | null): PageBlock[] { if (!document) return []; if (Array.isArray(document.blocks) && document.blocks.length) return document.blocks as PageBlock[]; if (document.html) return [{ id: 'legacy', type: 'richtext', html: document.html }]; return []; }
+function zoneOf(block: PageBlock): CanonicalSlot | null { const zone = (block as PageBlock & { zone?: unknown }).zone; return typeof zone === 'string' ? zone as CanonicalSlot : null; }
+
+export default function CanonicalPageEditor({ kind, document, brokers, token, onClose, onSave }: Props) {
+  const [form, setForm] = useState<ContentDocument>(() => document ? { ...document } : blankDocument(kind));
+  const [blocks, setBlocks] = useState<PageBlock[]>(initialBlocks(document));
+  const [activeSlot, setActiveSlot] = useState<CanonicalSlot>(kind === 'broker' ? 'overview' : 'intro');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const slots = kind === 'broker' ? BROKER_SLOTS : BEST_FOR_SLOTS;
+  const fallbackZone = kind === 'broker' ? 'overview' : 'editorial';
+
+  useEffect(() => {
+    setForm(document ? { ...document } : blankDocument(kind));
+    setBlocks(initialBlocks(document));
+    setActiveSlot(kind === 'broker' ? 'overview' : 'intro');
+    setError('');
+  }, [document?.id, kind]);
+
+  const grouped = useMemo(() => {
+    const result = new Map<CanonicalSlot, PageBlock[]>();
+    slots.forEach(slot => result.set(slot.key, []));
+    blocks.forEach(block => {
+      const zone = zoneOf(block) ?? fallbackZone;
+      if (!result.has(zone)) result.set(zone, []);
+      result.get(zone)!.push(block);
+    });
+    return result;
+  }, [blocks, fallbackZone, slots]);
+
+  const updateSlot = (slot: CanonicalSlot, next: PageBlock[]) => {
+    setBlocks(current => {
+      const replacement = next.map(block => ({ ...block, zone: slot }));
+      const firstIndex = current.findIndex(block => (zoneOf(block) ?? fallbackZone) === slot);
+      if (firstIndex < 0) return [...current, ...replacement];
+      const result: PageBlock[] = [];
+      let inserted = false;
+      for (const block of current) {
+        if ((zoneOf(block) ?? fallbackZone) === slot) {
+          if (!inserted) { result.push(...replacement); inserted = true; }
+        } else {
+          result.push(block);
+        }
+      }
+      return result;
+    });
+  };
+
+  const addItem = () => {
+    const current = grouped.get(activeSlot) ?? [];
+    updateSlot(activeSlot, [...current, { id: `b_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, type: 'richtext', html: '<p></p>' }]);
+  };
+
+  const save = async () => {
+    setBusy(true); setError('');
+    try { await onSave({ ...form, blocks, html: blocksToHtml(blocks, brokers) }, !document); }
+    catch (e) { setError(e instanceof Error ? e.message : 'Could not save content'); }
+    finally { setBusy(false); }
+  };
+
+  const uploadImage = async (file: File) => {
+    const reader = new FileReader();
+    const data = await new Promise<string>((resolve, reject) => { reader.onload = () => resolve(String(reader.result)); reader.onerror = reject; reader.readAsDataURL(file); });
+    const res = await fetch('/api/content-assets', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ filename: file.name, contentType: file.type, dataBase64: data }) });
+    const out = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(out.error || 'Image upload failed');
+    return out.url as string;
+  };
+
+  return <div className="fixed inset-0 z-[130] flex items-center justify-center bg-ink-950/60 p-3">
+    <div className="flex max-h-[96vh] w-full max-w-6xl flex-col overflow-hidden rounded-3xl bg-white shadow-soft-lg">
+      <header className="flex items-center gap-3 bg-ink-950 px-5 py-4 text-white"><div className="min-w-0 flex-1"><p className="font-display text-lg font-bold">{document ? 'Edit' : 'Create'} {kind === 'broker' ? 'broker page' : 'Best-For page'}</p><p className="text-xs text-slate-400">Fixed page structure with editable content slots and Add Item blocks.</p></div><button onClick={onClose} className="rounded-lg p-2 text-slate-400 hover:bg-white/10" aria-label="Close editor"><X size={18} /></button></header>
+      <div className="flex flex-1 overflow-hidden">
+        <aside className="hidden w-64 shrink-0 overflow-y-auto border-r border-line bg-paper p-3 md:block"><p className="px-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">Page structure</p><div className="mt-2 space-y-1">{slots.map(slot => <button key={slot.key} onClick={() => setActiveSlot(slot.key)} className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeSlot === slot.key ? 'bg-ink-950 text-white' : 'text-slate-600 hover:bg-white'}`}><span>{slot.label}</span>{(grouped.get(slot.key)?.length ?? 0) > 0 && <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] text-emerald-700">{grouped.get(slot.key)?.length}</span>}</button>)}</div></aside>
+        <main className="flex-1 overflow-y-auto p-5 sm:p-7">
+          {error && <p className="mb-5 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-600">{error}</p>}
+          <div className="grid gap-4 sm:grid-cols-2"><label><span className="text-xs font-bold text-slate-600">Title</span><input value={form.title || ''} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} className="mt-1.5 w-full rounded-xl border border-line px-3 py-2.5 text-sm" /></label><label><span className="text-xs font-bold text-slate-600">Slug</span><input value={form.slug || ''} onChange={e => setForm(f => ({ ...f, slug: e.target.value }))} className="mt-1.5 w-full rounded-xl border border-line px-3 py-2.5 text-sm" /></label></div>
+          <label className="mt-4 block"><span className="text-xs font-bold text-slate-600">Excerpt</span><textarea value={form.excerpt || ''} onChange={e => setForm(f => ({ ...f, excerpt: e.target.value }))} rows={2} className="mt-1.5 w-full rounded-xl border border-line px-3 py-2.5 text-sm" /></label>
+          <div className="mt-6 rounded-2xl border border-line bg-paper p-4">
+            <div className="mb-3 md:hidden"><label className="text-xs font-bold text-slate-600">Section</label><select value={activeSlot} onChange={e => setActiveSlot(e.target.value as CanonicalSlot)} className="mt-1.5 h-10 w-full rounded-xl border border-line bg-white px-3 text-sm">{slots.map(slot => <option key={slot.key} value={slot.key}>{slot.label}</option>)}</select></div>
+            <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-widest text-emerald-700">{slots.find(slot => slot.key === activeSlot)?.label}</p><p className="mt-1 text-xs text-slate-500">Add text, broker cards, comparison tables, CTAs and other PageBuilder elements here.</p></div><button onClick={addItem} className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-ink-950 px-3 py-2 text-xs font-bold text-white"><Plus size={13} className="text-emerald-400" /> Add Item</button></div>
+            <div className="mt-4 rounded-xl border border-line bg-white p-3"><PageBuilder value={grouped.get(activeSlot) || []} onChange={next => updateSlot(activeSlot, next)} onUploadImage={uploadImage} /></div>
+          </div>
+          <div className="mt-6 grid gap-4 sm:grid-cols-2"><label><span className="text-xs font-bold text-slate-600">SEO title</span><input value={form.seo_title || ''} onChange={e => setForm(f => ({ ...f, seo_title: e.target.value }))} className="mt-1.5 w-full rounded-xl border border-line px-3 py-2.5 text-sm" /></label><label><span className="text-xs font-bold text-slate-600">SEO description</span><textarea value={form.seo_description || ''} onChange={e => setForm(f => ({ ...f, seo_description: e.target.value }))} rows={2} className="mt-1.5 w-full rounded-xl border border-line px-3 py-2.5 text-sm" /></label></div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2"><label className="flex items-center justify-between rounded-xl border border-line bg-paper p-4 text-sm font-bold">Publish<input type="checkbox" checked={!!form.published} onChange={e => setForm(f => ({ ...f, published: e.target.checked }))} /></label><label className="flex items-center justify-between rounded-xl border border-line bg-paper p-4 text-sm font-bold">Index<input type="checkbox" checked={!!form.indexable} onChange={e => setForm(f => ({ ...f, indexable: e.target.checked }))} /></label></div>
+        </main>
+      </div>
+      <footer className="flex justify-end gap-2 border-t border-line bg-white px-5 py-4"><button onClick={onClose} className="rounded-xl border border-line px-4 py-2.5 text-xs font-bold text-slate-600">Cancel</button><button disabled={busy} onClick={save} className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2.5 text-xs font-bold text-white disabled:opacity-60"><Save size={14} />{busy ? 'Saving…' : 'Save page'}</button></footer>
+    </div>
+  </div>;
 }
