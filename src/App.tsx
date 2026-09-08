@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { BrowserRouter, Route, Routes, useLocation } from 'react-router-dom';
+import { BrowserRouter, Route, Routes, useLocation, Link } from 'react-router-dom';
 import { Analytics } from '@vercel/analytics/react';
 import Footer from './components/Footer';
 import Navbar from './components/Navbar';
@@ -40,6 +40,7 @@ function RouteLoader() { return <div className="flex min-h-[60vh] items-center j
 export function Shell() {
   const { pathname } = useLocation();
   const bare = pathname.startsWith('/archypage');
+  const showCmsShortcut = pathname === '/archypage';
   return <div className="flex min-h-screen flex-col bg-paper text-ink-900">
     {!bare && <Navbar />}
     <main className={bare ? '' : 'flex-1'}>
@@ -104,6 +105,7 @@ export function Shell() {
         </Routes>
       </Suspense>
     </main>
+    {showCmsShortcut && <Link to="/archypage/cms" className="fixed bottom-5 right-5 z-[120] inline-flex items-center gap-2 rounded-xl bg-ink-950 px-4 py-3 text-sm font-bold text-white shadow-soft-lg ring-1 ring-white/10 hover:bg-ink-800"><span className="text-emerald-400">✦</span> Canonical CMS</Link>}
     {!bare && <Footer />}
     {!bare && <Suspense fallback={null}><SmartCTA /></Suspense>}
   </div>;
