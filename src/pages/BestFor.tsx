@@ -1,38 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import {
-  ArrowRight,
-  Check,
-  Copy,
-  Crown,
-  Gauge,
-  GraduationCap,
-  MonitorSmartphone,
-  Percent,
-  Timer,
-  Waves,
-  Zap,
-  type LucideIcon,
+  ArrowRight, Check, Copy, Crown, Gauge, GraduationCap, MonitorSmartphone, Percent, Timer, Waves, Zap, type LucideIcon,
 } from 'lucide-react';
-import type { Broker, CountryBestFor, CountryPage, Intent } from '../lib/types';
-import { fetchBrokers, fetchCountries, fetchCountry, fetchCountryBestFor, fetchCountryBestFors, fetchCountryIntentRankings, fetchIntent } from '../lib/api';
+import type { Broker, CountryBestFor, CountryPage, ContentDocument, Intent } from '../lib/types';
+import { fetchBrokers, fetchCountries, fetchCountry, fetchCountryBestFor, fetchCountryBestFors, fetchCountryIntentRankings, fetchIntent, fetchContentDocument } from '../lib/api';
 import { useGeo } from '../lib/GeoContext';
 import { track } from '../lib/track';
-
-// Kept in sync with INTENT_TO_TOPIC in scripts/prerender.mjs,
-// SUPERSEDED_INTENTS in scripts/generate-sitemap.mjs, and
-// SUPERSEDED_INTENT_SLUGS in src/pages/Admin.tsx.
 const LEGACY_TOPIC_TO_NEW: Record<string, string> = {
-  beginners: 'forex-brokers-for-beginners',
-  'low-spread': 'low-spread-forex-brokers',
-  mt5: 'mt5-forex-brokers',
-  gold: 'gold-forex-brokers',
-  scalping: 'forex-brokers-for-scalping',
-  islamic: 'islamic-forex-brokers',
-  ecn: 'ecn-forex-brokers',
-  'copy-trading': 'copy-trading-forex-brokers',
-  'swing-trading': 'forex-brokers-for-swing-trading',
-  'high-leverage': 'high-leverage-forex-brokers',
+  beginners: 'forex-brokers-for-beginners', 'low-spread': 'low-spread-forex-brokers', mt5: 'mt5-forex-brokers', gold: 'gold-forex-brokers', scalping: 'forex-brokers-for-scalping', islamic: 'islamic-forex-brokers', ecn: 'ecn-forex-brokers', 'copy-trading': 'copy-trading-forex-brokers', 'swing-trading': 'forex-brokers-for-swing-trading', 'high-leverage': 'high-leverage-forex-brokers',
 };
 import { ButtonLink, btnCls } from '../components/Button';
 import BrokerCard from '../components/BrokerCard';
@@ -49,14 +25,7 @@ import { allInCost, healthScore, scoreColors, tierBest } from '../lib/score';
 import NotFound from './NotFound';
 
 const ICONS: Record<string, LucideIcon> = {
-  beginners: GraduationCap,
-  'low-spread': Percent,
-  mt5: MonitorSmartphone,
-  ecn: Zap,
-  'copy-trading': Copy,
-  scalping: Timer,
-  'swing-trading': Waves,
-  'high-leverage': Gauge,
+  beginners: GraduationCap, 'low-spread': Percent, mt5: MonitorSmartphone, ecn: Zap, 'copy-trading': Copy, scalping: Timer, 'swing-trading': Waves, 'high-leverage': Gauge,
 };
 
 function reasonFor(slug: string, b: Broker): string {
@@ -78,6 +47,7 @@ export default function BestFor() {
   const { pathname } = useLocation();
   const slug = paramSlug ?? Object.entries(BEST_FOR_CANONICAL).find(([, canonical]) => canonical === pathname.slice(1))?.[0];
   const [intent, setIntent] = useState<Intent | CountryBestFor | null>(null);
+  const [richContent, setRichContent] = useState<ContentDocument | null>(null);
   const [country, setCountry] = useState<CountryPage | null>(null);
   const [brokers, setBrokers] = useState<Broker[]>([]);
   const [countries, setCountries] = useState<CountryPage[]>([]);
@@ -93,6 +63,13 @@ export default function BestFor() {
     if (countrySlug || !activeGeo) { setLocalizedCountry(null); return; }
     fetchCountry(activeGeo.slug).then(setLocalizedCountry).catch(() => setLocalizedCountry(null));
   }, [activeGeo, countrySlug]);
+
+  useEffect(() => {
+    if (!slug || countrySlug) { setRichContent(null); return; }
+    fetchContentDocument(`best-for:${slug}`)
+      .then((doc) => setRichContent(doc?.published ? doc : null))
+      .catch(() => setRichContent(null));
+  }, [slug, countrySlug]);
 
   useEffect(() => {
     if (!slug) return;
@@ -128,13 +105,14 @@ export default function BestFor() {
   if (loading || !intent) return <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6"><div className="h-48 animate-pulse rounded-3xl border border-line bg-white"/><div className="mt-8 space-y-4">{[0,1,2].map((i)=><div key={i} className="h-44 animate-pulse rounded-3xl border border-line bg-white"/>)}</div>{error&&<p className="mt-4 text-sm text-rose-600">{error}</p>}</div>;
   const Icon = ICONS[intent.icon] ?? GraduationCap;
   const faqs = Array.isArray(intent.faqs) ? intent.faqs : [];
+  const canonicalBlocks = !countrySlug && Array.isArray(richContent?.blocks) && richContent.blocks.length ? richContent.blocks : null;
 
   return <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6">
     <div className="relative overflow-hidden rounded-3xl bg-ink-950 p-7 sm:p-10"><div className="absolute inset-0 bg-grid-dark"/><div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-emerald-500/20 blur-[110px]"/><div className="relative"><div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500 text-ink-950 shadow-lg shadow-emerald-500/30"><Icon size={24}/></div><p className="text-xs font-bold uppercase tracking-widest text-emerald-300">{country?`${country.flag} ${country.name}`:localizedCountry?`${localizedCountry.flag} Localized for ${localizedCountry.name}`:'PipRank'}</p><h1 className="mt-3 font-display text-3xl font-bold tracking-tight text-white sm:text-4xl">{intent.title}</h1>{intent.intro.map((p,i)=><p key={i} className="mt-3 max-w-3xl text-sm leading-relaxed text-slate-400 sm:text-[15px]">{p}</p>)}</div></div>
     <section className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50/50 p-5"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Your next step</p><h2 className="mt-1 font-display text-lg font-bold text-ink-900">Choose the broker that fits you best</h2></div>{ranked[0]&&<Link to={`/brokers/${ranked[0].slug}`} className="inline-flex items-center gap-2 rounded-xl bg-ink-950 px-4 py-2.5 text-sm font-bold text-white hover:bg-ink-800">Read the top pick <ArrowRight size={15}/></Link>}</div><div className="mt-4 flex flex-wrap gap-2">{country&&<Link to={`/countries/${country.slug}`} className="rounded-full border border-emerald-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-emerald-400">All {country.name} brokers</Link>}<Link to={bestForPath(intent.slug)} className="rounded-full border border-emerald-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-emerald-400">Global {intent.title}</Link>{countrySlug&&countryBestForPages.filter((x)=>x.slug!==intent.slug).slice(0,6).map((x)=><Link key={x.slug} to={`/${countrySlug}/${BEST_FOR_CANONICAL[x.slug]??x.slug}`} className="rounded-full border border-line bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:border-emerald-400">More: {x.title}</Link>)}</div></section>
     <div className="mt-6 rounded-2xl border border-line bg-white p-6"><p className="text-xs font-bold uppercase tracking-widest text-slate-400">How we ranked this list</p><ul className="mt-3 grid gap-2.5 sm:grid-cols-2">{intent.criteria.map((c)=><li key={c} className="flex gap-2.5 text-sm text-slate-600"><Check size={16} className="mt-0.5 shrink-0 text-emerald-600" strokeWidth={3}/>{c}</li>)}</ul></div>
     {(countrySlug||localizedCountry)&&ranked.length===0?<section className="mt-8 rounded-2xl border border-amber-200 bg-amber-50/70 p-6"><h2 className="font-display text-xl font-bold text-ink-950">Country-specific recommendations are being finalized</h2><p className="mt-2 text-sm leading-6 text-amber-900">PipRank does not display global broker rankings on this country page until country-specific broker eligibility and recommendations have been configured.</p><Link to={`/countries/${countrySlug}`} className="mt-4 inline-flex text-sm font-bold text-emerald-700 hover:text-emerald-800">See all {country?.name??countrySlug} broker information →</Link></section>:<div className="mt-8 grid grid-cols-1 gap-5 lg:grid-cols-2">{ranked.map((b,i)=><Reveal key={b.slug} delay={Math.min(i,5)*0.05}><BrokerCard broker={b} rank={i+1} note={reasonFor(intent.slug,b)} intent={intent.slug} countrySlug={countrySlug??localizedCountry?.slug}/></Reveal>)}</div>}
-    {'sections' in intent && isBlockShape(intent.sections) ? <section className="mt-10" aria-label="Editorial content"><PageBlocksRenderer blocks={intent.sections as any} brokers={brokers} intent={intent.slug} countrySlug={countrySlug??localizedCountry?.slug}/></section> : ('sections' in intent && Array.isArray(intent.sections) && intent.sections.length > 0 && <div className="mt-10 space-y-6">{intent.sections.map((section,i)=><section key={`${section.heading}-${i}`} className="rounded-2xl border border-line bg-white p-6"><h2 className="font-display text-xl font-bold text-ink-900">{section.heading}</h2>{section.body?.map((p,pi)=><p key={pi} className="mt-3 text-sm leading-7 text-slate-600">{p}</p>)}{section.bullets?.length?<ul className="mt-4 list-disc space-y-2 pl-5 text-sm leading-6 text-slate-600">{section.bullets.map((b,bi)=><li key={bi}>{b}</li>)}</ul>:null}</section>)}</div>)}
+    {canonicalBlocks ? <section className="mt-10" aria-label="Editorial content"><PageBlocksRenderer blocks={canonicalBlocks as any} brokers={brokers} intent={intent.slug} className="piprank-rich-content space-y-8" /></section> : ('sections' in intent && isBlockShape(intent.sections) ? <section className="mt-10" aria-label="Editorial content"><PageBlocksRenderer blocks={intent.sections as any} brokers={brokers} intent={intent.slug} countrySlug={countrySlug??localizedCountry?.slug}/></section> : ('sections' in intent && Array.isArray(intent.sections) && intent.sections.length > 0 && <div className="mt-10 space-y-6">{intent.sections.map((section,i)=><section key={`${section.heading}-${i}`} className="rounded-2xl border border-line bg-white p-6"><h2 className="font-display text-xl font-bold text-ink-900">{section.heading}</h2>{section.body?.map((p,pi)=><p key={pi} className="mt-3 text-sm leading-7 text-slate-600">{p}</p>)}{section.bullets?.length?<ul className="mt-4 list-disc space-y-2 pl-5 text-sm leading-6 text-slate-600">{section.bullets.map((b,bi)=><li key={bi}>{b}</li>)}</ul>:null}</section>)}</div>))}
     {'faqs' in intent && Array.isArray(intent.faqs) && intent.faqs.length>0 && <section className="mt-10 rounded-2xl border border-line bg-white p-6"><h2 className="font-display text-xl font-bold text-ink-900">Frequently Asked Questions</h2><div className="mt-4 divide-y divide-line">{faqs.map((faq,i)=><details key={`${faq.q}-${i}`} className="py-4"><summary className="cursor-pointer text-sm font-bold text-ink-900">{faq.q}</summary><p className="mt-2 text-sm leading-6 text-slate-600">{faq.a}</p></details>)}</div></section>}
     {!countrySlug&&countries.length>0&&<section className="mt-8 rounded-2xl border border-line bg-white p-6" aria-labelledby="country-variants"><p className="text-xs font-bold uppercase tracking-widest text-slate-400">Local versions</p><h2 id="country-variants" className="mt-1 font-display text-xl font-bold text-ink-900">Best {intent.title.toLowerCase()} by country</h2><div className="mt-4 flex flex-wrap gap-2">{countries.slice(0,12).map(c=><Link key={c.slug} to={`/${c.slug}/${BEST_FOR_CANONICAL[intent.slug]??intent.slug}`} className="rounded-full border border-line bg-paper px-3.5 py-2 text-xs font-semibold text-slate-600 hover:border-emerald-400 hover:text-ink-900">{c.name}</Link>)}</div></section>}
     {!countrySlug&&countries.length>0&&<section className="mt-8 rounded-2xl border border-line bg-white p-6" aria-labelledby="country-variants-2"><p className="text-xs font-bold uppercase tracking-widest text-slate-400">Local versions</p><h2 id="country-variants-2" className="mt-1 font-display text-xl font-bold text-ink-900">Explore {intent.title.toLowerCase()} by country</h2><div className="mt-4 flex flex-wrap gap-2">{countries.slice(0,12).map(c=><Link key={c.slug} to={`/${c.slug}/${BEST_FOR_CANONICAL[intent.slug]??intent.slug}`} className="rounded-full border border-line bg-paper px-3.5 py-2 text-xs font-semibold text-slate-600 hover:border-emerald-400 hover:text-ink-900">{c.name}</Link>)}</div></section>}
