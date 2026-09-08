@@ -1,0 +1,50 @@
+name: Wire shared guide editor
+
+on:
+  push:
+    branches:
+      - seo/canonical-page-ownership-current-develop
+
+permissions:
+  contents: write
+
+jobs:
+  wire:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: seo/canonical-page-ownership-current-develop
+          fetch-depth: 0
+      - name: Switch guide managers to the existing GuideEditor
+        shell: python
+        run: |
+          from pathlib import Path
+
+          pm = Path('src/components/PageManager.tsx')
+          text = pm.read_text()
+          if "from './admin/GuideEditor'" not in text:
+              text = text.replace("import ManualBrokerOrder from './ManualBrokerOrder';", "import ManualBrokerOrder from './ManualBrokerOrder';\nimport GuideEditor from './admin/GuideEditor';")
+          old = "if(editing!==null)return <PageManagerEditor document={editing||null} countries={countries} brokers={brokers} token={token} onClose={()=>setEditing(null)} onSave={async(f,n)=>{await onSave(f,n);setEditing(null)}}/>;"
+          new = "if(editing!==null){if(editing.content_type==='guide'||editing.content_type==='country-guide')return <GuideEditor document={editing} context={editing.content_type==='country-guide'?'country':'global'} countries={countries} token={token} countrySlug={editing.country_slug||undefined} onClose={()=>setEditing(null)} onSave={async(f,n)=>{await onSave(f,n);setEditing(null)}}/>;return <PageManagerEditor document={editing||null} countries={countries} brokers={brokers} token={token} onClose={()=>setEditing(null)} onSave={async(f,n)=>{await onSave(f,n);setEditing(null)}}/>;}"
+          if old not in text:
+              raise SystemExit('PageManager editor switch target not found')
+          text = text.replace(old, new, 1)
+          pm.write_text(text)
+
+          lm = Path('src/components/admin/LocalizedGuidesManager.tsx')
+          text = lm.read_text()
+          text = text.replace("import UnifiedGuideEditor from './UnifiedGuideEditor';", "import GuideEditor from './GuideEditor';")
+          text = text.replace('<UnifiedGuideEditor\n', '<GuideEditor\n')
+          text = text.replace('  defaultContentType="localized-guide"\n', '  context="localized"\n')
+          lm.write_text(text)
+
+      - name: Commit changes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/components/PageManager.tsx src/components/admin/LocalizedGuidesManager.tsx
+          git diff --cached --quiet && exit 0
+          git commit -m 'fix: use global guide editor for country and localized guides'
+          git push origin HEAD:seo/canonical-page-ownership-current-develop
