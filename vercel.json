@@ -5,6 +5,7 @@
     { "source": "/countries/ghana/guides/:slug", "destination": "/ghana/guides/:slug", "statusCode": 301 },
     { "source": "/best/beginners", "destination": "/forex-brokers-for-beginners", "statusCode": 301 },
     { "source": "/best/low-spread", "destination": "/low-spread-forex-brokers", "statusCode": 301 },
+    { "source": "/best/mt4", "destination": "/mt4-forex-brokers", "statusCode": 301 },
     { "source": "/best/mt5", "destination": "/mt5-forex-brokers", "statusCode": 301 },
     { "source": "/best/gold", "destination": "/gold-forex-brokers", "statusCode": 301 },
     { "source": "/best/scalping", "destination": "/forex-brokers-for-scalping", "statusCode": 301 },
