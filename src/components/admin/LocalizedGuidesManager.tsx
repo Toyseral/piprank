@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Eye, Pencil, Plus } from 'lucide-react';
 import type { ContentDocument, CountryLanguage, CountryPage } from '../../lib/types';
-import UnifiedGuideEditor from './UnifiedGuideEditor';
+import GuideEditor from './GuideEditor';
 
 type Mutate = (path: string, method: string, body: unknown, msg: string) => Promise<void>;
 type GuideDraft = ContentDocument & { id: 0 };
@@ -38,7 +38,7 @@ export default function LocalizedGuidesManager({ countries, languages, contentDo
       country_slug: country?.slug || null,
       topic_slug: null,
       content_key: fields.content_key,
-      settings: { ...settings, languageCode: language?.code || '' },
+      settings: { ...settings, languageCode: language?.code || '', languagePrefix: language?.url_prefix || '' },
     }, isNew ? 'Localized guide created' : 'Localized guide saved');
     setEditing(null);
   };
@@ -54,6 +54,6 @@ export default function LocalizedGuidesManager({ countries, languages, contentDo
       <div className="space-y-2">{guides.map(doc => <div key={doc.id} className="flex items-center gap-3 rounded-xl border border-line bg-white px-4 py-3"><div className="min-w-0 flex-1"><p className="truncate text-sm font-bold text-ink-950">{doc.title || doc.slug}</p><p className="mt-0.5 text-[11px] text-slate-400">{doc.slug || 'No slug'} · {doc.published ? 'Published' : 'Draft'} · {doc.indexable ? 'Indexable' : 'Noindex'}</p></div>{doc.slug && <a href={`/${country?.slug}/${language.url_prefix}/guides/${doc.slug}?preview=1`} target="_blank" rel="noreferrer" className="rounded-lg p-2 text-slate-400 hover:bg-paper" title="Preview"><Eye size={14}/></a>}<button onClick={() => setEditing({ ...doc, blocks: Array.isArray(doc.blocks) ? doc.blocks : [] })} className="rounded-lg p-2 text-slate-400 hover:bg-paper" title="Edit"><Pencil size={14}/></button></div>)}{!guides.length && <div className="rounded-xl border border-dashed border-line bg-white p-6 text-center text-sm text-slate-500">No localized guides yet for this language.</div>}</div>
     </>}
 
-    {editing && <UnifiedGuideEditor document={editing} countries={countries} brokers={[]} token={accessToken} defaultContentType="localized-guide" defaultCountrySlug={country?.slug || ''} languageCode={language?.code || ''} languagePrefix={language?.url_prefix || ''} onClose={() => setEditing(null)} onSave={save} />}
+    {editing && <GuideEditor document={editing} context="localized" countries={countries} token={accessToken} countrySlug={country?.slug || ''} languageCode={language?.code || ''} languagePrefix={language?.url_prefix || ''} onClose={() => setEditing(null)} onSave={save} />}
   </div>;
 }
