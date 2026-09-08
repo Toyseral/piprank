@@ -3,7 +3,8 @@ import { requireRole } from './_lib/admin-guard.js';
 
 const CONTENT_WRITE = ['super_admin', 'admin', 'content_admin'];
 const TABLES = { guide: 'guides', intent: 'intents', country_best_for: 'country_best_for' };
-const ALLOWED = new Set(['richtext','heading','image','table','callout','divider','links','broker_card','broker_grid','comparison_table','broker_cta']);
+const ALLOWED = new Set(['richtext','heading','image','table','callout','divider','links','broker_card','broker_grid','comparison_table','broker_cta','structured_broker_data']);
+const STRUCTURED_SECTIONS = new Set(['overview','pricing','trust','platforms','features','editorial','faq_lab']);
 
 function cleanHtml(input = '') {
   return String(input)
@@ -21,6 +22,13 @@ function cleanBlocks(value) {
     if (Array.isArray(out.rows)) out.rows = out.rows.map(row => Array.isArray(row) ? row.map(String) : []).filter(row => row.length);
     if (Array.isArray(out.brokerIds)) out.brokerIds = out.brokerIds.map(Number).filter(Number.isFinite);
     if (out.brokerId !== undefined) out.brokerId = Number(out.brokerId) || null;
+    if (out.type === 'structured_broker_data') {
+      out.brokerId = Number(out.brokerId) || null;
+      out.section = STRUCTURED_SECTIONS.has(String(out.section)) ? String(out.section) : 'overview';
+      delete out.html;
+      delete out.rows;
+      delete out.links;
+    }
     if (Array.isArray(out.fields)) out.fields = out.fields.map(String);
     return out;
   });
