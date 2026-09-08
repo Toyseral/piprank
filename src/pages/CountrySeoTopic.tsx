@@ -20,13 +20,7 @@ function rankBrokers(topic: Parameters<typeof rankCountryTopicBrokers>[2], broke
   return rankCountryTopicBrokers(brokers, country, topic);
 }
 
-
 export default function CountrySeoTopic() {
-  // The URL segment here is shared between two systems: a fixed set of
-  // matrix-defined topics (this page), and admin-authored CountryBestFor
-  // pages (rendered by <BestFor/>, reusing the exact same URL — see the
-  // fallback check below). Both read this same param, hence the shared
-  // name `slug` rather than each page's own historical name for it.
   const { countrySlug, slug } = useParams<{ countrySlug: string; slug: string }>();
   const topic = slug ? getCountrySeoTopic(slug) : null;
   const [country, setCountry] = useState<CountryPage | null>(null);
@@ -35,8 +29,6 @@ export default function CountrySeoTopic() {
   const [missing, setMissing] = useState(false);
   const [richContent, setRichContent] = useState<ContentDocument | null>(null);
   const [localizedAlts, setLocalizedAlts] = useState<LocalizedSeoPage[]>([]);
-  // Only set once we've actually confirmed a matching CountryBestFor page
-  // exists for this country+slug combination (the fixed-matrix miss case).
   const [renderAsBestFor, setRenderAsBestFor] = useState(false);
 
   useEffect(() => {
@@ -46,9 +38,6 @@ export default function CountrySeoTopic() {
       return;
     }
     if (!topic) {
-      // Not a matrix topic — check whether an admin-authored CountryBestFor
-      // page exists at this same URL before giving up. This is what lets
-      // both systems share one bare URL space.
       setLoading(true);
       fetchCountryBestFor(countrySlug, slug)
         .then((page) => {
@@ -117,7 +106,6 @@ export default function CountrySeoTopic() {
       .catch(() => setLocalizedAlts([]));
   }, [countrySlug, topic?.key]);
 
-
   useSEO(
     seo,
     seo && country && topic
@@ -162,25 +150,11 @@ export default function CountrySeoTopic() {
           <h1 className="mt-5 max-w-4xl font-display text-3xl font-bold tracking-tight text-white sm:text-4xl">{topic.title} in {country.name} <span className="text-slate-500">({year})</span></h1>
           <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-400">
             <Monogram name={reviewer.penName} color={reviewer.color} size={20} />
-            <span>
-              Reviewed by{' '}
-              <Link to={`/authors#${reviewer.slug}`} className="font-semibold text-slate-200 hover:text-emerald-300">
-                {reviewer.penName}
-              </Link>
-              , {reviewer.role}
-            </span>
-            {richContent?.updated_at && (
-              <>
-                <span aria-hidden="true">·</span>
-                <span>Updated {new Date(richContent.updated_at).toISOString().slice(0, 10)}</span>
-              </>
-            )}
+            <span>Reviewed by <Link to={`/authors#${reviewer.slug}`} className="font-semibold text-slate-200 hover:text-emerald-300">{reviewer.penName}</Link>, {reviewer.role}</span>
+            {richContent?.updated_at && <><span aria-hidden="true">·</span><span>Updated {new Date(richContent.updated_at).toISOString().slice(0, 10)}</span></>}
           </div>
           {topicIntro(topic, country.name).map((p, i) => <p key={i} className="mt-3 max-w-3xl text-sm leading-relaxed text-slate-400 sm:text-[15px]">{p}</p>)}
-          <div className="mt-6 flex flex-wrap gap-3">
-            <Link to="/quiz" className="inline-flex items-center gap-2 rounded-xl bg-emerald-400 px-4 py-2.5 text-sm font-bold text-ink-950 hover:bg-emerald-300"><Sparkles size={16} /> Find my best broker</Link>
-            <a href="#comparison" className="inline-flex items-center gap-2 rounded-xl border border-white/15 px-4 py-2.5 text-sm font-bold text-white hover:bg-white/10">Compare brokers <ArrowRight size={15} /></a>
-          </div>
+          <div className="mt-6 flex flex-wrap gap-3"><Link to="/quiz" className="inline-flex items-center gap-2 rounded-xl bg-emerald-400 px-4 py-2.5 text-sm font-bold text-ink-950 hover:bg-emerald-300"><Sparkles size={16} /> Find my best broker</Link><a href="#comparison" className="inline-flex items-center gap-2 rounded-xl border border-white/15 px-4 py-2.5 text-sm font-bold text-white hover:bg-white/10">Compare brokers <ArrowRight size={15} /></a></div>
         </div>
       </header>
 
@@ -191,60 +165,19 @@ export default function CountrySeoTopic() {
       </section>
 
       <section id="comparison" aria-labelledby="comparison-title" className="mt-10">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-widest text-emerald-700">PipRank recommendations</p>
-          <h2 id="comparison-title" className="mt-1 font-display text-2xl font-bold text-ink-950">Best {topic.shortTitle} brokers in {country.name}</h2>
-          <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-500">These recommendations are restricted to brokers in PipRank's current {country.name} recommendation set and then filtered for this trading need. Confirm current availability and terms before opening an account.</p>
-        </div>
-
-        {ranked.length ? (
-          <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
-            {ranked.slice(0, 8).map((broker, i) => (
-              <Reveal key={broker.slug} delay={Math.min(i, 5) * 0.05}>
-                <BrokerCard broker={broker} rank={i + 1} countrySlug={country.slug} note={topicNote(topic, broker)} />
-              </Reveal>
-            ))}
-          </div>
-        ) : (
-          <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">PipRank does not currently have enough country-specific broker data to make a reliable recommendation for this category. We will not substitute a global broker list.</div>
-        )}
+        <div><p className="text-xs font-bold uppercase tracking-widest text-emerald-700">PipRank recommendations</p><h2 id="comparison-title" className="mt-1 font-display text-2xl font-bold text-ink-950">Best {topic.shortTitle} brokers in {country.name}</h2><p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-500">These recommendations are restricted to brokers in PipRank's current {country.name} recommendation set and then filtered for this trading need. Confirm current availability and terms before opening an account.</p></div>
+        {ranked.length ? <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2">{ranked.slice(0, 8).map((broker, i) => <Reveal key={broker.slug} delay={Math.min(i, 5) * 0.05}><BrokerCard broker={broker} rank={i + 1} countrySlug={country.slug} note={topicNote(topic, broker)} /></Reveal>)}</div> : <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">PipRank does not currently have enough country-specific broker data to make a reliable recommendation for this category. We will not substitute a global broker list.</div>}
       </section>
 
-      {richContent?.published && richContent.html && (
-        <section className="mt-10 rounded-2xl border border-line bg-white p-6 sm:p-8" aria-label="Additional editorial content">
-          {richContent.title && <h2 className="font-display text-2xl font-bold text-ink-950">{richContent.title}</h2>}
-          {richContent.excerpt && <p className="mt-2 text-sm leading-6 text-slate-500">{richContent.excerpt}</p>}
-          <div className="piprank-rich-content mt-6" dangerouslySetInnerHTML={{ __html: (Array.isArray(richContent.blocks) && richContent.blocks.length ? blocksToHtml(richContent.blocks as any) : richContent.html) }} />
-        </section>
-      )}
+      {richContent?.published && richContent.html && <section className="mt-10 rounded-2xl border border-line bg-white p-6 sm:p-8" aria-label="Additional editorial content"><div>{richContent.title && <h2 className="font-display text-2xl font-bold text-ink-950">{richContent.title}</h2>}{richContent.excerpt && <p className="mt-2 text-sm leading-6 text-slate-500">{richContent.excerpt}</p>}<div className="piprank-rich-content mt-6" dangerouslySetInnerHTML={{ __html: (Array.isArray(richContent.blocks) && richContent.blocks.length ? blocksToHtml(richContent.blocks as any, brokers) : richContent.html) }} /></div></section>}
 
-      <section className="mt-10 rounded-2xl border border-line bg-white p-6">
-        <h2 className="font-display text-xl font-bold text-ink-950">How PipRank evaluates this category</h2>
-        <ul className="mt-4 space-y-3 text-sm leading-6 text-slate-600">
-          <li className="flex gap-2"><Check size={17} className="mt-0.5 shrink-0 text-emerald-600" /> Country-specific broker recommendations are used instead of a generic global list.</li>
-          <li className="flex gap-2"><Check size={17} className="mt-0.5 shrink-0 text-emerald-600" /> The page filters brokers for the specific trading need represented by this URL.</li>
-          <li className="flex gap-2"><Check size={17} className="mt-0.5 shrink-0 text-emerald-600" /> Costs, platform support, account features and broker quality are considered where the data supports them.</li>
-          <li className="flex gap-2"><Check size={17} className="mt-0.5 shrink-0 text-emerald-600" /> Country availability and broker terms should always be confirmed before depositing funds.</li>
-        </ul>
-      </section>
+      <section className="mt-10 rounded-2xl border border-line bg-white p-6"><h2 className="font-display text-xl font-bold text-ink-950">How PipRank evaluates this category</h2><ul className="mt-4 space-y-3 text-sm leading-6 text-slate-600"><li className="flex gap-2"><Check size={17} className="mt-0.5 shrink-0 text-emerald-600" /> Country-specific broker recommendations are used instead of a generic global list.</li><li className="flex gap-2"><Check size={17} className="mt-0.5 shrink-0 text-emerald-600" /> The page filters brokers for the specific trading need represented by this URL.</li><li className="flex gap-2"><Check size={17} className="mt-0.5 shrink-0 text-emerald-600" /> Costs, platform support, account features and broker quality are considered where the data supports them.</li><li className="flex gap-2"><Check size={17} className="mt-0.5 shrink-0 text-emerald-600" /> Country availability and broker terms should always be confirmed before depositing funds.</li></ul></section>
 
-      <section className="mt-10 space-y-4">
-        {faqs.map((f) => <details key={f.q} className="rounded-2xl border border-line bg-white p-5"><summary className="cursor-pointer font-bold text-ink-900">{f.q}</summary><p className="mt-3 text-sm leading-7 text-slate-600">{f.a}</p></details>)}
-      </section>
+      <section className="mt-10 space-y-4">{faqs.map((f) => <details key={f.q} className="rounded-2xl border border-line bg-white p-5"><summary className="cursor-pointer font-bold text-ink-900">{f.q}</summary><p className="mt-3 text-sm leading-7 text-slate-600">{f.a}</p></details>)}</section>
 
-      {Array.isArray(pageSettings.internalLinks) && pageSettings.internalLinks.length > 0 && (
-        <section className="mt-10 rounded-2xl border border-line bg-white p-6" aria-label="Related PipRank pages">
-          <p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Related pages</p>
-          <div className="mt-3 grid gap-2 sm:grid-cols-2">{pageSettings.internalLinks.map((link:any,i:number)=><Link key={i} to={link.href} className="rounded-xl border border-line px-4 py-3 text-sm font-semibold text-ink-900 hover:border-emerald-300 hover:bg-emerald-50">{link.label}</Link>)}</div>
-        </section>
-      )}
+      {Array.isArray(pageSettings.internalLinks) && pageSettings.internalLinks.length > 0 && <section className="mt-10 rounded-2xl border border-line bg-white p-6" aria-label="Related PipRank pages"><p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Related pages</p><div className="mt-3 grid gap-2 sm:grid-cols-2">{pageSettings.internalLinks.map((link:any,i:number)=><Link key={i} to={link.href} className="rounded-xl border border-line px-4 py-3 text-sm font-semibold text-ink-900 hover:border-emerald-300 hover:bg-emerald-50">{link.label}</Link>)}</div></section>}
 
-      <section className="mt-10 rounded-3xl bg-ink-950 p-7 text-white sm:p-9">
-        <p className="text-xs font-bold uppercase tracking-widest text-emerald-300">Continue your research</p>
-        <h2 className="mt-2 font-display text-2xl font-bold">Compare more forex brokers in {country.name}</h2>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">Explore the main {country.name} broker page or tell PipRank what you need and get a personalized match.</p>
-        <div className="mt-5 flex flex-wrap gap-3"><Link to={`/${country.slug}`} className="rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-ink-950">View all {country.name} brokers</Link><Link to="/quiz" className="rounded-xl border border-white/15 px-4 py-2.5 text-sm font-bold">Find my broker</Link></div>
-      </section>
+      <section className="mt-10 rounded-3xl bg-ink-950 p-7 text-white sm:p-9"><p className="text-xs font-bold uppercase tracking-widest text-emerald-300">Continue your research</p><h2 className="mt-2 font-display text-2xl font-bold">Compare more forex brokers in {country.name}</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">Explore the main {country.name} broker page or tell PipRank what you need and get a personalized match.</p><div className="mt-5 flex flex-wrap gap-3"><Link to={`/${country.slug}`} className="rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-ink-950">View all {country.name} brokers</Link><Link to="/quiz" className="rounded-xl border border-white/15 px-4 py-2.5 text-sm font-bold">Find my broker</Link></div></section>
     </div>
   );
 }
