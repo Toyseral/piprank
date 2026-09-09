@@ -58,9 +58,52 @@ export default function AdminNext() {
 
   useEffect(() => {
     document.title = 'Console | PipRank';
-    supabase.auth.getSession().then(({data}) => { setSession(data.session); setChecking(false); });
-    const {data: sub} = supabase.auth.onAuthStateChange((_event,next) => { setSession(next); setChecking(false); });
-    return () => sub.subscription.unsubscribe();
+
+    let active = true;
+
+    const timeout = window.setTimeout(() => {
+      if (active) {
+        setChecking(false);
+        setRole('none');
+        setError('Authentication could not be initialized. Please refresh and try again.');
+      }
+    }, 10000);
+
+    supabase.auth.getSession()
+      .then(({ data, error }) => {
+        if (!active) return;
+
+        if (error) {
+          setError(error.message || 'Unable to initialize authentication.');
+          setSession(null);
+        } else {
+          setSession(data.session);
+        }
+
+        setChecking(false);
+      })
+      .catch((error) => {
+        if (!active) return;
+
+        setError(error instanceof Error ? error.message : 'Unable to initialize authentication.');
+        setSession(null);
+        setChecking(false);
+      })
+      .finally(() => {
+        window.clearTimeout(timeout);
+      });
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
+      if (!active) return;
+      setSession(next);
+      setChecking(false);
+    });
+
+    return () => {
+      active = false;
+      window.clearTimeout(timeout);
+      sub.subscription.unsubscribe();
+    };
   },[]);
 
   useEffect(() => {
