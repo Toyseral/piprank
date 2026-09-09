@@ -1,0 +1,202 @@
+name: Apply dynamic guide PageBuilder editor
+
+on:
+  push:
+    branches:
+      - feature/pagebuilder-canonical-editors
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: ${{ !contains(github.event.head_commit.message, 'feat: add dynamic guide PageBuilder editor') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Replace legacy GuideEditor
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const path = 'src/pages/Admin.tsx';
+          const source = fs.readFileSync(path, 'utf8');
+          const start = source.indexOf('interface GuideForm {');
+          const endMarker = '/* ============================ INTENT EDITOR ============================ */';
+          const end = source.indexOf(endMarker, start);
+          if (start < 0 || end < 0) throw new Error('GuideEditor markers not found');
+
+          const replacement = String.raw`interface GuideForm {
+            title: string;
+            excerpt: string;
+            category: string;
+            level: string;
+            minutes: string;
+            published: string;
+            image: string;
+            sections: PageBlock[];
+          }
+
+          const guideBlockId = () => 'guide_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 7);
+
+          function guideSectionsToBlocks(value: unknown): PageBlock[] {
+            if (!Array.isArray(value)) return [];
+            if (value.some((item: any) => item && typeof item === 'object' && typeof item.type === 'string')) {
+              return value.map((item: any) => ({ id: item.id || guideBlockId(), type: item.type || 'richtext', ...item })) as PageBlock[];
+            }
+
+            const blocks: PageBlock[] = [];
+            value.forEach((section: any) => {
+              if (!section || typeof section !== 'object') return;
+              if (String(section.heading || '').trim()) {
+                blocks.push({ id: guideBlockId(), type: 'heading', title: String(section.heading).trim() });
+              }
+              const paragraphs = Array.isArray(section.body) ? section.body : [];
+              paragraphs.forEach((paragraph: unknown) => {
+                const text = String(paragraph ?? '').trim();
+                if (text) blocks.push({ id: guideBlockId(), type: 'richtext', html: '<p>' + text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</p>' });
+              });
+              const bullets = Array.isArray(section.bullets) ? section.bullets.filter(Boolean).map(String) : [];
+              if (bullets.length) {
+                const html = '<ul>' + bullets.map((item) => '<li>' + item.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</li>').join('') + '</ul>';
+                blocks.push({ id: guideBlockId(), type: 'richtext', html });
+              }
+            });
+            return blocks;
+          }
+
+          function GuideEditor({
+            guide,
+            onClose,
+            onSave,
+          }: {
+            guide: Guide | null;
+            onClose: () => void;
+            onSave: (fields: Record<string, unknown>, isNew: boolean) => Promise<void>;
+          }) {
+            const [form, setForm] = useState<GuideForm>(() => {
+              const source = guide
+                ? JSON.parse(JSON.stringify({ ...guide, minutes: String(guide.minutes) }))
+                : {
+                    title: '',
+                    excerpt: '',
+                    category: 'Basics',
+                    level: 'Beginner',
+                    minutes: '10',
+                    published: new Date().toISOString().slice(0, 10),
+                    image: GUIDE_IMAGES[0],
+                    sections: [],
+                  };
+              return { ...source, sections: guideSectionsToBlocks(source.sections) };
+            });
+            const [busy, setBusy] = useState(false);
+            const [err, setErr] = useState('');
+
+            const submit = async () => {
+              if (form.title.trim().length < 4) return setErr('A guide title is required.');
+              if (form.sections.length === 0) return setErr('Add at least one content block.');
+              setBusy(true);
+              setErr('');
+              try {
+                const out: Record<string, unknown> = {
+                  ...form,
+                  minutes: parseInt(form.minutes, 10) || 8,
+                  sections: form.sections,
+                };
+                if (guide) out.id = guide.id;
+                await onSave(out, !guide);
+              } finally {
+                setBusy(false);
+              }
+            };
+
+            const inputCls = 'h-10 w-full rounded-xl border border-line bg-paper px-3 text-sm font-medium outline-none transition focus:border-emerald-500';
+
+            return (
+              <DrawerShell title={guide ? 'Edit guide' : 'New guide'} onClose={onClose} wide>
+                <div className="space-y-5">
+                  {err && <p className="rounded-xl bg-rose-50 px-4 py-2.5 text-sm font-medium text-rose-600">{err}</p>}
+
+                  <div className="space-y-3">
+                    <label className="block">
+                      <FieldLabel>Title</FieldLabel>
+                      <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className={inputCls} placeholder="e.g. Forex Trading for Beginners" />
+                    </label>
+                    <label className="block">
+                      <FieldLabel>Excerpt</FieldLabel>
+                      <textarea value={form.excerpt} onChange={(e) => setForm({ ...form, excerpt: e.target.value })} rows={2} className="w-full rounded-xl border border-line bg-paper px-3 py-2.5 text-sm outline-none focus:border-emerald-500" />
+                    </label>
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                      <label className="block">
+                        <FieldLabel>Category</FieldLabel>
+                        <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className={inputCls}>{GUIDE_CATEGORIES.map((c) => <option key={c}>{c}</option>)}</select>
+                      </label>
+                      <label className="block">
+                        <FieldLabel>Level</FieldLabel>
+                        <select value={form.level} onChange={(e) => setForm({ ...form, level: e.target.value })} className={inputCls}>{GUIDE_LEVELS.map((l) => <option key={l}>{l}</option>)}</select>
+                      </label>
+                      <label className="block">
+                        <FieldLabel>Minutes</FieldLabel>
+                        <input type="number" value={form.minutes} onChange={(e) => setForm({ ...form, minutes: e.target.value })} className={inputCls} />
+                      </label>
+                      <label className="block">
+                        <FieldLabel>Published</FieldLabel>
+                        <input value={form.published} onChange={(e) => setForm({ ...form, published: e.target.value })} className={inputCls} />
+                      </label>
+                    </div>
+                    <div>
+                      <FieldLabel>Cover image</FieldLabel>
+                      <div className="mt-1.5 grid grid-cols-3 gap-2">
+                        {GUIDE_IMAGES.map((img) => (
+                          <button key={img} type="button" onClick={() => setForm({ ...form, image: img })} className={'overflow-hidden rounded-xl border-2 transition ' + (form.image === img ? 'border-emerald-500 ring-2 ring-emerald-500/30' : 'border-transparent opacity-70 hover:opacity-100')}>
+                            <img src={img} alt="" className="aspect-[16/9] w-full object-cover" />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-line bg-paper p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <FieldLabel hint="Use the same PageBuilder blocks available across broker CMS, Best-For and rich content">Guide content</FieldLabel>
+                        <p className="mt-1 text-xs text-slate-400">Add text, headings, images, callouts, tables, broker cards, comparison tables, broker CTAs, structured broker data and PipRank verdicts.</p>
+                      </div>
+                      <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-bold text-slate-500 ring-1 ring-line">{form.sections.length} blocks</span>
+                    </div>
+                    <div className="mt-4 rounded-xl border border-line bg-white p-3 sm:p-4">
+                      <PageBuilder
+                        value={form.sections}
+                        onChange={(sections) => setForm((current) => ({ ...current, sections }))}
+                      />
+                    </div>
+                  </div>
+
+                  <button onClick={submit} disabled={busy} className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-ink-950 text-sm font-bold text-white transition hover:bg-ink-800 disabled:opacity-60">
+                    {busy && <Loader2 size={15} className="animate-spin" />}
+                    {guide ? 'Save guide' : 'Publish guide'}
+                  </button>
+                </div>
+              </DrawerShell>
+            );
+          }
+
+          `;
+
+          fs.writeFileSync(path, source.slice(0, start) + replacement + source.slice(end));
+          NODE
+
+      - name: Commit the editor change and remove this one-shot workflow
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/pages/Admin.tsx .github/workflows/apply-guide-pagebuilder.yml
+          git rm .github/workflows/apply-guide-pagebuilder.yml
+          git diff --cached --quiet && exit 0
+          git commit -m "feat: add dynamic guide PageBuilder editor"
+          git push origin HEAD:feature/pagebuilder-canonical-editors
