@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { BrowserRouter, Route, Routes, useLocation, Link } from 'react-router-dom';
+import { BrowserRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { Analytics } from '@vercel/analytics/react';
 import Footer from './components/Footer';
 import Navbar from './components/Navbar';
@@ -11,8 +11,6 @@ import { GeoProvider } from './lib/GeoContext';
 const SmartCTA = lazy(() => import('./components/SmartCTA'));
 const About = lazy(() => import('./pages/About'));
 const Admin = lazy(() => import('./pages/Admin'));
-const AdminCanonicalWorkspace = lazy(() => import('./pages/AdminCanonicalWorkspace'));
-const AdminLocalization = lazy(() => import('./pages/AdminLocalization'));
 const Authors = lazy(() => import('./pages/Authors'));
 const BestFor = lazy(() => import('./pages/BestFor'));
 const CountryBestForRoute = lazy(() => import('./pages/CountryBestForRoute'));
@@ -25,7 +23,6 @@ const ComparePair = lazy(() => import('./pages/ComparePair'));
 const Countries = lazy(() => import('./pages/Countries'));
 const CountryDetail = lazy(() => import('./pages/CountryDetail'));
 const LocalizedCountrySeoTopic = lazy(() => import('./pages/LocalizedCountrySeoTopic'));
-const GuideDetail = lazy(() => import('./pages/GuideDetail'));
 const CanonicalGuideDetail = lazy(() => import('./pages/CanonicalGuideDetail'));
 const Guides = lazy(() => import('./pages/Guides'));
 const Methodology = lazy(() => import('./pages/Methodology'));
@@ -40,7 +37,6 @@ function RouteLoader() { return <div className="flex min-h-[60vh] items-center j
 export function Shell() {
   const { pathname } = useLocation();
   const bare = pathname.startsWith('/archypage');
-  const showCmsShortcut = pathname === '/archypage';
   return <div className="flex min-h-screen flex-col bg-paper text-ink-900">
     {!bare && <Navbar />}
     <main className={bare ? '' : 'flex-1'}>
@@ -60,7 +56,6 @@ export function Shell() {
           <Route path="/about" element={<About />} />
           <Route path="/authors" element={<Authors />} />
 
-          {/* Canonical global Best-For URLs. */}
           <Route path="/forex-brokers-for-beginners" element={<BestFor />} />
           <Route path="/low-spread-forex-brokers" element={<BestFor />} />
           <Route path="/mt4-forex-brokers" element={<BestFor />} />
@@ -73,10 +68,8 @@ export function Shell() {
           <Route path="/forex-brokers-for-swing-trading" element={<BestFor />} />
           <Route path="/high-leverage-forex-brokers" element={<BestFor />} />
 
-          {/* Legacy global URLs remain valid but are no longer page owners. */}
           <Route path="/best/:slug" element={<LegacyBestForRedirect />} />
 
-          {/* Legacy country Best-For URLs are compatibility redirects. */}
           <Route path="/countries/:countrySlug/best/:slug" element={<LegacyCountryBestForRedirect />} />
           <Route path="/:countrySlug/best-low-spread-forex-brokers" element={<LegacyCountryBestForRedirect />} />
           <Route path="/:countrySlug/best-forex-brokers-for-beginners" element={<LegacyCountryBestForRedirect />} />
@@ -93,19 +86,15 @@ export function Shell() {
           <Route path="/countries" element={<Countries />} />
           <Route path="/countries/:slug" element={<CountryDetail />} />
           <Route path="/promotions" element={<Promotions />} />
-          <Route path="/archypage/localization" element={<AdminLocalization />} />
-          <Route path="/archypage/cms" element={<AdminCanonicalWorkspace />} />
           <Route path="/archypage" element={<Admin />} />
           <Route path="/:countrySlug/:locale/guides/:slug" element={<LocalizedGuide />} />
           <Route path="/:countrySlug/:locale/:topicSlug" element={<LocalizedCountrySeoTopic />} />
-          {/* DB-backed country Best-For pages must be checked before the generic two-segment country topic router. */}
           <Route path="/:countrySlug/:topicSlug" element={<CountryBestForRoute />} />
           <Route path="/:slug" element={<CountryDetail />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>
     </main>
-    {showCmsShortcut && <Link to="/archypage/cms" className="fixed bottom-5 right-5 z-[120] inline-flex items-center gap-2 rounded-xl bg-ink-950 px-4 py-3 text-sm font-bold text-white shadow-soft-lg ring-1 ring-white/10 hover:bg-ink-800"><span className="text-emerald-400">✦</span> Canonical CMS</Link>}
     {!bare && <Footer />}
     {!bare && <Suspense fallback={null}><SmartCTA /></Suspense>}
   </div>;
