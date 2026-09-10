@@ -23,7 +23,6 @@ const Compare = lazy(() => import('./pages/Compare'));
 const ComparePair = lazy(() => import('./pages/ComparePair'));
 const Countries = lazy(() => import('./pages/Countries'));
 const CountryDetail = lazy(() => import('./pages/CountryDetail'));
-const LocalizedCountrySeoTopic = lazy(() => import('./pages/LocalizedCountrySeoTopic'));
 const GuideDetail = lazy(() => import('./pages/GuideDetail'));
 const Guides = lazy(() => import('./pages/Guides'));
 const Methodology = lazy(() => import('./pages/Methodology'));
@@ -86,6 +85,7 @@ export function Shell() {
           <Route path="/:countrySlug/best-forex-brokers-for-swing-trading" element={<LegacyCountryBestForRedirect />} />
           <Route path="/:countrySlug/best-high-leverage-forex-brokers" element={<LegacyCountryBestForRedirect />} />
 
+          {/* Country informational content has one canonical guide model. */}
           <Route path="/:countrySlug/guides/:slug" element={<GuideTopic />} />
           <Route path="/countries" element={<Countries />} />
           <Route path="/countries/:slug" element={<CountryDetail />} />
@@ -93,8 +93,7 @@ export function Shell() {
           <Route path="/archypage/localization" element={<AdminLocalization />} />
           <Route path="/archypage" element={<Admin />} />
           <Route path="/:countrySlug/:locale/guides/:slug" element={<LocalizedGuide />} />
-          <Route path="/:countrySlug/:locale/:topicSlug" element={<LocalizedCountrySeoTopic />} />
-          {/* DB-backed country Best-For pages must be checked before the generic two-segment country topic router. */}
+          {/* DB-backed country Best-For pages must be checked before the generic two-segment route. */}
           <Route path="/:countrySlug/:topicSlug" element={<CountryBestForRoute />} />
           <Route path="/:slug" element={<CountryDetail />} />
           <Route path="*" element={<NotFound />} />
