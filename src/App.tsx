@@ -28,6 +28,7 @@ const Guides = lazy(() => import('./pages/Guides'));
 const Methodology = lazy(() => import('./pages/Methodology'));
 const GuideTopic = lazy(() => import('./pages/GuideTopic'));
 const LocalizedGuide = lazy(() => import('./pages/LocalizedGuide'));
+const LocalizedCountrySeoTopic = lazy(() => import('./pages/LocalizedCountrySeoTopic'));
 const Promotions = lazy(() => import('./pages/Promotions'));
 const Quiz = lazy(() => import('./pages/Quiz'));
 const Tools = lazy(() => import('./pages/Tools'));
@@ -92,7 +93,11 @@ export function Shell() {
           <Route path="/promotions" element={<Promotions />} />
           <Route path="/archypage/localization" element={<AdminLocalization />} />
           <Route path="/archypage" element={<Admin />} />
+
+          {/* Localized country Best-For remains separate from localized guides. */}
+          <Route path="/:countrySlug/:locale/:topicSlug" element={<LocalizedCountrySeoTopic />} />
           <Route path="/:countrySlug/:locale/guides/:slug" element={<LocalizedGuide />} />
+
           {/* DB-backed country Best-For pages must be checked before the generic two-segment route. */}
           <Route path="/:countrySlug/:topicSlug" element={<CountryBestForRoute />} />
           <Route path="/:slug" element={<CountryDetail />} />
