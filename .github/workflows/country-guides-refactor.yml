@@ -1,0 +1,71 @@
+name: one-time country guides refactor
+
+on:
+  push:
+    branches:
+      - feature/country-guides-unified-editor
+    paths:
+      - .github/workflows/country-guides-refactor.yml
+
+permissions:
+  contents: write
+
+jobs:
+  refactor:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/country-guides-unified-editor
+          fetch-depth: 1
+
+      - name: Replace Country Guides section
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path('src/pages/Admin.tsx')
+          text = path.read_text(encoding='utf-8')
+
+          import_line = "import CountryGuides from './admin/CountryGuides';\n"
+          anchor = "import LocalizationWorkspace from '../components/admin/LocalizationWorkspace';\n"
+          if import_line not in text:
+              if anchor not in text:
+                  raise SystemExit('Could not find Admin.tsx import anchor')
+              text = text.replace(anchor, anchor + import_line, 1)
+
+          marker = '<div className="rounded-2xl border border-line bg-white p-5"><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-display text-lg font-bold text-ink-900">Country guides and SEO content</h3>'
+          start = text.find(marker)
+          if start < 0:
+              raise SystemExit('Country Guides section marker not found')
+
+          end = text.find('<CountryLanguagesPanel', start)
+          if end < 0:
+              raise SystemExit('CountryLanguagesPanel boundary not found')
+
+          replacement = '''<CountryGuides
+              country={selected}
+              countries={countries}
+              brokers={brokers}
+              token={token}
+              notify={notify}
+            />'''
+
+          text = text[:start] + replacement + text[end:]
+          path.write_text(text, encoding='utf-8')
+
+      - name: Typecheck
+        run: |
+          npm ci
+          npx tsc -b
+
+      - name: Commit refactor
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm -f .github/workflows/country-guides-refactor.yml
+          git add src/pages/Admin.tsx .github/workflows/country-guides-refactor.yml
+          git commit -m "refactor: isolate country guides admin section"
+          git push origin feature/country-guides-unified-editor
