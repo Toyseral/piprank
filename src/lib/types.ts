@@ -268,7 +268,9 @@ export interface CountryPage {
   seo_intro?: string[];
   seo_sections?: { heading: string; body: string[]; bullets?: string[] }[];
   seo_faqs?: FAQ[];
+  publishing_state?: 'draft' | 'published' | 'closed';
 }
+
 
 export interface ContentDocument {
   id: number;

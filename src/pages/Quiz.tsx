@@ -684,9 +684,14 @@ export default function Quiz() {
                     <div key={r} className="flex gap-2 rounded-xl bg-emerald-50 px-3 py-2.5 text-xs font-semibold text-slate-700 ring-1 ring-emerald-100"><Check size={13} className="mt-0.5 shrink-0 text-emerald-600" strokeWidth={3}/>{r}</div>
                   ))}
                 </div>
-                <div className="mt-6 flex flex-wrap items-center gap-3">
-                  <VisitButton broker={results[0].broker} context="quiz_results" />
-                  <Link to={`/brokers/${results[0].broker.slug}`} className="text-sm font-bold text-slate-500 hover:text-emerald-700">Read full review →</Link>
+                <div className="mt-6 flex w-full max-w-sm flex-col items-stretch gap-3 sm:items-start">
+                  <VisitButton broker={results[0].broker} context="quiz_results" className="w-full sm:min-w-52" />
+                  <Link
+                    to={`/brokers/${results[0].broker.slug}`}
+                    className="inline-flex justify-center text-sm font-bold text-slate-500 transition hover:text-emerald-700 sm:justify-start"
+                  >
+                    Read full review →
+                  </Link>
                 </div>
               </div>
             </section>
@@ -702,7 +707,15 @@ export default function Quiz() {
                   <div key={broker.slug} className="rounded-2xl border border-line bg-white p-5 shadow-soft">
                     <div className="flex items-center gap-3"><Monogram name={broker.name} logoUrl={broker.logo_url} color={broker.brand_color} size={48} className="rounded-xl"/><div className="min-w-0 flex-1"><h3 className="font-display text-lg font-bold text-ink-900">{broker.name}</h3><p className="text-xs text-slate-500">{Math.round(pct)}% match</p></div></div>
                     <p className="mt-3 text-xs leading-relaxed text-slate-600">{reasons.slice(0,2).join(' · ')}</p>
-                    <div className="mt-4 flex items-center gap-3"><VisitButton broker={broker} compact /><Link to={`/brokers/${broker.slug}`} className="text-xs font-bold text-slate-500 hover:text-emerald-700">Read review →</Link></div>
+                    <div className="mt-4 flex flex-col items-stretch gap-2">
+                      <VisitButton broker={broker} compact className="w-full" />
+                      <Link
+                        to={`/brokers/${broker.slug}`}
+                        className="inline-flex justify-center text-xs font-bold text-slate-500 transition hover:text-emerald-700"
+                      >
+                        Read review →
+                      </Link>
+                    </div>
                   </div>
                 ))}
               </div>

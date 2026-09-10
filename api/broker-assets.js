@@ -27,13 +27,21 @@ async function handleContent(req, res) {
     if (!broker_id) return res.status(400).json({ error: 'broker_id is required' });
     const payload = {
       broker_id,
-      overview: Array.isArray(body.overview) ? body.overview : [], verdict: Array.isArray(body.verdict) ? body.verdict : [],
-      why_recommend: Array.isArray(body.why_recommend) ? body.why_recommend : [], best_for_detail: Array.isArray(body.best_for_detail) ? body.best_for_detail : [],
-      avoid_if: Array.isArray(body.avoid_if) ? body.avoid_if : [], regulation_detail: Array.isArray(body.regulation_detail) ? body.regulation_detail : [],
-      fees_detail: Array.isArray(body.fees_detail) ? body.fees_detail : [], platform_intro: Array.isArray(body.platform_intro) ? body.platform_intro : [],
-      accounts_intro: Array.isArray(body.accounts_intro) ? body.accounts_intro : [], funding_intro: Array.isArray(body.funding_intro) ? body.funding_intro : [],
-      faqs: Array.isArray(body.faqs) ? body.faqs : [], platforms: Array.isArray(body.platforms) ? body.platforms : [],
-      accounts: Array.isArray(body.accounts) ? body.accounts : [], payments: Array.isArray(body.payments) ? body.payments : [], updated_at: new Date().toISOString(),
+      overview: Array.isArray(body.overview) ? body.overview : [],
+      verdict: Array.isArray(body.verdict) ? body.verdict : [],
+      why_recommend: Array.isArray(body.why_recommend) ? body.why_recommend : [],
+      best_for_detail: Array.isArray(body.best_for_detail) ? body.best_for_detail : [],
+      avoid_if: Array.isArray(body.avoid_if) ? body.avoid_if : [],
+      regulation_detail: Array.isArray(body.regulation_detail) ? body.regulation_detail : [],
+      fees_detail: Array.isArray(body.fees_detail) ? body.fees_detail : [],
+      platform_intro: Array.isArray(body.platform_intro) ? body.platform_intro : [],
+      accounts_intro: Array.isArray(body.accounts_intro) ? body.accounts_intro : [],
+      funding_intro: Array.isArray(body.funding_intro) ? body.funding_intro : [],
+      faqs: Array.isArray(body.faqs) ? body.faqs : [],
+      platforms: Array.isArray(body.platforms) ? body.platforms : [],
+      accounts: Array.isArray(body.accounts) ? body.accounts : [],
+      payments: Array.isArray(body.payments) ? body.payments : [],
+      updated_at: new Date().toISOString(),
     };
     const { data, error } = await supabase.from('broker_content').upsert(payload, { onConflict: 'broker_id' }).select().single();
     if (error) throw error;
@@ -47,26 +55,45 @@ async function handleAvailability(req, res) {
     const { broker_id } = req.query;
     if (!broker_id) return res.status(400).json({ error: 'broker_id is required' });
     const { data, error } = await supabase.from('broker_country_availability')
-      .select('id, broker_id, country_id, status, note, priority, updated_at, countries!inner(slug, name)')
+      .select('id, broker_id, country_id, is_available, status, notes, note, source_url, verified, verified_at, priority, updated_at, countries!inner(slug, name)')
       .eq('broker_id', Number(broker_id)).order('priority', { ascending: true });
     if (error) return res.status(500).json({ error: error.message });
-    return res.status(200).json((data ?? []).map((row) => ({ ...row, country_slug: row.countries?.slug, country_name: row.countries?.name, countries: undefined })));
+    return res.status(200).json((data ?? []).map((row) => ({
+      ...row,
+      note: row.note ?? row.notes ?? '',
+      country_slug: row.countries?.slug,
+      country_name: row.countries?.name,
+      countries: undefined,
+    })));
   }
   if (!(await requireRole(req, res, CONTENT_WRITE))) return;
   if (req.method === 'PUT') {
-    const body = req.body ?? {}; const broker_id = Number(body.broker_id);
+    const body = req.body ?? {};
+    const broker_id = Number(body.broker_id);
     if (!broker_id) return res.status(400).json({ error: 'broker_id is required' });
     const rows = Array.isArray(body.rows) ? body.rows : [];
-    const { error: delError } = await supabase.from('broker_country_availability').delete().eq('broker_id', broker_id); if (delError) throw delError;
+    const { error: delError } = await supabase.from('broker_country_availability').delete().eq('broker_id', broker_id);
+    if (delError) throw delError;
     if (rows.length) {
-      const payload = rows.filter((r) => r?.country_id).map((r) => ({ broker_id, country_id: Number(r.country_id), status: ['available','restricted','unavailable','unknown'].includes(r.status) ? r.status : 'unknown', note: r.note ? String(r.note).slice(0,500) : null, priority: Number.isFinite(Number(r.priority)) ? Number(r.priority) : 0 }));
-      const { error } = await supabase.from('broker_country_availability').insert(payload); if (error) throw error;
+      const payload = rows
+        .filter((r) => r?.country_id)
+        .map((r) => ({
+          broker_id,
+          country_id: Number(r.country_id),
+          is_available: !['unavailable'].includes(r.status),
+          status: ['available', 'restricted', 'unavailable', 'unknown'].includes(r.status) ? r.status : 'unknown',
+          notes: r.note ? String(r.note).slice(0, 500) : null,
+          note: r.note ? String(r.note).slice(0, 500) : null,
+          priority: Number.isFinite(Number(r.priority)) ? Number(r.priority) : 0,
+          updated_at: new Date().toISOString(),
+        }));
+      const { error } = await supabase.from('broker_country_availability').insert(payload);
+      if (error) throw error;
     }
     return res.status(200).json({ ok: true });
   }
   return res.status(405).json({ error: 'Method not allowed' });
 }
-
 
 async function handleVerification(req, res) {
   if (req.method === 'GET') {
@@ -88,30 +115,30 @@ async function handleVerification(req, res) {
   }
   if (!(await requireRole(req, res, CONTENT_WRITE))) return;
   if (req.method === 'PUT') {
-    const body=req.body ?? {};
-    const broker_id=Number(body.broker_id), country_id=Number(body.country_id);
-    if (!broker_id || !country_id) return res.status(400).json({error:'broker_id and country_id are required'});
-    const payload={
-      broker_id, country_id,
-      availability_verified:Boolean(body.availability_verified),
-      local_authorisation_status:['authorised','not_authorised','not_applicable','not_verified'].includes(body.local_authorisation_status) ? body.local_authorisation_status : 'not_verified',
-      client_entity: body.client_entity ? String(body.client_entity).slice(0,200) : null,
-      regulator: body.regulator ? String(body.regulator).slice(0,200) : null,
+    const body = req.body ?? {};
+    const broker_id = Number(body.broker_id), country_id = Number(body.country_id);
+    if (!broker_id || !country_id) return res.status(400).json({ error: 'broker_id and country_id are required' });
+    const payload = {
+      broker_id,
+      country_id,
+      availability_verified: Boolean(body.availability_verified),
+      local_authorisation_status: ['authorised', 'not_authorised', 'not_applicable', 'not_verified'].includes(body.local_authorisation_status) ? body.local_authorisation_status : 'not_verified',
+      client_entity: body.client_entity ? String(body.client_entity).slice(0, 200) : null,
+      regulator: body.regulator ? String(body.regulator).slice(0, 200) : null,
       affiliate_eligible: body.affiliate_eligible === null || body.affiliate_eligible === undefined ? null : Boolean(body.affiliate_eligible),
       verification_date: body.verification_date || null,
-      source_url: body.source_url ? String(body.source_url).slice(0,500) : null,
-      notes: body.notes ? String(body.notes).slice(0,1000) : null,
-      updated_at:new Date().toISOString(),
+      source_url: body.source_url ? String(body.source_url).slice(0, 500) : null,
+      notes: body.notes ? String(body.notes).slice(0, 1000) : null,
+      updated_at: new Date().toISOString(),
     };
-    const {data,error}=await supabase.from('broker_country_verification').upsert(payload,{onConflict:'broker_id,country_id'}).select().single();
-    if(error) return res.status(500).json({error:error.message});
+    const { data, error } = await supabase.from('broker_country_verification').upsert(payload, { onConflict: 'broker_id,country_id' }).select().single();
+    if (error) return res.status(500).json({ error: error.message });
     return res.status(200).json(data);
   }
-  return res.status(405).json({error:'Method not allowed'});
+  return res.status(405).json({ error: 'Method not allowed' });
 }
 
 async function handleMedia(req, res) {
-  // Public: id → logo map (merged into brokers by /api/brokers too)
   if (req.method === 'GET') {
     const { data, error } = await supabase
       .from('broker_media')
