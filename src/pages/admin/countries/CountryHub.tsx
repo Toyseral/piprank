@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState } from 'react';
 import { Eye, Pencil, Plus, Search } from 'lucide-react';
 import type { Broker, ContentDocument, CountryBestFor, CountryPage } from '../../../lib/types';
 import CountryGuides from '../CountryGuides';
@@ -44,7 +44,7 @@ const SUPERSEDED_INTENT_TO_TOPIC: Record<string, string> = {
   'best-high-leverage-forex-brokers': 'high-leverage-forex-brokers',
 };
 
-function CountryHub({ countries, brokers, countryBestFors, contentDocs, token, notify, onNewCountry, onEditCountry, onEditCountryBestFor, onNewCountryBestFor, renderLanguagesPanel }: { countries: CountryPage[]; brokers: Broker[]; countryBestFors: CountryBestFor[]; contentDocs: ContentDocument[]; token: string; notify: (msg: string) => void; onNewCountry: () => void; onEditCountry: (country: CountryPage) => void; onEditCountryBestFor: (page: CountryBestFor) => void; onNewCountryBestFor: (countrySlug: string) => void; renderLanguagesPanel: (country: CountryPage) => ReactNode }) {
+function CountryHub({ countries, brokers, countryBestFors, contentDocs, token, notify, onNewCountry, onEditCountry, onEditCountryBestFor, onNewCountryBestFor }: { countries: CountryPage[]; brokers: Broker[]; countryBestFors: CountryBestFor[]; contentDocs: ContentDocument[]; token: string; notify: (msg: string) => void; onNewCountry: () => void; onEditCountry: (country: CountryPage) => void; onEditCountryBestFor: (page: CountryBestFor) => void; onNewCountryBestFor: (countrySlug: string) => void }) {
   const [query, setQuery] = useState('');
   const [selectedSlug, setSelectedSlug] = useState(() => countries[0]?.slug ?? '');
   useEffect(() => { if (!selectedSlug && countries[0]) setSelectedSlug(countries[0].slug); }, [countries, selectedSlug]);
@@ -59,7 +59,7 @@ function CountryHub({ countries, brokers, countryBestFors, contentDocs, token, n
               brokers={brokers}
               token={token}
               notify={notify}
-            />{renderLanguagesPanel(selected)}</section>}</div>;
+            /></section>}</div>;
 }
 
 export default CountryHub;
