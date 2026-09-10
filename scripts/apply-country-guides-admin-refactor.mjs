@@ -4,7 +4,7 @@ const path = 'src/pages/Admin.tsx';
 const text = fs.readFileSync(path, 'utf8');
 
 const importLine = "import CountryGuides from './admin/CountryGuides';\n";
-const importAnchor = "import LocalizationWorkspace from '../components/admin/LocalizationWorkspace';\n";
+const importAnchor = "import PageBuilder, { blocksToHtml, type PageBlock } from '../components/PageBuilder';\n";
 
 let next = text;
 if (!next.includes(importLine)) {
