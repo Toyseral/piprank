@@ -11,17 +11,12 @@ import { ButtonLink } from '../components/Button';
 import { reviewerFor } from '../lib/team';
 
 /**
- * Generic country guide page. One route, one component, works for any
- * country — replaces the old MalaysiaTopic.tsx/GhanaTopic.tsx pattern,
- * where every new country needed its own hardcoded route, component and
- * static data file.
+ * Canonical country guide page.
  *
- * Unlike the ranking-topic matrix (CountrySeoTopic.tsx), there is no
- * template fallback here: a guide is informational content that has to be
- * genuinely written for that country, so content_documents
- * (content_type: 'country-guide') is the only source of truth. If no
- * published document exists for this country+slug, the page 404s with a
- * real noindex — not a generic fallback pretending content exists.
+ * Country guides are informational guide documents only. The canonical
+ * source of truth is content_documents with content_type = country-guide,
+ * edited through UnifiedGuideEditor. Ranking/SEO topic documents are not
+ * used as a fallback or alternate content model here.
  */
 export default function GuideTopic() {
   const { countrySlug, slug } = useParams<{ countrySlug: string; slug: string }>();
@@ -45,7 +40,7 @@ export default function GuideTopic() {
       fetchContentDocument(`country-guide:${countrySlug}:${slug}`),
     ])
       .then(([c, b, content]) => {
-        if (!content || content.published === false || (content.content_type !== 'country-guide' && content.content_type !== 'guide')) {
+        if (!content || content.published === false || content.content_type !== 'country-guide') {
           setMissing(true);
           return;
         }
@@ -79,7 +74,7 @@ export default function GuideTopic() {
           buildBreadcrumbJsonLd([
             { name: 'Home', path: '/' },
             { name: country.name, path: `/${country.slug}` },
-            { name: doc.title, path: seo!.path },
+            { name: doc.title, path: seo.path },
           ]),
           ...(faqs.length ? [buildFAQPageJsonLd(faqs.map((f) => ({ question: f.q, answer: f.a })))] : []),
         ]
