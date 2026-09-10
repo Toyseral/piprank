@@ -92,9 +92,10 @@ if (!next.includes(importLine)) {
 
 next = next.slice(0, start) + next.slice(end);
 
-const invocationPattern = /\s*<CountryHub\n[\s\S]*?\n\s*\/>/;
-const invocationMatch = next.match(invocationPattern);
-if (!invocationMatch) throw new Error('Could not find CountryHub JSX invocation in Admin.tsx.');
+const invocationStart = next.indexOf('<CountryHub');
+if (invocationStart < 0) throw new Error('Could not find CountryHub JSX invocation in Admin.tsx.');
+const invocationEnd = next.indexOf('/>', invocationStart);
+if (invocationEnd < 0) throw new Error('Could not find end of CountryHub JSX invocation in Admin.tsx.');
 
 const replacement = `
                   <CountryHub
@@ -121,7 +122,7 @@ const replacement = `
                     )}
                   />`;
 
-next = next.replace(invocationPattern, replacement);
+next = next.slice(0, invocationStart) + replacement + next.slice(invocationEnd + 2);
 
 fs.writeFileSync(adminPath, next);
 console.log('Extracted CountryHub to src/pages/admin/countries/CountryHub.tsx');
