@@ -1,5 +1,5 @@
 import { Eye, Pencil, Plus } from 'lucide-react';
-import type { Guide, Intent } from '../../lib/types';
+import type { ContentDocument, Intent } from '../../lib/types';
 
 export default function GlobalHub({
   guides,
@@ -10,10 +10,10 @@ export default function GlobalHub({
   onEditIntent,
   intentToTopic,
 }: {
-  guides: Guide[];
+  guides: ContentDocument[];
   intents: Intent[];
   onNewGuide: () => void;
-  onEditGuide: (g: Guide) => void;
+  onEditGuide: (g: ContentDocument) => void;
   onNewIntent: () => void;
   onEditIntent: (i: Intent) => void;
   intentToTopic: Record<string, string>;
@@ -25,6 +25,7 @@ export default function GlobalHub({
           <p className="font-display text-base font-bold text-ink-900">
             Guides ({guides.length})
           </p>
+
           <button
             onClick={onNewGuide}
             className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3.5 py-1.5 text-xs font-bold text-white transition hover:bg-emerald-600"
@@ -36,29 +37,28 @@ export default function GlobalHub({
         <div className="divide-y divide-line">
           {guides.map((g) => (
             <div key={g.id} className="flex items-center gap-3 px-5 py-3.5">
-              <img
-                src={g.image}
-                alt=""
-                className="h-10 w-16 shrink-0 rounded-lg object-cover"
-              />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-bold text-ink-900">
                   {g.title}
                 </p>
-                <p className="text-xs text-slate-400">
-                  {g.category} · {g.level} · {g.minutes} min
+
+                <p className="truncate text-xs text-slate-400">
+                  /guides/{g.slug}
+                  {g.published ? ' · Published' : ' · Draft'}
                 </p>
               </div>
 
-              <a
-                href={`/guides/${g.slug}`}
-                target="_blank"
-                rel="noreferrer"
-                className="rounded-lg p-2 text-slate-400 hover:bg-paper hover:text-ink-900"
-                title="Preview live page"
-              >
-                <Eye size={14} />
-              </a>
+              {g.slug && (
+                <a
+                  href={`/guides/${g.slug}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-lg p-2 text-slate-400 hover:bg-paper hover:text-ink-900"
+                  title="Preview live page"
+                >
+                  <Eye size={14} />
+                </a>
+              )}
 
               <button
                 onClick={() => onEditGuide(g)}
@@ -81,6 +81,7 @@ export default function GlobalHub({
           <p className="font-display text-base font-bold text-ink-900">
             Best-For pages ({intents.length})
           </p>
+
           <button
             onClick={onNewIntent}
             className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3.5 py-1.5 text-xs font-bold text-white transition hover:bg-emerald-600"
@@ -96,6 +97,7 @@ export default function GlobalHub({
                 <p className="truncate text-sm font-bold text-ink-900">
                   {i.label}
                 </p>
+
                 <p className="text-xs text-slate-400">
                   /{intentToTopic[i.slug] ?? i.slug}
                 </p>

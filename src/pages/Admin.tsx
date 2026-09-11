@@ -58,6 +58,7 @@ import CountryHub from './admin/countries/CountryHub';
 import CountryEditor from './admin/countries/CountryEditor';
 import AdminSidebar from './admin/components/AdminSidebar';
 import AffiliateLinksTab from './admin/AffiliateLinksTab';
+import UnifiedGuideEditor from '../components/admin/UnifiedGuideEditor';
 
 /* =============================== TYPES =============================== */
 
@@ -667,10 +668,10 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
                 )}
                 {activeTab === 'global' && (
                   <GlobalHub
-                    guides={guides}
+                    guides={contentDocs.filter((d) => d.content_type === 'guide' && d.country_slug === null)}
                     intents={intents}
-                    onNewGuide={() => setEditingGuide('new')}
-                    onEditGuide={(g) => setEditingGuide(g)}
+                    onNewGuide={() => setEditingContentDoc({ id: 0, content_key: '', content_type: 'guide', country_slug: null, topic_slug: null, slug: '', title: '', excerpt: '', html: '', blocks: [], seo_title: null, seo_description: null, indexable: true, published: false, updated_by: null, created_at: '', updated_at: '', settings: {} } as ContentDocument)}
+                    onEditGuide={(g) => setEditingContentDoc(g)}
                     onNewIntent={() => setEditingIntent('new')}
                     onEditIntent={(i) => setEditingIntent(i)}
                     intentToTopic={SUPERSEDED_INTENT_TO_TOPIC}
@@ -792,18 +793,35 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
         />
       )}
       {editingContentDoc && (
-        <ContentDocumentEditor
-          document={editingContentDoc === 'new' ? null : editingContentDoc}
-          countries={countries}
-          token={session.access_token}
-          defaultCountrySlug={editingContentDoc === 'new' ? newDocDefaultCountry : undefined}
-          onClose={() => { setEditingContentDoc(null); setNewDocDefaultCountry(undefined); }}
-          onSave={async (fields, isNew) => {
-            await mutate('/api/content-documents', isNew ? 'POST' : 'PUT', fields, isNew ? 'Rich content published' : 'Rich content saved');
-            setEditingContentDoc(null);
-            setNewDocDefaultCountry(undefined);
-          }}
-        />
+        editingContentDoc !== 'new' && editingContentDoc.content_type === 'guide' ? (
+          <UnifiedGuideEditor
+            document={editingContentDoc}
+            countries={countries}
+            brokers={brokers}
+            token={session.access_token}
+            defaultContentType="guide"
+            defaultCountrySlug=""
+            onClose={() => { setEditingContentDoc(null); setNewDocDefaultCountry(undefined); }}
+            onSave={async (fields, isNew) => {
+              await mutate('/api/content-documents', isNew ? 'POST' : 'PUT', fields, isNew ? 'Guide published' : 'Guide saved');
+              setEditingContentDoc(null);
+              setNewDocDefaultCountry(undefined);
+            }}
+          />
+        ) : (
+          <ContentDocumentEditor
+            document={editingContentDoc === 'new' ? null : editingContentDoc}
+            countries={countries}
+            token={session.access_token}
+            defaultCountrySlug={editingContentDoc === 'new' ? newDocDefaultCountry : undefined}
+            onClose={() => { setEditingContentDoc(null); setNewDocDefaultCountry(undefined); }}
+            onSave={async (fields, isNew) => {
+              await mutate('/api/content-documents', isNew ? 'POST' : 'PUT', fields, isNew ? 'Rich content published' : 'Rich content saved');
+              setEditingContentDoc(null);
+              setNewDocDefaultCountry(undefined);
+            }}
+          />
+        )
       )}
     </div>
   );
