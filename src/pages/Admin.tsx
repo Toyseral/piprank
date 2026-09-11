@@ -2796,56 +2796,6 @@ interface PromoForm {
   active: boolean;
 }
 
-/* ============================ SUBSCRIBERS TAB ============================ */
-
-function SubsTab({
-  subs,
-  onDelete,
-  onCopied,
-}: {
-  subs: Sub[];
-  onDelete: (s: Sub) => void;
-  onCopied: () => void;
-}) {
-  return (
-    <div className="rounded-2xl border border-line bg-white shadow-soft">
-      <div className="flex items-center justify-between border-b border-line px-5 py-4">
-        <p className="font-display text-base font-bold text-ink-900">{subs.length} subscribers</p>
-        <button
-          onClick={() => {
-            navigator.clipboard.writeText(subs.map((s) => s.email).join(', '));
-            onCopied();
-          }}
-          className="inline-flex items-center gap-1.5 rounded-xl border border-line px-3.5 py-2 text-xs font-bold text-ink-900 transition hover:border-ink-900"
-        >
-          <Copy size={13} /> Copy all emails
-        </button>
-      </div>
-      <div className="divide-y divide-line">
-        {subs.length === 0 && (
-          <p className="p-8 text-center text-sm text-slate-400">No subscribers yet.</p>
-        )}
-        {subs.map((s) => (
-          <div key={s.id} className="flex items-center gap-3 px-5 py-3.5">
-            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-ink-950 text-xs font-bold text-emerald-400">
-              {s.email[0].toUpperCase()}
-            </span>
-            <div className="flex-1">
-              <p className="text-sm font-semibold text-ink-900">{s.email}</p>
-              <p className="text-xs text-slate-400">{timeAgo(s.created_at)}</p>
-            </div>
-            <button
-              onClick={() => onDelete(s)}
-              className="rounded-lg p-2 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
-            >
-              <Trash2 size={15} />
-            </button>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 /* ============================ GUIDE EDITOR ============================ */
 
