@@ -10,7 +10,6 @@ import Compare from './Compare';
 import ComparePair from './ComparePair';
 import Countries from './Countries';
 import CountryDetail from './CountryDetail';
-import CountrySeoTopic from './CountrySeoTopic';
 import GuideDetail from './GuideDetail';
 import GuideTopic from './GuideTopic';
 import Guides from './Guides';
@@ -64,8 +63,6 @@ export default function CanonicalHub() {
   switch (route.type) {
     case 'global-best-for':
       return <BestFor />;
-    case 'country-topic':
-      return <CountrySeoTopic />;
     case 'guide':
       return route.path === '/guides' ? <Guides /> : <GuideDetail />;
     case 'country-guide':
