@@ -8,29 +8,33 @@ import { useSEO } from '../hooks/useSEO';
 import { buildBreadcrumbJsonLd, buildWebPageJsonLd, type SeoInput } from '../lib/seo';
 import NotFound from './NotFound';
 
+interface GlobalBestForProps { slug?: string; }
+
 async function fetchGlobalDocument(publicSlug: string): Promise<ContentDocument | null> {
   const internalSlug = BEST_FOR_CANONICAL[publicSlug] ?? publicSlug;
-  const response = await fetch('/api/content-documents?type=global-best-for');
+  const response = await fetch(`/api/content-documents?type=global-best-for&slug=${encodeURIComponent(publicSlug)}`);
   const data = await response.json().catch(() => []);
   if (response.ok && Array.isArray(data)) {
-    const match = data.find((doc: ContentDocument) =>
+    const match = data.find((doc: ContentDocument) => doc.content_type === 'global-best-for' && doc.published !== false);
+    if (match) return match;
+  }
+
+  const allResponse = await fetch('/api/content-documents?type=global-best-for');
+  const allData = await allResponse.json().catch(() => []);
+  if (allResponse.ok && Array.isArray(allData)) {
+    const match = allData.find((doc: ContentDocument) =>
       doc.content_type === 'global-best-for' &&
       doc.published !== false &&
       (doc.slug === publicSlug || doc.slug === internalSlug || doc.content_key === `best-for:${internalSlug}`),
     );
     if (match) return match;
   }
-  try {
-    const keyResponse = await fetch(`/api/content-documents?key=${encodeURIComponent(`best-for:${internalSlug}`)}`);
-    const keyDoc = await keyResponse.json().catch(() => null);
-    return keyResponse.ok && keyDoc?.content_type === 'global-best-for' && keyDoc.published !== false ? keyDoc : null;
-  } catch {
-    return null;
-  }
+  return null;
 }
 
-export default function GlobalBestFor() {
-  const { slug } = useParams<{ slug: string }>();
+export default function GlobalBestFor({ slug: propSlug }: GlobalBestForProps) {
+  const params = useParams<{ slug: string }>();
+  const slug = propSlug ?? params.slug;
   const [document, setDocument] = useState<ContentDocument | null>(null);
   const [brokers, setBrokers] = useState<Broker[]>([]);
   const [loading, setLoading] = useState(true);
