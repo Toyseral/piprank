@@ -1,7 +1,7 @@
 import type { ContentDocument } from '../types';
 import type { CanonicalRoute } from './types';
 import { CANONICAL_BEST_FOR, CANONICAL_BEST_FOR_BY_SLUG } from './registry';
-import { fetchBroker, fetchContentDocument, fetchCountry, fetchLocalizedSeoPage } from '../api';
+import { fetchBroker, fetchCountry, fetchLocalizedSeoPage } from '../api';
 
 function cleanPath(path: string): string {
   const normalized = `/${path.replace(/^\/+|\/+$/g, '')}`;
@@ -16,10 +16,9 @@ function encode(value: string): string {
   return encodeURIComponent(value);
 }
 
-/** Single source of truth for how an editable content document maps to a public URL. */
+/** Single source of truth for how an editable canonical document maps to a public URL. */
 export function canonicalPathForDocument(document: Pick<ContentDocument, 'content_type' | 'country_slug' | 'topic_slug' | 'slug'>): string | null {
   const country = document.country_slug ? encode(document.country_slug) : null;
-  const topic = document.topic_slug ? encode(document.topic_slug) : null;
   const slug = document.slug ? encode(document.slug) : null;
 
   switch (document.content_type) {
@@ -27,8 +26,6 @@ export function canonicalPathForDocument(document: Pick<ContentDocument, 'conten
       return slug && !country ? `/guides/${slug}` : null;
     case 'country-guide':
       return country && slug ? `/${country}/guides/${slug}` : null;
-    case 'country-topic':
-      return country && (topic || slug) ? `/${country}/${topic || slug}` : null;
     case 'broker':
       return slug ? `/brokers/${slug}` : null;
     case 'country':
@@ -40,10 +37,9 @@ export function canonicalPathForDocument(document: Pick<ContentDocument, 'conten
   }
 }
 
-/** Single source of truth for content identity when creating a new canonical document. */
+/** Single source of truth for content identity when creating a canonical document. */
 export function canonicalContentKeyForDocument(document: Pick<ContentDocument, 'content_type' | 'country_slug' | 'topic_slug' | 'slug'>): string | null {
   const country = document.country_slug || '';
-  const topic = document.topic_slug || document.slug || '';
   const slug = document.slug || '';
 
   switch (document.content_type) {
@@ -51,8 +47,6 @@ export function canonicalContentKeyForDocument(document: Pick<ContentDocument, '
       return slug ? `guide:${slug}` : null;
     case 'country-guide':
       return country && slug ? `country-guide:${country}:${slug}` : null;
-    case 'country-topic':
-      return country && topic ? `country-topic:${country}:${topic}` : null;
     case 'broker':
       return slug ? `broker:${slug}:main` : null;
     case 'country':
@@ -186,22 +180,6 @@ export async function resolveCanonicalPath(pathname: string): Promise<CanonicalR
     });
   }
 
-  if (segments.length === 2) {
-    const [countrySlug, topicSlug] = segments;
-    const document = await fetchContentDocumentByKey(`country-topic:${countrySlug}:${topicSlug}`);
-    if (!document || document.content_type !== 'country-topic' || document.published === false) return null;
-    return route(path, {
-      type: 'country-topic',
-      countrySlug,
-      topicSlug,
-      slug: topicSlug,
-      contentKey: document.content_key,
-      indexable: document.indexable !== false,
-      published: document.published,
-      document,
-    });
-  }
-
   if (segments.length === 1) {
     const slug = segments[0];
     const country = await fetchCountry(slug).catch(() => null);
@@ -215,10 +193,6 @@ export async function resolveCanonicalPath(pathname: string): Promise<CanonicalR
   }
 
   return null;
-}
-
-async function fetchContentDocumentByKey(key: string) {
-  return fetchContentDocument(key).catch(() => null);
 }
 
 async function fetchContentDocumentByTypeAndSlug(type: string, slug: string, countrySlug?: string) {
@@ -236,10 +210,6 @@ export function globalBestForPath(slug: string): string | null {
 
 export function globalBestForSlugs(): string[] {
   return Object.values(CANONICAL_BEST_FOR);
-}
-
-export function canonicalCountryTopicPath(countrySlug: string, topicSlug: string): string {
-  return `/${encode(countrySlug)}/${encode(topicSlug)}`;
 }
 
 export function canonicalCountryGuidePath(countrySlug: string, slug: string): string {
