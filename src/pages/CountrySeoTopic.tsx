@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowRight, Check, Sparkles } from 'lucide-react';
 import type { Broker, CountryPage, ContentDocument, LocalizedSeoPage } from '../lib/types';
-import { fetchBrokers, fetchCountry, fetchContentDocument, fetchLocalizedSeoPagesForCountry } from '../lib/api';
+import { fetchBrokers, fetchCountry, fetchLocalizedSeoPagesForCountry } from '../lib/api';
+import { fetchCanonicalCountryTopic } from '../lib/canonicalContent';
 import { useSEO } from '../hooks/useSEO';
 import { buildBreadcrumbJsonLd, buildFAQPageJsonLd, buildItemListJsonLd, buildWebPageJsonLd, absoluteUrl } from '../lib/seo';
 import { getCountrySeoTopic, rankCountryTopicBrokers, topicFaq, topicNote, topicMeta, topicIntro } from '../data/countrySeoTopics';
@@ -36,11 +37,15 @@ export default function CountrySeoTopic() {
       return;
     }
     setLoading(true);
-    Promise.all([fetchCountry(countrySlug), fetchBrokers(), fetchContentDocument(`country-topic:${countrySlug}:${topic.slug}`)])
+    Promise.all([fetchCountry(countrySlug), fetchBrokers(), fetchCanonicalCountryTopic(countrySlug, topic.slug)])
       .then(([c, b, content]) => {
+        if (!content) {
+          setMissing(true);
+          return;
+        }
         setCountry(c);
         setBrokers(b);
-        setRichContent(content?.published ? content : null);
+        setRichContent(content);
         track('country_topic_view', { country: c.slug, topic: topic.slug });
       })
       .catch(() => setMissing(true))
