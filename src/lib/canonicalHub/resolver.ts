@@ -16,11 +16,7 @@ function encode(value: string): string {
   return encodeURIComponent(value);
 }
 
-/**
- * Single source of truth for how an editable content document maps to a public URL.
- * PageManager uses this for previews/listing; CanonicalHub uses the resolver below
- * for actual public ownership.
- */
+/** Single source of truth for how an editable content document maps to a public URL. */
 export function canonicalPathForDocument(document: Pick<ContentDocument, 'content_type' | 'country_slug' | 'topic_slug' | 'slug'>): string | null {
   const country = document.country_slug ? encode(document.country_slug) : null;
   const topic = document.topic_slug ? encode(document.topic_slug) : null;
@@ -36,9 +32,33 @@ export function canonicalPathForDocument(document: Pick<ContentDocument, 'conten
     case 'broker':
       return slug ? `/brokers/${slug}` : null;
     case 'country':
-      return country || (slug ? `/${slug}` : null);
+      return country ? `/${country}` : slug ? `/${slug}` : null;
     case 'compare':
       return slug ? `/compare/${slug}` : null;
+    default:
+      return null;
+  }
+}
+
+/** Single source of truth for content identity when creating a new canonical document. */
+export function canonicalContentKeyForDocument(document: Pick<ContentDocument, 'content_type' | 'country_slug' | 'topic_slug' | 'slug'>): string | null {
+  const country = document.country_slug || '';
+  const topic = document.topic_slug || document.slug || '';
+  const slug = document.slug || '';
+
+  switch (document.content_type) {
+    case 'guide':
+      return slug ? `guide:${slug}` : null;
+    case 'country-guide':
+      return country && slug ? `country-guide:${country}:${slug}` : null;
+    case 'country-topic':
+      return country && topic ? `country-topic:${country}:${topic}` : null;
+    case 'broker':
+      return slug ? `broker:${slug}:main` : null;
+    case 'country':
+      return country || slug ? `country:${country || slug}:hub` : null;
+    case 'compare':
+      return slug ? `compare:${slug}` : null;
     default:
       return null;
   }
