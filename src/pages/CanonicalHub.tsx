@@ -3,7 +3,6 @@ import { useLocation } from 'react-router-dom';
 import type { CanonicalRoute } from '../lib/canonicalHub/types';
 import { resolveCanonicalPath } from '../lib/canonicalHub/resolver';
 import { useSEO } from '../hooks/useSEO';
-import About from './About';
 import BestFor from './BestFor';
 import BrokerDetail from './BrokerDetail';
 import Brokers from './Brokers';
@@ -74,7 +73,7 @@ export default function CanonicalHub() {
     case 'broker':
       return route.path === '/brokers' ? <Brokers /> : <BrokerDetail />;
     case 'country':
-      return route.path === '/countries' ? <Countries /> : <CountryDetail />;
+      return route.path === '/countries' || route.path.startsWith('/countries/') ? <CountryDetail /> : <Countries />;
     case 'compare':
       return route.path === '/compare' ? <Compare /> : <ComparePair />;
     case 'localized-seo':
