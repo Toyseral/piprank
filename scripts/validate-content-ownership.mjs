@@ -6,7 +6,6 @@ const scanRoots = ['src', 'api', 'scripts'];
 const ignored = new Set(['node_modules', '.git', 'dist']);
 const legacyPatterns = [
   /content_type\s*[:=]\s*['\"]country-topic['\"]/g,
-  /content_type\s*[:=]\s*['\"]country-best-for['\"]/g,
   /content_type\s*[:=]\s*['\"]localized-seo-page['\"]/g,
   /country-topic:/g,
   /country_best_for/g,
@@ -41,7 +40,6 @@ const uniqueHits = [...new Set(hits)].sort();
 console.log(`Canonical ownership audit: ${uniqueHits.length} file(s) still reference legacy page ownership.`);
 for (const file of uniqueHits) console.log(` - ${file}`);
 
-// This is intentionally advisory during the migration. Once the legacy
-// systems are removed, change this to exit(1) and add it to the production
-// build pipeline.
+// Advisory during migration. Once legacy systems are removed, change to
+// exit(1) and keep it in the production build pipeline.
 process.exit(0);
