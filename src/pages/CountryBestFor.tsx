@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowRight, GraduationCap, MonitorSmartphone, Percent, Timer, Waves, Zap, Gauge, type LucideIcon } from 'lucide-react';
-import type { Broker, ContentDocument, CountryPage, Intent } from '../lib/types';
-import { fetchBrokers, fetchContentDocument, fetchCountry, fetchIntent } from '../lib/api';
+import type { Broker, ContentDocument, CountryPage } from '../lib/types';
+import { fetchBrokers, fetchCountry } from '../lib/api';
 import { allInCost } from '../lib/score';
 import { fmtMoney } from '../lib/format';
-import { buildBreadcrumbJsonLd, buildFAQPageJsonLd, buildItemListJsonLd, intentSeo, type SeoInput, BEST_FOR_CANONICAL } from '../lib/seo';
+import { buildBreadcrumbJsonLd, buildItemListJsonLd, type SeoInput, BEST_FOR_CANONICAL } from '../lib/seo';
 import { useSEO } from '../hooks/useSEO';
 import PageBlocksRenderer from '../components/PageBlocksRenderer';
 import BrokerCard from '../components/BrokerCard';
@@ -14,138 +14,94 @@ import NotFound from './NotFound';
 import type { PageBlock } from '../components/PageBuilder';
 
 const ICONS: Record<string, LucideIcon> = {
-  beginners: GraduationCap,
-  'low-spread': Percent,
-  mt4: MonitorSmartphone,
-  mt5: MonitorSmartphone,
-  ecn: Zap,
-  'copy-trading': Zap,
-  scalping: Timer,
-  'swing-trading': Waves,
-  'high-leverage': Gauge,
-  islamic: GraduationCap,
-  gold: Percent,
+  beginners: GraduationCap, 'low-spread': Percent, mt4: MonitorSmartphone, mt5: MonitorSmartphone,
+  ecn: Zap, 'copy-trading': Zap, scalping: Timer, 'swing-trading': Waves,
+  'high-leverage': Gauge, islamic: GraduationCap, gold: Percent,
 };
 
-function reasonFor(slug: string, b: Broker): string {
+function reasonFor(slug: string, broker: Broker): string {
   switch (slug) {
-    case 'low-spread': return `${b.spread_eurusd}p EUR/USD · ${allInCost(b)} pips all-in per lot`;
-    case 'scalping': return `Scalping allowed · ${b.execution_ms}ms execution · ${b.spread_eurusd}p spread`;
-    case 'mt5': return `MT5 available · ${b.assets.forex} forex pairs · ${b.uptime}% uptime`;
-    case 'mt4': return `MT4 available · ${b.assets.forex} forex pairs · ${b.uptime}% uptime`;
-    case 'beginners': return `${fmtMoney(b.min_deposit)} minimum · free demo · ${b.support_channels.length} support channels`;
-    case 'swing-trading': return `${b.max_leverage} leverage · ${b.uptime}% uptime`;
-    case 'high-leverage': return `Up to ${b.max_leverage} leverage · ${fmtMoney(b.min_deposit)} minimum deposit`;
-    default: return b.tagline;
+    case 'low-spread': return `${broker.spread_eurusd}p EUR/USD · ${allInCost(broker)} pips all-in per lot`;
+    case 'scalping': return `Scalping allowed · ${broker.execution_ms}ms execution · ${broker.spread_eurusd}p spread`;
+    case 'mt5': return `MT5 available · ${broker.assets.forex} forex pairs · ${broker.uptime}% uptime`;
+    case 'mt4': return `MT4 available · ${broker.assets.forex} forex pairs · ${broker.uptime}% uptime`;
+    case 'beginners': return `${fmtMoney(broker.min_deposit)} minimum · free demo · ${broker.support_channels.length} support channels`;
+    case 'swing-trading': return `${broker.max_leverage} leverage · ${broker.uptime}% uptime`;
+    case 'high-leverage': return `Up to ${broker.max_leverage} leverage · ${fmtMoney(broker.min_deposit)} minimum deposit`;
+    default: return broker.tagline;
   }
+}
+
+async function fetchCanonicalDocument(countrySlug: string, slug: string): Promise<ContentDocument | null> {
+  const response = await fetch(`/api/content-documents?type=country-best-for&country=${encodeURIComponent(countrySlug)}&slug=${encodeURIComponent(slug)}`);
+  if (!response.ok) return null;
+  const data = await response.json().catch(() => []);
+  if (!Array.isArray(data)) return null;
+  return data.find((doc: ContentDocument) => doc.content_type === 'country-best-for' && doc.published !== false) ?? null;
 }
 
 export default function CountryBestFor() {
   const { countrySlug, slug } = useParams<{ countrySlug: string; slug: string }>();
   const [document, setDocument] = useState<ContentDocument | null>(null);
   const [country, setCountry] = useState<CountryPage | null>(null);
-  const [intent, setIntent] = useState<Intent | null>(null);
   const [brokers, setBrokers] = useState<Broker[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const currentCountrySlug = countrySlug ?? '';
-    const canonicalSlug = slug ?? '';
-    if (currentCountrySlug.length === 0 || canonicalSlug.length === 0) {
-      setLoading(false);
-      return;
-    }
-
+    if (!countrySlug || !slug) { setLoading(false); return; }
     let active = true;
     setLoading(true);
-
-    async function load() {
-      try {
-        const [doc, countryRow] = await Promise.all([
-          fetchContentDocument(`country-best-for:${currentCountrySlug}:${canonicalSlug}`),
-          fetchCountry(currentCountrySlug),
-        ]);
-        if (!active || !doc || doc.content_type !== 'country-best-for' || doc.published === false || !countryRow) {
-          if (active) { setDocument(null); setCountry(null); setIntent(null); }
-          return;
-        }
-
-        // Canonical URL slugs always win. Migrated documents may still contain
-        // retired topic_slug values, so only use topic_slug as a fallback.
-        const canonicalIntentSlug = BEST_FOR_CANONICAL[canonicalSlug as keyof typeof BEST_FOR_CANONICAL];
-        const resolvedIntentSlug = canonicalIntentSlug ?? doc.topic_slug ?? '';
-        if (resolvedIntentSlug.length === 0) {
-          if (active) { setDocument(null); setCountry(null); setIntent(null); }
-          return;
-        }
-
-        const [intentRow, brokerRows] = await Promise.all([
-          fetchIntent(resolvedIntentSlug),
-          fetchBrokers(),
-        ]);
+    Promise.all([fetchCanonicalDocument(countrySlug, slug), fetchCountry(countrySlug), fetchBrokers()])
+      .then(([doc, countryRow, brokerRows]) => {
         if (!active) return;
         setDocument(doc);
-        setCountry(countryRow as CountryPage);
-        setIntent(intentRow as Intent);
+        setCountry(countryRow ?? null);
         setBrokers(brokerRows ?? []);
-        if (typeof window !== 'undefined') window.document.title = `${doc.title || intentRow.title} | PipRank`;
-      } catch {
-        if (active) { setDocument(null); setCountry(null); setIntent(null); }
-      } finally {
-        if (active) setLoading(false);
-      }
-    }
-
-    load();
+      })
+      .catch(() => { if (active) { setDocument(null); setCountry(null); } })
+      .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [countrySlug, slug]);
 
-  const ranked = useMemo(() => {
-    if (!intent || !country) return [];
-    const available = new Set((country.recommended ?? []).map(String));
-    const unavailable = new Set((country.unavailable ?? []).map(String));
-    return brokers
-      .filter((broker) => broker.best_for.includes(intent.slug))
-      .filter((broker) => available.size === 0 || available.has(String(broker.id)) || available.has(broker.slug) || !unavailable.has(String(broker.id)))
-      .sort((a, b) => b.rating - a.rating || b.trust_score - a.trust_score);
-  }, [brokers, country, intent]);
+  const intentSlug = slug ? BEST_FOR_CANONICAL[slug as keyof typeof BEST_FOR_CANONICAL] ?? slug : '';
+  const ranked = useMemo(() => brokers
+    .filter((broker) => !intentSlug || broker.best_for.includes(intentSlug))
+    .sort((a, b) => b.rating - a.rating || b.trust_score - a.trust_score), [brokers, intentSlug]);
 
-  const seoInput: SeoInput | null = document && intent && countrySlug && slug ? {
-    ...intentSeo(intent),
-    title: document.seo_title || document.title || `${intent.title} in ${country?.name ?? countrySlug}`,
-    description: document.seo_description || document.excerpt || intentSeo(intent).description,
+  const seoInput: SeoInput | null = document && countrySlug && slug ? {
+    title: document.seo_title || document.title,
+    description: document.seo_description || document.excerpt || '',
     path: `/${countrySlug}/${slug}`,
+    type: 'website',
+    noindex: document.indexable === false,
   } : null;
 
-  const seoJsonLd = document && intent && countrySlug && slug && seoInput ? [
+  useSEO(seoInput, document && seoInput ? [
     buildBreadcrumbJsonLd([
       { name: 'Home', path: '/' },
-      { name: country?.name || countrySlug, path: `/${countrySlug}` },
-      { name: document.title || intent.title, path: seoInput.path },
+      { name: country?.name || countrySlug || '', path: `/${countrySlug}` },
+      { name: document.title, path: seoInput.path },
     ]),
-    buildItemListJsonLd(
-      document.title || intent.title,
-      ranked.slice(0, 10).map((b) => ({ name: b.name, path: `/brokers/${b.slug}` })),
-    ),
-    ...(Array.isArray(intent.faqs) && intent.faqs.length
-      ? [buildFAQPageJsonLd(intent.faqs.map((faq) => ({ question: faq.q, answer: faq.a })))]
-      : []),
-  ] : undefined;
-
-  useSEO(seoInput, seoJsonLd);
+    buildItemListJsonLd(document.title, ranked.slice(0, 10).map((broker) => ({ name: broker.name, path: `/brokers/${broker.slug}` }))),
+  ] : undefined);
 
   if (loading) return <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6"><div className="h-48 animate-pulse rounded-3xl border border-line bg-white"/><div className="mt-8 h-64 animate-pulse rounded-3xl border border-line bg-white"/></div>;
-  if (!document || !country || !intent) return <NotFound />;
+  if (!document || !country || !countrySlug || !slug) return <NotFound />;
 
-  const Icon = ICONS[intent.slug] ?? GraduationCap;
+  const Icon = ICONS[intentSlug] ?? GraduationCap;
   const blocks: PageBlock[] = Array.isArray(document.blocks) ? document.blocks as PageBlock[] : [];
 
-  return <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6">
-    <div className="relative overflow-hidden rounded-3xl bg-ink-950 p-7 sm:p-10"><div className="absolute inset-0 bg-grid-dark"/><div className="relative"><div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500 text-ink-950 shadow-lg shadow-emerald-500/30"><Icon size={24}/></div><p className="mt-4 text-xs font-bold uppercase tracking-widest text-emerald-300">{country.flag} {country.name}</p><h1 className="mt-3 font-display text-3xl font-bold tracking-tight text-white sm:text-4xl">{document.title}</h1>{document.excerpt&&<p className="mt-3 max-w-3xl text-sm leading-relaxed text-slate-400 sm:text-[15px]">{document.excerpt}</p>}</div></div>
-    <section className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50/50 p-5"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-widest text-emerald-700">{country.name} broker shortlist</p><h2 className="mt-1 font-display text-lg font-bold text-ink-900">Choose a broker that fits you best</h2></div>{ranked[0]&&<Link to={`/brokers/${ranked[0].slug}`} className="inline-flex items-center gap-2 rounded-xl bg-ink-950 px-4 py-2.5 text-sm font-bold text-white hover:bg-ink-800">Read the top pick <ArrowRight size={15}/></Link>}</div></section>
-    <div className="mt-6">
-      <PageBlocksRenderer blocks={blocks} brokers={ranked} intent={intent.slug} countrySlug={countrySlug} />
+  return <article className="mx-auto max-w-5xl px-4 py-12 sm:px-6">
+    <nav aria-label="Breadcrumb" className="text-xs font-medium text-slate-400"><Link to="/" className="hover:text-ink-900">Home</Link><span className="mx-1.5">/</span><Link to={`/${country.slug}`} className="hover:text-ink-900">{country.name}</Link><span className="mx-1.5">/</span><span className="text-ink-900">{document.title}</span></nav>
+    <header className="mt-6 border-b border-line pb-8">
+      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500 text-ink-950"><Icon size={24}/></div>
+      <p className="mt-4 text-xs font-bold uppercase tracking-widest text-emerald-700">{country.flag} {country.name} · Best For</p>
+      <h1 className="mt-3 font-display text-3xl font-bold tracking-tight text-ink-950 sm:text-5xl">{document.title}</h1>
+      {document.excerpt && <p className="mt-4 max-w-3xl text-lg leading-8 text-slate-500">{document.excerpt}</p>}
+    </header>
+    <div className="mt-8">
+      {blocks.length ? <PageBlocksRenderer blocks={blocks} brokers={ranked} intent={intentSlug} countrySlug={countrySlug} className="piprank-rich-content space-y-8"/> : <p className="rounded-2xl border border-line bg-white p-6 text-sm text-slate-500">This page has no published content blocks yet.</p>}
     </div>
-    {ranked.length > 0 && <section className="mt-8"><h2 className="font-display text-2xl font-bold text-ink-950">Top {country.name} forex brokers</h2><div className="mt-4 grid gap-4">{ranked.slice(0, 5).map((broker) => <Reveal key={broker.id}><BrokerCard broker={broker} note={reasonFor(intent.slug, broker)} intent={intent.slug} countrySlug={countrySlug} /></Reveal>)}</div></section>}
-  </div>;
+    {ranked.length > 0 && <section className="mt-10 border-t border-line pt-8"><div className="flex items-end justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Broker options</p><h2 className="mt-1 font-display text-2xl font-bold text-ink-950">Top {country.name} forex brokers</h2></div>{ranked[0] && <Link to={`/brokers/${ranked[0].slug}`} className="inline-flex items-center gap-2 rounded-xl bg-ink-950 px-4 py-2.5 text-sm font-bold text-white">Read top pick <ArrowRight size={15}/></Link>}</div><div className="mt-4 grid gap-4">{ranked.slice(0, 5).map((broker) => <Reveal key={broker.id}><BrokerCard broker={broker} note={reasonFor(intentSlug, broker)} intent={intentSlug} countrySlug={countrySlug}/></Reveal>)}</div></section>}
+  </article>;
 }
