@@ -77,21 +77,9 @@ function CountryHub({
 
   const createBestFor = () => {
     if (!selected || !onNewContentDoc) return;
-    onNewContentDoc({
-      id: '',
-      content_key: `country-best-for:${selected.slug}:`,
-      content_type: 'country-best-for',
-      country_slug: selected.slug,
-      slug: '',
-      title: '',
-      excerpt: '',
-      seo_title: '',
-      seo_description: '',
-      blocks: [],
-      published: false,
-      indexable: false,
-      updated_at: new Date().toISOString(),
-    } as ContentDocument);
+    onNewContentDoc(undefined);
+    // The country context is carried by the hub selection. The editor creates
+    // the canonical key/type from this selection in the parent handler.
   };
 
   return (
