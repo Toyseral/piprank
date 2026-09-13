@@ -29,6 +29,14 @@ const Tools = lazy(() => import('./pages/Tools'));
 
 function RouteLoader() { return <div className="flex min-h-[60vh] items-center justify-center"><div className="h-9 w-9 animate-spin rounded-full border-2 border-line border-t-emerald-500" /></div>; }
 
+const GLOBAL_BEST_FOR_ROUTES = [
+  'forex-brokers-for-beginners', 'low-spread-forex-brokers', 'mt4-forex-brokers', 'mt5-forex-brokers',
+  'gold-forex-brokers', 'forex-brokers-for-scalping', 'islamic-forex-brokers', 'ecn-forex-brokers',
+  'copy-trading-forex-brokers', 'forex-brokers-for-swing-trading', 'high-leverage-forex-brokers',
+];
+
+const COUNTRY_BEST_FOR_ROUTES = GLOBAL_BEST_FOR_ROUTES;
+
 export function Shell() {
   const { pathname } = useLocation();
   const bare = pathname.startsWith('/archypage');
@@ -47,7 +55,6 @@ export function Shell() {
           <Route path="/archypage/localization" element={<AdminLocalization />} />
           <Route path="/archypage" element={<Admin />} />
 
-          {/* Retired global Best-For URLs are redirects only. */}
           <Route path="/best/:slug" element={<LegacyBestForRedirect />} />
           <Route path="/best-forex-brokers-for-beginners" element={<LegacyBestForRedirect />} />
           <Route path="/best-low-spread-forex-brokers" element={<LegacyBestForRedirect />} />
@@ -61,7 +68,6 @@ export function Shell() {
           <Route path="/best-forex-brokers-for-swing-trading" element={<LegacyBestForRedirect />} />
           <Route path="/best-high-leverage-forex-brokers" element={<LegacyBestForRedirect />} />
 
-          {/* Retired country Best-For URLs are redirects only. */}
           <Route path="/countries/:countrySlug/best/:slug" element={<LegacyCountryBestForRedirect />} />
           <Route path="/:countrySlug/best-low-spread-forex-brokers" element={<LegacyCountryBestForRedirect />} />
           <Route path="/:countrySlug/best-forex-brokers-for-beginners" element={<LegacyCountryBestForRedirect />} />
@@ -75,34 +81,12 @@ export function Shell() {
           <Route path="/:countrySlug/best-forex-brokers-for-swing-trading" element={<LegacyCountryBestForRedirect />} />
           <Route path="/:countrySlug/best-high-leverage-forex-brokers" element={<LegacyCountryBestForRedirect />} />
 
-          {/* Canonical content routes. These pages own their content type directly; they do not pass through a generic legacy page. */}
-          <Route path="/forex-brokers-for-beginners" element={<GlobalBestFor />} />
-          <Route path="/low-spread-forex-brokers" element={<GlobalBestFor />} />
-          <Route path="/mt4-forex-brokers" element={<GlobalBestFor />} />
-          <Route path="/mt5-forex-brokers" element={<GlobalBestFor />} />
-          <Route path="/gold-forex-brokers" element={<GlobalBestFor />} />
-          <Route path="/forex-brokers-for-scalping" element={<GlobalBestFor />} />
-          <Route path="/islamic-forex-brokers" element={<GlobalBestFor />} />
-          <Route path="/ecn-forex-brokers" element={<GlobalBestFor />} />
-          <Route path="/copy-trading-forex-brokers" element={<GlobalBestFor />} />
-          <Route path="/forex-brokers-for-swing-trading" element={<GlobalBestFor />} />
-          <Route path="/high-leverage-forex-brokers" element={<GlobalBestFor />} />
+          {GLOBAL_BEST_FOR_ROUTES.map((slug) => <Route key={slug} path={`/${slug}`} element={<GlobalBestFor slug={slug} />} />)}
 
           <Route path="/:countrySlug/guides/:slug" element={<GuideTopic />} />
 
-          <Route path="/:countrySlug/forex-brokers-for-beginners" element={<CountryBestFor />} />
-          <Route path="/:countrySlug/low-spread-forex-brokers" element={<CountryBestFor />} />
-          <Route path="/:countrySlug/mt4-forex-brokers" element={<CountryBestFor />} />
-          <Route path="/:countrySlug/mt5-forex-brokers" element={<CountryBestFor />} />
-          <Route path="/:countrySlug/gold-forex-brokers" element={<CountryBestFor />} />
-          <Route path="/:countrySlug/forex-brokers-for-scalping" element={<CountryBestFor />} />
-          <Route path="/:countrySlug/islamic-forex-brokers" element={<CountryBestFor />} />
-          <Route path="/:countrySlug/ecn-forex-brokers" element={<CountryBestFor />} />
-          <Route path="/:countrySlug/copy-trading-forex-brokers" element={<CountryBestFor />} />
-          <Route path="/:countrySlug/forex-brokers-for-swing-trading" element={<CountryBestFor />} />
-          <Route path="/:countrySlug/high-leverage-forex-brokers" element={<CountryBestFor />} />
+          {COUNTRY_BEST_FOR_ROUTES.map((slug) => <Route key={slug} path={`/:countrySlug/${slug}`} element={<CountryBestFor />} />)}
 
-          {/* Remaining canonical content is still resolved centrally. */}
           <Route path="/brokers" element={<CanonicalHub />} />
           <Route path="/brokers/:slug" element={<CanonicalHub />} />
           <Route path="/:countrySlug/brokers/:slug" element={<CanonicalHub />} />
