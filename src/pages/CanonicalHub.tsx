@@ -63,6 +63,10 @@ export default function CanonicalHub() {
 
   switch (route.type) {
     case 'global-best-for':
+    case 'country-best-for':
+      // Keep the established Best-For presentation: hero, ranked BrokerCards,
+      // comparison/criteria sections and the existing CRO flow. The canonical
+      // resolver only decides ownership; it does not replace the page design.
       return <BestFor />;
     case 'country-topic':
       return <CountrySeoTopic />;
