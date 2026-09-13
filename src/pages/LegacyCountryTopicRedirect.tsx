@@ -1,18 +1,34 @@
-import { useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { resolveCanonicalPath } from '../lib/canonicalHub/resolver';
+import CanonicalHub from './CanonicalHub';
 
 /**
- * Country-topic pages no longer own content. Old URLs are retained only as a
- * migration surface and are redirected to the country hub instead of rendering
- * legacy ranking/topic content.
+ * Two-segment country URLs are shared by the canonical country Best-For pages
+ * and retired country-topic URLs. Resolve canonical ownership first; only
+ * redirect to the country hub when no canonical document exists.
  */
 export default function LegacyCountryTopicRedirect() {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const { countrySlug } = useParams<{ countrySlug: string; topicSlug: string }>();
+  const [canonical, setCanonical] = useState<boolean | null>(null);
 
   useEffect(() => {
-    navigate(countrySlug ? `/${countrySlug}` : '/', { replace: true });
-  }, [countrySlug, navigate]);
+    let active = true;
+    resolveCanonicalPath(pathname).then((route) => {
+      if (!active) return;
+      setCanonical(Boolean(route?.type === 'country-best-for'));
+    }).catch(() => {
+      if (active) setCanonical(false);
+    });
+    return () => { active = false; };
+  }, [pathname]);
 
+  useEffect(() => {
+    if (canonical === false) navigate(countrySlug ? `/${countrySlug}` : '/', { replace: true });
+  }, [canonical, countrySlug, navigate]);
+
+  if (canonical === true) return <CanonicalHub />;
   return <div className="mx-auto max-w-3xl px-4 py-16 text-center text-sm text-slate-500">Redirecting…</div>;
 }
