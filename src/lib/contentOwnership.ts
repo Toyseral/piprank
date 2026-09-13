@@ -50,7 +50,7 @@ export function isCanonicalContentKey(contentType: string, contentKey: string): 
 
   switch (contentType) {
     case 'country':
-      return /^country:[a-z0-9-]+$/.test(contentKey);
+      return /^country:[a-z0-9-]+:hub$/.test(contentKey);
     case 'country-guide':
       return /^country-guide:[a-z0-9-]+:[a-z0-9-]+$/.test(contentKey);
     case 'global-best-for':
@@ -58,7 +58,7 @@ export function isCanonicalContentKey(contentType: string, contentKey: string): 
     case 'guide':
       return /^guide:[a-z0-9-]+$/.test(contentKey);
     case 'broker':
-      return /^broker:[a-z0-9-]+$/.test(contentKey);
+      return /^broker:[a-z0-9-]+:(?:[a-z0-9-]+)$/.test(contentKey);
     case 'compare':
       return /^compare:[a-z0-9-]+:[a-z0-9-]+$/.test(contentKey);
     default:
