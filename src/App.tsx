@@ -16,6 +16,7 @@ const Authors = lazy(() => import('./pages/Authors'));
 const CanonicalHub = lazy(() => import('./pages/CanonicalHub'));
 const LegacyBestForRedirect = lazy(() => import('./pages/LegacyBestForRedirect'));
 const LegacyCountryBestForRedirect = lazy(() => import('./pages/LegacyCountryBestForRedirect'));
+const LegacyCountryTopicRedirect = lazy(() => import('./pages/LegacyCountryTopicRedirect'));
 const LocalizedGuide = lazy(() => import('./pages/LocalizedGuide'));
 const Methodology = lazy(() => import('./pages/Methodology'));
 const Promotions = lazy(() => import('./pages/Promotions'));
@@ -71,11 +72,13 @@ export function Shell() {
           <Route path="/countries" element={<CanonicalHub />} />
           <Route path="/countries/:slug" element={<CanonicalHub />} />
 
-          {/* Country guides and Best-For pages are canonical-content owned. */}
+          {/* Country guides are canonical content documents. */}
           <Route path="/:countrySlug/guides/:slug" element={<CanonicalHub />} />
           <Route path="/:countrySlug/:locale/guides/:slug" element={<LocalizedGuide />} />
           <Route path="/:countrySlug/:locale/:topicSlug" element={<CanonicalHub />} />
-          <Route path="/:countrySlug/:topicSlug" element={<CanonicalHub />} />
+
+          {/* Old country-topic URLs no longer render topic content. */}
+          <Route path="/:countrySlug/:topicSlug" element={<LegacyCountryTopicRedirect />} />
 
           {/* Root-level global Best-For URLs are all resolved through CanonicalHub. */}
           <Route path="/forex-brokers-for-beginners" element={<CanonicalHub />} />
