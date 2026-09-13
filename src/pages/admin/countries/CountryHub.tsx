@@ -46,7 +46,7 @@ function CountryHub({
   onEditCountry,
   onEditCountryBestFor: _onEditCountryBestFor,
   onNewCountryBestFor: _onNewCountryBestFor,
-  onNewContentDoc,
+  onNewContentDoc: _onNewContentDoc,
   onEditContentDoc,
 }: {
   countries: CountryPage[];
@@ -64,6 +64,7 @@ function CountryHub({
 }) {
   const [query, setQuery] = useState('');
   const [selectedSlug, setSelectedSlug] = useState(() => countries[0]?.slug ?? '');
+  const [creating, setCreating] = useState(false);
   useEffect(() => { if (!selectedSlug && countries[0]) setSelectedSlug(countries[0].slug); }, [countries, selectedSlug]);
   const filtered = countries.filter((country) => `${country.name} ${country.slug}`.toLowerCase().includes(query.toLowerCase()));
   const selected = countries.find((country) => country.slug === selectedSlug) ?? filtered[0] ?? countries[0];
@@ -75,11 +76,38 @@ function CountryHub({
     : [], [contentDocs, selected]);
   const publishedState = String((selected as any)?.publishing_state ?? ((selected as any)?.status ?? 'published'));
 
-  const createBestFor = () => {
-    if (!selected || !onNewContentDoc) return;
-    onNewContentDoc(undefined);
-    // The country context is carried by the hub selection. The editor creates
-    // the canonical key/type from this selection in the parent handler.
+  const createBestFor = async () => {
+    if (!selected || creating) return;
+    setCreating(true);
+    try {
+      const draftSlug = `draft-${Date.now()}`;
+      const response = await fetch('/api/content-documents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          content_key: `country-best-for:${selected.slug}:${draftSlug}`,
+          content_type: 'country-best-for',
+          country_slug: selected.slug,
+          slug: draftSlug,
+          title: `New ${selected.name} Best-For page`,
+          excerpt: '',
+          html: '',
+          blocks: [],
+          seo_title: '',
+          seo_description: '',
+          published: false,
+          indexable: false,
+        }),
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(payload?.error || 'Could not create the country Best-For draft.');
+      if (payload && onEditContentDoc) onEditContentDoc(payload);
+      else notify('Country Best-For draft created. Refresh the Country Hub to edit it.');
+    } catch (error) {
+      notify(error instanceof Error ? error.message : 'Could not create the country Best-For draft.');
+    } finally {
+      setCreating(false);
+    }
   };
 
   return (
@@ -140,7 +168,7 @@ function CountryHub({
               <p className="font-display text-base font-bold text-ink-900">Country Best-For ({bestForPages.length})</p>
               <p className="mt-0.5 text-xs text-slate-400">Canonical pages owned by content_documents; intents remain ranking/config data.</p>
             </div>
-            <button onClick={createBestFor} className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3.5 py-1.5 text-xs font-bold text-white"><Plus size={13}/> New page</button>
+            <button onClick={createBestFor} disabled={creating} className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3.5 py-1.5 text-xs font-bold text-white disabled:opacity-50"><Plus size={13}/> {creating ? 'Creating…' : 'New page'}</button>
           </div>
           <div className="divide-y divide-line">
             {bestForPages.map((page) => <div key={page.id} className="flex items-center gap-3 px-5 py-3.5">
