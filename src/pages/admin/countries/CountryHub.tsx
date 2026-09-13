@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Pencil, Plus, Search } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Eye, Pencil, Plus, Search } from 'lucide-react';
 import type { Broker, ContentDocument, CountryBestFor, CountryPage } from '../../../lib/types';
 import CountryGuides from '../CountryGuides';
 
@@ -30,11 +30,10 @@ function EntityPanel({ title, items }: { title: string; items: string[] }) {
 }
 
 /**
- * Country Workspace is intentionally guide-first.
- * Country best-for/country-topic pages are no longer owned here; the only
- * country editorial documents shown in this workspace are canonical guides.
- * Legacy props remain optional for a migration-safe Admin call site until
- * the old country ranking/editor wiring is removed there.
+ * Country Workspace owns the country hub and country guides.
+ * Country Best-For pages are canonical content documents of their own; they
+ * are listed here only as country-level links/references and are edited with
+ * the same ContentDocumentEditor used by the Global Hub.
  */
 function CountryHub({
   countries,
@@ -47,6 +46,8 @@ function CountryHub({
   onEditCountry,
   onEditCountryBestFor: _onEditCountryBestFor,
   onNewCountryBestFor: _onNewCountryBestFor,
+  onNewContentDoc,
+  onEditContentDoc,
 }: {
   countries: CountryPage[];
   brokers: Broker[];
@@ -58,6 +59,8 @@ function CountryHub({
   onEditCountry: (country: CountryPage) => void;
   onEditCountryBestFor?: (page: CountryBestFor) => void;
   onNewCountryBestFor?: (countrySlug: string) => void;
+  onNewContentDoc?: (doc?: ContentDocument) => void;
+  onEditContentDoc?: (doc: ContentDocument) => void;
 }) {
   const [query, setQuery] = useState('');
   const [selectedSlug, setSelectedSlug] = useState(() => countries[0]?.slug ?? '');
@@ -67,7 +70,29 @@ function CountryHub({
   const guides = selected
     ? contentDocs.filter((doc) => doc.content_type === 'country-guide' && doc.country_slug === selected.slug)
     : [];
+  const bestForPages = useMemo(() => selected
+    ? contentDocs.filter((doc) => doc.content_type === 'country-best-for' && doc.country_slug === selected.slug)
+    : [], [contentDocs, selected]);
   const publishedState = String((selected as any)?.publishing_state ?? ((selected as any)?.status ?? 'published'));
+
+  const createBestFor = () => {
+    if (!selected || !onNewContentDoc) return;
+    onNewContentDoc({
+      id: '',
+      content_key: `country-best-for:${selected.slug}:`,
+      content_type: 'country-best-for',
+      country_slug: selected.slug,
+      slug: '',
+      title: '',
+      excerpt: '',
+      seo_title: '',
+      seo_description: '',
+      blocks: [],
+      published: false,
+      indexable: false,
+      updated_at: new Date().toISOString(),
+    } as ContentDocument);
+  };
 
   return (
     <div className="grid gap-5 lg:grid-cols-[300px_1fr]">
@@ -94,14 +119,14 @@ function CountryHub({
             <div>
               <p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Country Workspace</p>
               <h2 className="font-display text-2xl font-bold text-ink-900">{selected.flag} {selected.name}</h2>
-              <p className="mt-1 text-sm text-slate-500">Manage the country hub and its canonical guides. Country best-for/topic pages are no longer edited here.</p>
+              <p className="mt-1 text-sm text-slate-500">Manage the country hub, canonical guides and country-specific Best-For pages.</p>
             </div>
             <button onClick={()=>onEditCountry(selected)} className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-4 py-2 text-xs font-bold text-white"><Pencil size={14}/> Edit country hub</button>
           </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-3">
             <HubMetric label="Publishing" value={publishedState} sub="draft · published · closed"/>
             <HubMetric label="Guides" value={String(guides.length)} sub="canonical country guides"/>
-            <HubMetric label="Country content" value={String(guides.length)} sub="guide documents only"/>
+            <HubMetric label="Best-For" value={String(bestForPages.length)} sub="canonical country pages"/>
           </div>
         </div>
 
@@ -119,6 +144,27 @@ function CountryHub({
             `${brokers.length} brokers in database`,
             'Use Broker Workspace for searchable eligibility states'
           ]}/>
+        </div>
+
+        <div className="rounded-2xl border border-line bg-white shadow-soft">
+          <div className="flex items-center justify-between border-b border-line px-5 py-4">
+            <div>
+              <p className="font-display text-base font-bold text-ink-900">Country Best-For ({bestForPages.length})</p>
+              <p className="mt-0.5 text-xs text-slate-400">Canonical pages owned by content_documents; intents remain ranking/config data.</p>
+            </div>
+            <button onClick={createBestFor} className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3.5 py-1.5 text-xs font-bold text-white"><Plus size={13}/> New page</button>
+          </div>
+          <div className="divide-y divide-line">
+            {bestForPages.map((page) => <div key={page.id} className="flex items-center gap-3 px-5 py-3.5">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-bold text-ink-900">{page.title || page.content_key}</p>
+                <p className="truncate text-xs text-slate-400">/{selected.slug}/{page.slug || page.content_key.replace(`country-best-for:${selected.slug}:`, '')}{page.published ? ' · Published' : ' · Draft'}</p>
+              </div>
+              {page.slug && <a href={`/${selected.slug}/${page.slug}`} target="_blank" rel="noreferrer" className="rounded-lg p-2 text-slate-400 hover:bg-paper hover:text-ink-900" title="Preview live page"><Eye size={14}/></a>}
+              {onEditContentDoc && <button onClick={() => onEditContentDoc(page)} className="rounded-lg p-2 text-slate-400 hover:bg-paper hover:text-ink-900" title="Edit canonical page"><Pencil size={14}/></button>}
+            </div>)}
+            {!bestForPages.length && <p className="p-5 text-sm text-slate-400">No canonical country Best-For documents yet.</p>}
+          </div>
         </div>
 
         <CountryGuides
