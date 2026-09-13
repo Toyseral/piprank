@@ -16,6 +16,7 @@ export function canonicalPathForDocument(document: Pick<ContentDocument, 'conten
   switch (document.content_type) {
     case 'guide': return slug && !country ? `/guides/${slug}` : null;
     case 'country-guide': return country && slug ? `/${country}/guides/${slug}` : null;
+    case 'country-best-for': return country && slug ? `/${country}/${slug}` : null;
     case 'broker': return slug ? `/brokers/${slug}` : null;
     case 'country': return country ? `/${country}` : slug ? `/${slug}` : null;
     case 'compare': return slug ? `/compare/${slug}` : null;
@@ -30,6 +31,7 @@ export function canonicalContentKeyForDocument(document: Pick<ContentDocument, '
   switch (document.content_type) {
     case 'guide': return slug ? `guide:${slug}` : null;
     case 'country-guide': return country && slug ? `country-guide:${country}:${slug}` : null;
+    case 'country-best-for': return country && slug ? `country-best-for:${country}:${slug}` : null;
     case 'broker': return slug ? `broker:${slug}:main` : null;
     case 'country': return country || slug ? `country:${country || slug}:hub` : null;
     case 'compare': return slug ? `compare:${slug}` : null;
@@ -85,6 +87,29 @@ export async function resolveCanonicalPath(pathname: string): Promise<CanonicalR
     return route(path, { type: 'broker', countrySlug, slug, indexable: true, published: country.publishing_state !== 'closed' });
   }
   if (segments.length === 2 && segments[0] === 'compare') return route(path, { type: 'compare', slug: segments[1], indexable: true, published: true });
+
+  // Country Best-For pages are canonical two-segment pages. A country and a
+  // recognized commercial intent are only a candidate; the page becomes
+  // canonical after its own published content_document is verified.
+  if (segments.length === 2 && CANONICAL_BEST_FOR_BY_SLUG[segments[1]]) {
+    const [countrySlug, slug] = segments;
+    const country = await fetchCountry(countrySlug).catch(() => null);
+    if (country) {
+      const document = await fetchContentDocument(`country-best-for:${countrySlug}:${slug}`).catch(() => null);
+      if (document && document.content_type === 'country-best-for' && document.published !== false) {
+        return route(path, {
+          type: 'country-best-for',
+          countrySlug,
+          slug,
+          contentKey: document.content_key,
+          indexable: document.indexable !== false && country.publishing_state !== 'closed',
+          published: document.published && country.publishing_state !== 'closed',
+          document,
+        });
+      }
+    }
+  }
+
   if (segments.length === 3) {
     const [countrySlug, locale, topicSlug] = segments; const localized = await fetchLocalizedSeoPage(countrySlug, locale, topicSlug).catch(() => null); const legacyVietnamese = countrySlug === 'vietnam' && locale === 'vi';
     if (!localized && !legacyVietnamese) return null;
@@ -107,3 +132,4 @@ async function fetchContentDocumentByTypeAndSlug(type: string, slug: string, cou
 export function globalBestForPath(slug: string): string | null { return CANONICAL_BEST_FOR_BY_SLUG[slug] ?? null; }
 export function globalBestForSlugs(): string[] { return Object.values(CANONICAL_BEST_FOR); }
 export function canonicalCountryGuidePath(countrySlug: string, slug: string): string { return `/${encode(countrySlug)}/guides/${encode(slug)}`; }
+export function canonicalCountryBestForPath(countrySlug: string, slug: string): string { return `/${encode(countrySlug)}/${encode(slug)}`; }
