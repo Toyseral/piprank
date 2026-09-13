@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom';
 import type { CanonicalRoute } from '../lib/canonicalHub/types';
 import { resolveCanonicalPath } from '../lib/canonicalHub/resolver';
 import { useSEO } from '../hooks/useSEO';
-import BestFor from './BestFor';
+import GlobalBestFor from './GlobalBestFor';
 import BrokerDetail from './BrokerDetail';
 import Brokers from './Brokers';
 import Compare from './Compare';
@@ -62,7 +62,7 @@ export default function CanonicalHub() {
 
   switch (route.type) {
     case 'global-best-for':
-      return <BestFor />;
+      return <GlobalBestFor />;
     case 'guide':
       return route.path === '/guides' ? <Guides /> : <GuideDetail />;
     case 'country-guide':
