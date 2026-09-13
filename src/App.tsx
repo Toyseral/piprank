@@ -9,26 +9,14 @@ import NotFound from './pages/NotFound';
 import { GeoProvider } from './lib/GeoContext';
 
 const SmartCTA = lazy(() => import('./components/SmartCTA'));
-const About = lazy(() => import('./pages/About'));
 const Admin = lazy(() => import('./pages/Admin'));
 const AdminLocalization = lazy(() => import('./pages/AdminLocalization'));
 const Authors = lazy(() => import('./pages/Authors'));
-const BestFor = lazy(() => import('./pages/BestFor'));
-const CountryBestForRoute = lazy(() => import('./pages/CountryBestForRoute'));
+const CanonicalHub = lazy(() => import('./pages/CanonicalHub'));
 const LegacyBestForRedirect = lazy(() => import('./pages/LegacyBestForRedirect'));
 const LegacyCountryBestForRedirect = lazy(() => import('./pages/LegacyCountryBestForRedirect'));
-const BrokerDetail = lazy(() => import('./pages/BrokerDetail'));
-const Brokers = lazy(() => import('./pages/Brokers'));
-const Compare = lazy(() => import('./pages/Compare'));
-const ComparePair = lazy(() => import('./pages/ComparePair'));
-const Countries = lazy(() => import('./pages/Countries'));
-const CountryDetail = lazy(() => import('./pages/CountryDetail'));
-const GuideDetail = lazy(() => import('./pages/GuideDetail'));
-const Guides = lazy(() => import('./pages/Guides'));
-const Methodology = lazy(() => import('./pages/Methodology'));
-const GuideTopic = lazy(() => import('./pages/GuideTopic'));
 const LocalizedGuide = lazy(() => import('./pages/LocalizedGuide'));
-const LocalizedCountrySeoTopic = lazy(() => import('./pages/LocalizedCountrySeoTopic'));
+const Methodology = lazy(() => import('./pages/Methodology'));
 const Promotions = lazy(() => import('./pages/Promotions'));
 const Quiz = lazy(() => import('./pages/Quiz'));
 const Tools = lazy(() => import('./pages/Tools'));
@@ -44,36 +32,18 @@ export function Shell() {
       <Suspense fallback={<RouteLoader />}>
         <Routes>
           <Route path="/" element={<Home />} />
-          <Route path="/brokers" element={<Brokers />} />
-          <Route path="/brokers/:slug" element={<BrokerDetail />} />
-          <Route path="/:countrySlug/brokers/:slug" element={<BrokerDetail />} />
-          <Route path="/compare" element={<Compare />} />
-          <Route path="/compare/:pair" element={<ComparePair />} />
+
+          {/* Non-canonical application/tools/admin surfaces remain explicit. */}
           <Route path="/quiz" element={<Quiz />} />
           <Route path="/tools" element={<Tools />} />
-          <Route path="/guides" element={<Guides />} />
-          <Route path="/guides/:slug" element={<GuideDetail />} />
           <Route path="/methodology" element={<Methodology />} />
-          <Route path="/about" element={<About />} />
           <Route path="/authors" element={<Authors />} />
+          <Route path="/promotions" element={<Promotions />} />
+          <Route path="/archypage/localization" element={<AdminLocalization />} />
+          <Route path="/archypage" element={<Admin />} />
 
-          {/* Canonical global Best-For URLs. */}
-          <Route path="/forex-brokers-for-beginners" element={<BestFor />} />
-          <Route path="/low-spread-forex-brokers" element={<BestFor />} />
-          <Route path="/mt4-forex-brokers" element={<BestFor />} />
-          <Route path="/mt5-forex-brokers" element={<BestFor />} />
-          <Route path="/gold-forex-brokers" element={<BestFor />} />
-          <Route path="/forex-brokers-for-scalping" element={<BestFor />} />
-          <Route path="/islamic-forex-brokers" element={<BestFor />} />
-          <Route path="/ecn-forex-brokers" element={<BestFor />} />
-          <Route path="/copy-trading-forex-brokers" element={<BestFor />} />
-          <Route path="/forex-brokers-for-swing-trading" element={<BestFor />} />
-          <Route path="/high-leverage-forex-brokers" element={<BestFor />} />
-
-          {/* Legacy global URLs remain valid but are no longer page owners. */}
+          {/* Legacy URLs remain redirects and never own canonical content. */}
           <Route path="/best/:slug" element={<LegacyBestForRedirect />} />
-
-          {/* Legacy country Best-For URLs are compatibility redirects. */}
           <Route path="/countries/:countrySlug/best/:slug" element={<LegacyCountryBestForRedirect />} />
           <Route path="/:countrySlug/best-low-spread-forex-brokers" element={<LegacyCountryBestForRedirect />} />
           <Route path="/:countrySlug/best-forex-brokers-for-beginners" element={<LegacyCountryBestForRedirect />} />
@@ -86,21 +56,40 @@ export function Shell() {
           <Route path="/:countrySlug/best-forex-brokers-for-swing-trading" element={<LegacyCountryBestForRedirect />} />
           <Route path="/:countrySlug/best-high-leverage-forex-brokers" element={<LegacyCountryBestForRedirect />} />
 
-          {/* Country informational content has one canonical guide model. */}
-          <Route path="/:countrySlug/guides/:slug" element={<GuideTopic />} />
-          <Route path="/countries" element={<Countries />} />
-          <Route path="/countries/:slug" element={<CountryDetail />} />
-          <Route path="/promotions" element={<Promotions />} />
-          <Route path="/archypage/localization" element={<AdminLocalization />} />
-          <Route path="/archypage" element={<Admin />} />
+          {/* Canonical route ownership is resolved centrally by CanonicalHub. */}
+          <Route path="/brokers" element={<CanonicalHub />} />
+          <Route path="/brokers/:slug" element={<CanonicalHub />} />
+          <Route path="/:countrySlug/brokers/:slug" element={<CanonicalHub />} />
+          <Route path="/compare" element={<CanonicalHub />} />
+          <Route path="/compare/:pair" element={<CanonicalHub />} />
+          <Route path="/guides" element={<CanonicalHub />} />
+          <Route path="/guides/:slug" element={<CanonicalHub />} />
 
-          {/* Localized country Best-For remains separate from localized guides. */}
-          <Route path="/:countrySlug/:locale/:topicSlug" element={<LocalizedCountrySeoTopic />} />
+          {/* Country informational hub remains an explicit surface; canonical child pages are Hub-driven. */}
+          <Route path="/countries" element={<CanonicalHub />} />
+          <Route path="/countries/:slug" element={<CanonicalHub />} />
+
+          {/* Country guides and Best-For pages are canonical-content owned. */}
+          <Route path="/:countrySlug/guides/:slug" element={<CanonicalHub />} />
           <Route path="/:countrySlug/:locale/guides/:slug" element={<LocalizedGuide />} />
+          <Route path="/:countrySlug/:locale/:topicSlug" element={<CanonicalHub />} />
+          <Route path="/:countrySlug/:topicSlug" element={<CanonicalHub />} />
 
-          {/* DB-backed country Best-For pages must be checked before the generic two-segment route. */}
-          <Route path="/:countrySlug/:topicSlug" element={<CountryBestForRoute />} />
-          <Route path="/:slug" element={<CountryDetail />} />
+          {/* Root-level global Best-For URLs are all resolved through CanonicalHub. */}
+          <Route path="/forex-brokers-for-beginners" element={<CanonicalHub />} />
+          <Route path="/low-spread-forex-brokers" element={<CanonicalHub />} />
+          <Route path="/mt4-forex-brokers" element={<CanonicalHub />} />
+          <Route path="/mt5-forex-brokers" element={<CanonicalHub />} />
+          <Route path="/gold-forex-brokers" element={<CanonicalHub />} />
+          <Route path="/forex-brokers-for-scalping" element={<CanonicalHub />} />
+          <Route path="/islamic-forex-brokers" element={<CanonicalHub />} />
+          <Route path="/ecn-forex-brokers" element={<CanonicalHub />} />
+          <Route path="/copy-trading-forex-brokers" element={<CanonicalHub />} />
+          <Route path="/forex-brokers-for-swing-trading" element={<CanonicalHub />} />
+          <Route path="/high-leverage-forex-brokers" element={<CanonicalHub />} />
+
+          {/* Any remaining root-level slug is resolved as a canonical country route. */}
+          <Route path="/:slug" element={<CanonicalHub />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>
