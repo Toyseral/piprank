@@ -10,14 +10,6 @@ import Monogram from '../components/Monogram';
 import { ButtonLink } from '../components/Button';
 import { reviewerFor } from '../lib/team';
 
-/**
- * Canonical country guide page.
- *
- * Country guides are informational guide documents only. The canonical
- * source of truth is content_documents with content_type = country-guide,
- * edited through UnifiedGuideEditor. Ranking/SEO topic documents are not
- * used as a fallback or alternate content model here.
- */
 export default function GuideTopic() {
   const { countrySlug, slug } = useParams<{ countrySlug: string; slug: string }>();
   const [country, setCountry] = useState<CountryPage | null>(null);
@@ -32,24 +24,36 @@ export default function GuideTopic() {
       setLoading(false);
       return;
     }
+
     setLoading(true);
     setMissing(false);
-    Promise.all([
-      fetchCountry(countrySlug),
-      fetchBrokers(),
-      fetchContentDocument(`country-guide:${countrySlug}:${slug}`),
-    ])
-      .then(([c, b, content]) => {
-        if (!content || content.published === false || content.content_type !== 'country-guide') {
-          setMissing(true);
-          return;
-        }
-        setCountry(c);
-        setBrokers(b);
-        setDoc(content);
-      })
-      .catch(() => setMissing(true))
-      .finally(() => setLoading(false));
+
+    async function load() {
+      const [c, b] = await Promise.all([fetchCountry(countrySlug), fetchBrokers()]);
+      let content = await fetchContentDocument(`country-guide:${countrySlug}:${slug}`).catch(() => null);
+
+      // Older migrated/localized guide rows may have a different content_key.
+      // The canonical identity is content_type + country_slug + slug, so use
+      // the indexed lookup as a safe fallback instead of declaring the guide
+      // unpublished when its key was created by an older migration.
+      if (!content) {
+        const params = new URLSearchParams({ type: 'country-guide', country: countrySlug, slug });
+        const response = await fetch(`/api/content-documents?${params.toString()}`);
+        const data = await response.json().catch(() => null);
+        content = (Array.isArray(data) ? data[0] : data) ?? null;
+      }
+
+      if (!content || content.published === false || content.content_type !== 'country-guide') {
+        setMissing(true);
+        return;
+      }
+
+      setCountry(c);
+      setBrokers(b);
+      setDoc(content);
+    }
+
+    load().catch(() => setMissing(true)).finally(() => setLoading(false));
   }, [countrySlug, slug]);
 
   const reviewer = reviewerFor(`${countrySlug ?? ''}-guide-${slug ?? ''}`);
@@ -84,14 +88,10 @@ export default function GuideTopic() {
   if (missing) {
     return (
       <div className="mx-auto max-w-2xl px-4 py-28 text-center sm:px-6">
-        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-ink-950 text-emerald-400">
-          <Compass size={30} />
-        </div>
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-ink-950 text-emerald-400"><Compass size={30} /></div>
         <h1 className="mt-6 font-display text-2xl font-bold text-ink-900">This guide isn't published</h1>
         <p className="mt-3 text-slate-500">It may have moved, been retired, or never existed for this country.</p>
-        <div className="mt-7 flex flex-wrap justify-center gap-3">
-          <ButtonLink variant="dark" size="lg" to="/countries">Browse countries</ButtonLink>
-        </div>
+        <div className="mt-7 flex flex-wrap justify-center gap-3"><ButtonLink variant="dark" size="lg" to="/countries">Browse countries</ButtonLink></div>
       </div>
     );
   }
@@ -107,53 +107,30 @@ export default function GuideTopic() {
         <Link to={`/${country.slug}`} className="hover:text-ink-900">{country.name}</Link><span>/</span>
         <span className="text-ink-900">{doc.title}</span>
       </nav>
-
-      <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-emerald-700">
-        <span className="text-lg leading-none">{country.flag}</span> {country.name} guide
-      </p>
+      <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-emerald-700"><span className="text-lg leading-none">{country.flag}</span> {country.name} guide</p>
       <h1 className="mt-2 font-display text-3xl font-bold tracking-tight text-ink-900 sm:text-4xl">{doc.title}</h1>
       <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-500">
         <Monogram name={reviewer.penName} color={reviewer.color} size={20} />
-        <span>
-          Reviewed by{' '}
-          <Link to={`/authors#${reviewer.slug}`} className="font-semibold text-ink-900 hover:text-emerald-700">
-            {reviewer.penName}
-          </Link>
-          , {reviewer.role}
-        </span>
-        <span aria-hidden="true">·</span>
-        <span>Updated {new Date(doc.updated_at).toISOString().slice(0, 10)}</span>
+        <span>Reviewed by <Link to={`/authors#${reviewer.slug}`} className="font-semibold text-ink-900 hover:text-emerald-700">{reviewer.penName}</Link>, {reviewer.role}</span>
+        <span aria-hidden="true">·</span><span>Updated {new Date(doc.updated_at).toISOString().slice(0, 10)}</span>
       </div>
       {doc.excerpt && <p className="mt-4 max-w-2xl text-base leading-relaxed text-slate-500">{doc.excerpt}</p>}
 
       <div className="piprank-rich-content mt-8 rounded-3xl border border-line bg-white p-6 sm:p-8">
-        {Array.isArray(doc.blocks) && doc.blocks.length ? (
-          <PageBlocksRenderer blocks={doc.blocks as any} brokers={brokers} countrySlug={country.slug} className="space-y-8" />
-        ) : doc.html ? (
-          <div dangerouslySetInnerHTML={{ __html: doc.html }} />
-        ) : null}
+        {Array.isArray(doc.blocks) && doc.blocks.length ? <PageBlocksRenderer blocks={doc.blocks as any} brokers={brokers} countrySlug={country.slug} className="space-y-8" /> : doc.html ? <div dangerouslySetInnerHTML={{ __html: doc.html }} /> : null}
       </div>
 
       {faqs.length > 0 && (
         <section className="mt-8 space-y-4">
           <h2 className="font-display text-xl font-bold text-ink-900">Frequently asked questions</h2>
-          {faqs.map((f) => (
-            <details key={f.q} className="rounded-2xl border border-line bg-white p-5">
-              <summary className="cursor-pointer font-bold text-ink-900">{f.q}</summary>
-              <p className="mt-3 text-sm leading-7 text-slate-600">{f.a}</p>
-            </details>
-          ))}
+          {faqs.map((f) => <details key={f.q} className="rounded-2xl border border-line bg-white p-5"><summary className="cursor-pointer font-bold text-ink-900">{f.q}</summary><p className="mt-3 text-sm leading-7 text-slate-600">{f.a}</p></details>)}
         </section>
       )}
 
       {internalLinks.length > 0 && (
         <section className="mt-8 rounded-2xl border border-line bg-white p-6">
           <p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Related pages</p>
-          <div className="mt-3 grid gap-2 sm:grid-cols-2">
-            {internalLinks.map((link, i) => (
-              <Link key={i} to={link.href} className="rounded-xl border border-line px-4 py-3 text-sm font-semibold text-ink-900 hover:border-emerald-300 hover:bg-emerald-50">{link.label}</Link>
-            ))}
-          </div>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">{internalLinks.map((link, i) => <Link key={i} to={link.href} className="rounded-xl border border-line px-4 py-3 text-sm font-semibold text-ink-900 hover:border-emerald-300 hover:bg-emerald-50">{link.label}</Link>)}</div>
         </section>
       )}
 
