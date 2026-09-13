@@ -25,7 +25,7 @@ export default function AdminLocalization() {
       safe('/api/countries', [] as CountryPage[]),
       safe('/api/country-languages?admin=true', [] as CountryLanguage[]),
       safe('/api/localized-seo-pages?admin=true', [] as LocalizedSeoPage[]),
-      safe('/api/content-documents', [] as ContentDocument[]),
+      safe('/api/content-documents?admin=true', [] as ContentDocument[]),
     ]);
     setCountries(Array.isArray(co) ? co : []);
     setLanguages(Array.isArray(la) ? la : []);

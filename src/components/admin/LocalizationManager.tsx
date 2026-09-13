@@ -317,7 +317,9 @@ function LocalizedPageRow({
       setBuilderBlocks([]);
       return;
     }
-    fetch(`/api/content-documents?id=${contentDocumentId}`)
+    fetch(`/api/content-documents?id=${contentDocumentId}&admin=true`, {
+  headers: { Authorization: `Bearer ${accessToken}` },
+})
       .then((r) => r.json())
       .then((d: ContentDocument | null) => {
         setStudioDoc(d);
@@ -338,7 +340,10 @@ function LocalizedPageRow({
     setStudioBusy(true);
     try {
       const content_key = `localized:${country.slug}:${language.code}:${page.topic_key}`;
-      const existingRes = await fetch(`/api/content-documents?key=${encodeURIComponent(content_key)}`);
+      const existingRes = await fetch(
+  `/api/content-documents?key=${encodeURIComponent(content_key)}&admin=true`,
+  { headers: { Authorization: `Bearer ${accessToken}` } }
+);
       const existing = await existingRes.json().catch(() => null);
       let docId = existing?.id as number | undefined;
       if (!docId) {

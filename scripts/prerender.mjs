@@ -824,7 +824,7 @@ async function main() {
 
     const guideHtml = typeof g.html === "string" ? g.html : "";
 
-    const content = \`
+    const content = `
       <main>
         <nav aria-label="Breadcrumb">
           <a href="/">Home</a> &rsaquo;
@@ -836,7 +836,7 @@ async function main() {
         ${guideHtml}
         <p><a href="/guides">See all guides</a></p>
       </main>
-    \`;
+    `;
 
     const jsonLd = [
       webPageJsonLd(title, description, `/guides/${g.slug}`, "Article"),

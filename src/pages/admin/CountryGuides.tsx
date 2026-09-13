@@ -27,7 +27,7 @@ export default function CountryGuides({ country, countries, brokers, token, noti
   const load = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/content-documents', { headers });
+      const res = await fetch('/api/content-documents?admin=true', { headers });
       const data = await res.json().catch(() => []);
       if (!res.ok || !Array.isArray(data)) throw new Error('Could not load country guides');
       setDocuments(
