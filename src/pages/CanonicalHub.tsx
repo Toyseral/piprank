@@ -4,6 +4,7 @@ import type { CanonicalRoute } from '../lib/canonicalHub/types';
 import { resolveCanonicalPath } from '../lib/canonicalHub/resolver';
 import { useSEO } from '../hooks/useSEO';
 import GlobalBestFor from './GlobalBestFor';
+import CountryBestFor from './CountryBestFor';
 import BrokerDetail from './BrokerDetail';
 import Brokers from './Brokers';
 import Compare from './Compare';
@@ -63,6 +64,8 @@ export default function CanonicalHub() {
   switch (route.type) {
     case 'global-best-for':
       return <GlobalBestFor />;
+    case 'country-best-for':
+      return <CountryBestFor />;
     case 'guide':
       return route.path === '/guides' ? <Guides /> : <GuideDetail />;
     case 'country-guide':
