@@ -1,13 +1,14 @@
 /**
  * Canonical content ownership contract.
  *
- * A page must have exactly one canonical owner. During the migration, legacy
- * content types remain readable only for migration/redirect purposes; they
- * must not be used to create new indexable pages.
+ * Every indexable page must have exactly one canonical owner. Legacy
+ * `country-topic` and the old `country_best_for` table are migration-only;
+ * canonical country Best-For pages live in content_documents.
  */
 export const CANONICAL_CONTENT_TYPES = [
   'country',
   'country-guide',
+  'country-best-for',
   'global-best-for',
   'guide',
   'broker',
@@ -18,7 +19,6 @@ export type CanonicalContentType = (typeof CANONICAL_CONTENT_TYPES)[number];
 
 export const LEGACY_CONTENT_TYPES = [
   'country-topic',
-  'country-best-for',
   'localized-seo-page',
 ] as const;
 
@@ -41,10 +41,6 @@ export function isKnownContentType(value: string): value is (typeof ALL_KNOWN_CO
   return (ALL_KNOWN_CONTENT_TYPES as readonly string[]).includes(value);
 }
 
-/**
- * Canonical content keys are deliberately explicit. This prevents two page
- * systems from silently creating different documents for the same URL.
- */
 export function isCanonicalContentKey(contentType: string, contentKey: string): boolean {
   if (!isCanonicalContentType(contentType)) return false;
 
@@ -53,6 +49,8 @@ export function isCanonicalContentKey(contentType: string, contentKey: string): 
       return /^country:[a-z0-9-]+:hub$/.test(contentKey);
     case 'country-guide':
       return /^country-guide:[a-z0-9-]+:[a-z0-9-]+$/.test(contentKey);
+    case 'country-best-for':
+      return /^country-best-for:[a-z0-9-]+:[a-z0-9-]+$/.test(contentKey);
     case 'global-best-for':
       return /^best-for:[a-z0-9-]+$/.test(contentKey);
     case 'guide':
