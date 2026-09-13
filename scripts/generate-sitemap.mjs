@@ -13,7 +13,7 @@ const DIST = join(__dirname, '..', 'dist');
 const MAX_BROKERS_FOR_PAIRS = 12;
 
 function escXml(value) {
-  return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+  return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;').replace(/'/g, '&apos;');
 }
 function cleanDate(value) {
   if (!value) return undefined;
@@ -37,7 +37,7 @@ async function main() {
   const [brokersResult, countriesResult, documentsResult, localizedResult, intentsResult] = await Promise.all([
     supabase.from('brokers').select('slug, rating, updated_at'),
     supabase.from('countries').select('id, slug, recommended, updated_at'),
-    supabase.from('content_documents').select('content_type, country_slug, slug, published, indexable, updated_at, content_key').eq('published', true),
+    supabase.from('content_documents').select('content_type, country_slug, topic_slug, slug, published, indexable, updated_at, content_key').eq('published', true),
     supabase.from('localized_seo_pages').select('country_id, language_id, slug, published, indexable, updated_at'),
     supabase.from('intents').select('slug, updated_at'),
   ]);
@@ -61,10 +61,11 @@ async function main() {
   }
 
   // CanonicalHub owns the global Best-For path mapping. The legacy intent
-  // table is used only for the current last-modified timestamp.
-  for (const intent of intents) {
-    const canonicalPath = CANONICAL_BEST_FOR_BY_SLUG[intent.slug];
-    if (canonicalPath) urls.push({ loc: `/${canonicalPath}`, lastmod: cleanDate(intent.updated_at) });
+  // table is used only for current last-modified timestamps. The registry,
+  // not the intent table, determines which canonical URLs exist.
+  for (const [slug, canonicalPath] of Object.entries(CANONICAL_BEST_FOR_BY_SLUG)) {
+    const intent = intents.find((row) => row.slug === slug);
+    urls.push({ loc: `/${canonicalPath}`, lastmod: cleanDate(intent?.updated_at) });
   }
 
   // Country Best-For URLs are owned only by published country-topic documents.
@@ -72,11 +73,12 @@ async function main() {
   const countryTopicDocs = documents.filter((document) =>
     document.content_type === 'country-topic' &&
     Boolean(document.country_slug) &&
-    Boolean(document.slug) &&
+    Boolean(document.topic_slug || document.slug) &&
     document.indexable !== false,
   );
   for (const document of countryTopicDocs) {
-    urls.push({ loc: `/${document.country_slug}/${document.slug}`, lastmod: cleanDate(document.updated_at) });
+    const topicSlug = document.topic_slug || document.slug;
+    urls.push({ loc: `/${document.country_slug}/${topicSlug}`, lastmod: cleanDate(document.updated_at) });
   }
 
   const countrySlugById = new Map(countries.map((country) => [Number(country.id), country.slug]));
