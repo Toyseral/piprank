@@ -5,7 +5,7 @@ import type { Broker, ContentDocument, CountryPage, Intent } from '../lib/types'
 import { fetchBrokers, fetchContentDocument, fetchCountry, fetchIntent } from '../lib/api';
 import { allInCost } from '../lib/score';
 import { fmtMoney } from '../lib/format';
-import { buildBreadcrumbJsonLd, buildFAQPageJsonLd, buildItemListJsonLd, intentSeo, type SeoInput } from '../lib/seo';
+import { buildBreadcrumbJsonLd, buildFAQPageJsonLd, buildItemListJsonLd, intentSeo, type SeoInput, BEST_FOR_CANONICAL } from '../lib/seo';
 import { useSEO } from '../hooks/useSEO';
 import PageBlocksRenderer from '../components/PageBlocksRenderer';
 import BrokerCard from '../components/BrokerCard';
@@ -15,12 +15,15 @@ import NotFound from './NotFound';
 const ICONS: Record<string, LucideIcon> = {
   beginners: GraduationCap,
   'low-spread': Percent,
+  mt4: MonitorSmartphone,
   mt5: MonitorSmartphone,
   ecn: Zap,
   'copy-trading': Zap,
   scalping: Timer,
   'swing-trading': Waves,
   'high-leverage': Gauge,
+  islamic: GraduationCap,
+  gold: Percent,
 };
 
 function reasonFor(slug: string, b: Broker): string {
@@ -28,6 +31,7 @@ function reasonFor(slug: string, b: Broker): string {
     case 'low-spread': return `${b.spread_eurusd}p EUR/USD · ${allInCost(b)} pips all-in per lot`;
     case 'scalping': return `Scalping allowed · ${b.execution_ms}ms execution · ${b.spread_eurusd}p spread`;
     case 'mt5': return `MT5 available · ${b.assets.forex} forex pairs · ${b.uptime}% uptime`;
+    case 'mt4': return `MT4 available · ${b.assets.forex} forex pairs · ${b.uptime}% uptime`;
     case 'beginners': return `${fmtMoney(b.min_deposit)} minimum · free demo · ${b.support_channels.length} support channels`;
     case 'swing-trading': return `${b.max_leverage} leverage · ${b.uptime}% uptime`;
     case 'high-leverage': return `Up to ${b.max_leverage} leverage · ${fmtMoney(b.min_deposit)} minimum deposit`;
@@ -47,20 +51,45 @@ export default function CountryBestFor() {
     if (!countrySlug || !slug) { setLoading(false); return; }
     let active = true;
     setLoading(true);
-    Promise.all([
-      fetchContentDocument(`country-best-for:${countrySlug}:${slug}`),
-      fetchCountry(countrySlug),
-      fetchIntent(slug),
-      fetchBrokers(),
-    ]).then(([doc, countryRow, intentRow, brokerRows]) => {
-      if (!active) return;
-      if (!doc || doc.content_type !== 'country-best-for' || doc.published === false || !countryRow) return;
-      setDocument(doc);
-      setCountry(countryRow as CountryPage);
-      setIntent(intentRow as Intent);
-      setBrokers(brokerRows ?? []);
-      if (typeof window !== 'undefined') window.document.title = `${doc.title || intentRow.title} | PipRank`;
-    }).finally(() => { if (active) setLoading(false); });
+
+    async function load() {
+      try {
+        const [doc, countryRow] = await Promise.all([
+          fetchContentDocument(`country-best-for:${countrySlug}:${slug}`),
+          fetchCountry(countrySlug),
+        ]);
+        if (!active || !doc || doc.content_type !== 'country-best-for' || doc.published === false || !countryRow) {
+          if (active) { setDocument(null); setCountry(null); setIntent(null); }
+          return;
+        }
+
+        // The URL slug is the canonical path slug. The intent table still uses
+        // its internal slug (beginners, low-spread, mt4, etc.). Prefer the
+        // document's topic_slug and fall back to the canonical registry map.
+        const intentSlug = doc.topic_slug || BEST_FOR_CANONICAL[slug] || null;
+        if (!intentSlug) {
+          if (active) { setDocument(null); setCountry(null); setIntent(null); }
+          return;
+        }
+
+        const [intentRow, brokerRows] = await Promise.all([
+          fetchIntent(intentSlug),
+          fetchBrokers(),
+        ]);
+        if (!active) return;
+        setDocument(doc);
+        setCountry(countryRow as CountryPage);
+        setIntent(intentRow as Intent);
+        setBrokers(brokerRows ?? []);
+        if (typeof window !== 'undefined') window.document.title = `${doc.title || intentRow.title} | PipRank`;
+      } catch {
+        if (active) { setDocument(null); setCountry(null); setIntent(null); }
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+
+    load();
     return () => { active = false; };
   }, [countrySlug, slug]);
 
