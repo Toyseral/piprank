@@ -48,15 +48,17 @@ export default function CountryBestFor() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!countrySlug || !slug) { setLoading(false); return; }
+    const canonicalSlug = slug;
+    const currentCountrySlug = countrySlug;
+    if (!currentCountrySlug || !canonicalSlug) { setLoading(false); return; }
     let active = true;
     setLoading(true);
 
     async function load() {
       try {
         const [doc, countryRow] = await Promise.all([
-          fetchContentDocument(`country-best-for:${countrySlug}:${slug}`),
-          fetchCountry(countrySlug),
+          fetchContentDocument(`country-best-for:${currentCountrySlug}:${canonicalSlug}`),
+          fetchCountry(currentCountrySlug),
         ]);
         if (!active || !doc || doc.content_type !== 'country-best-for' || doc.published === false || !countryRow) {
           if (active) { setDocument(null); setCountry(null); setIntent(null); }
@@ -64,9 +66,8 @@ export default function CountryBestFor() {
         }
 
         // Always derive the intent from the canonical URL slug first. Existing
-        // migrated documents may still carry retired topic_slug values such as
-        // best-low-spread-forex-brokers or best-mt5-brokers.
-        const intentSlug = BEST_FOR_CANONICAL[slug] || doc.topic_slug || null;
+        // migrated documents may still carry retired topic_slug values.
+        const intentSlug = BEST_FOR_CANONICAL[canonicalSlug] || doc.topic_slug || null;
         if (!intentSlug) {
           if (active) { setDocument(null); setCountry(null); setIntent(null); }
           return;
