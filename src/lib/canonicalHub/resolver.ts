@@ -77,14 +77,14 @@ export async function resolveCanonicalPath(pathname: string): Promise<CanonicalR
 
   if (segments.length === 2 && segments[0] === 'guides') {
     const slug = segments[1];
-    const document = await fetchContentDocumentByTypeAndSlug('guide', slug);
+    const document = await fetchContentDocumentByKey(`guide:${slug}`);
     if (!document || document.content_type !== 'guide' || document.published === false) return null;
     return route(path, { type: 'guide', slug, contentKey: document.content_key, indexable: document.indexable !== false, published: document.published, document });
   }
 
   if (segments.length === 3 && segments[1] === 'guides') {
     const [countrySlug, , slug] = segments;
-    const document = await fetchContentDocumentByTypeAndSlug('country-guide', slug, countrySlug);
+    const document = await fetchContentDocumentByKey(`country-guide:${countrySlug}:${slug}`);
     if (!document || document.content_type !== 'country-guide' || document.published === false) return null;
     return route(path, { type: 'country-guide', countrySlug, slug, contentKey: document.content_key, indexable: document.indexable !== false, published: document.published, document });
   }
@@ -121,7 +121,7 @@ export async function resolveCanonicalPath(pathname: string): Promise<CanonicalR
     // such as /vietnam/forex-broker-regulation from being rendered as a
     // Best-For page merely because another content system happens to know the
     // same slug.
-    const countryGuide = await fetchContentDocumentByTypeAndSlug('country-guide', slug, countrySlug);
+    const countryGuide = await fetchContentDocumentByKey(`country-guide:${countrySlug}:${slug}`);
     if (countryGuide && countryGuide.content_type === 'country-guide' && countryGuide.published !== false) {
       return route(path, {
         type: 'country-guide',
@@ -135,7 +135,7 @@ export async function resolveCanonicalPath(pathname: string): Promise<CanonicalR
       });
     }
 
-    const countryBestFor = await fetchContentDocumentByTypeAndSlug('country-best-for', slug, countrySlug);
+    const countryBestFor = await fetchContentDocumentByKey(`country-best-for:${countrySlug}:${slug}`);
     if (countryBestFor && countryBestFor.content_type === 'country-best-for' && countryBestFor.published !== false) {
       return route(path, { type: 'country-best-for', countrySlug, slug, contentKey: countryBestFor.content_key, indexable: countryBestFor.indexable !== false, published: countryBestFor.published, document: countryBestFor });
     }
