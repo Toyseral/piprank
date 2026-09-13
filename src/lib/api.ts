@@ -86,6 +86,12 @@ export const fetchCountryBestFors = async (countrySlug: string): Promise<Country
     return [];
   }
 };
+// Legacy compatibility for BestFor.tsx. New canonical country pages use CountryBestFor.tsx.
+export const fetchCountryBestFor = async (countrySlug: string, slug: string) => {
+  const doc = await fetchCountryBestForDocument(countrySlug, slug);
+  if (doc) return doc;
+  return get<any>(`/api/country-best-for?country=${encodeURIComponent(countrySlug)}&slug=${encodeURIComponent(slug)}`);
+};
 export const createReview = async (payload: { broker_id: number; author: string; country: string; rating: number; title: string; body: string }, authToken?: string): Promise<Review> => { const res = await fetch('/api/reviews', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}) }, body: JSON.stringify(payload) }); const data = await res.json().catch(() => ({})); if (!res.ok) throw new Error((data as { error?: string }).error || `Request failed (${res.status})`); return data as Review; };
 export const voteHelpful = (id: number) => send<Review>('/api/reviews', 'PUT', { id });
 export const subscribeNewsletter = (email: string) => send<{ ok: boolean; duplicate?: boolean }>('/api/newsletter', 'POST', { email });
