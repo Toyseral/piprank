@@ -1,5 +1,5 @@
 import { Eye, Pencil, Plus } from 'lucide-react';
-import type { ContentDocument } from '../../lib/types';
+import type { ContentDocument, Intent } from '../../lib/types';
 
 export default function GlobalHub({
   guides,
@@ -8,6 +8,11 @@ export default function GlobalHub({
   onEditGuide,
   onNewBestFor,
   onEditBestFor,
+  // Temporary compatibility: Admin still supplies these while IntentEditor is retired.
+  intents: _intents,
+  onNewIntent: _onNewIntent,
+  onEditIntent: _onEditIntent,
+  intentToTopic: _intentToTopic,
 }: {
   guides: ContentDocument[];
   bestForPages: ContentDocument[];
@@ -15,6 +20,10 @@ export default function GlobalHub({
   onEditGuide: (g: ContentDocument) => void;
   onNewBestFor: () => void;
   onEditBestFor: (page: ContentDocument) => void;
+  intents?: Intent[];
+  onNewIntent?: () => void;
+  onEditIntent?: (i: Intent) => void;
+  intentToTopic?: Record<string, string>;
 }) {
   return (
     <div className="grid gap-5 lg:grid-cols-2">
