@@ -23,6 +23,10 @@ export function canonicalPathForDocument(document: Pick<ContentDocument, 'conten
   const slug = document.slug ? encode(document.slug) : null;
 
   switch (document.content_type) {
+    case 'global-best-for':
+      return slug ? `/${slug}` : null;
+    case 'country-best-for':
+      return country && slug ? `/${country}/${slug}` : null;
     case 'guide':
       return slug && !country ? `/guides/${slug}` : null;
     case 'country-guide':
@@ -47,6 +51,10 @@ export function canonicalContentKeyForDocument(document: Pick<ContentDocument, '
   const slug = document.slug || '';
 
   switch (document.content_type) {
+    case 'global-best-for':
+      return slug ? `best-for:${slug}` : null;
+    case 'country-best-for':
+      return country && slug ? `country-best-for:${country}:${slug}` : null;
     case 'guide':
       return slug ? `guide:${slug}` : null;
     case 'country-guide':
@@ -187,14 +195,31 @@ export async function resolveCanonicalPath(pathname: string): Promise<CanonicalR
   }
 
   if (segments.length === 2) {
-    const [countrySlug, topicSlug] = segments;
-    const document = await fetchContentDocumentByKey(`country-topic:${countrySlug}:${topicSlug}`);
+    const [countrySlug, slug] = segments;
+
+    // Country Best-For owns this exact country-first URL shape. It must be
+    // checked before the legacy country-topic resolver because both use two
+    // URL segments but they are different content types and editors.
+    const countryBestFor = await fetchContentDocumentByTypeAndSlug('country-best-for', slug, countrySlug);
+    if (countryBestFor && countryBestFor.content_type === 'country-best-for' && countryBestFor.published !== false) {
+      return route(path, {
+        type: 'country-best-for',
+        countrySlug,
+        slug,
+        contentKey: countryBestFor.content_key,
+        indexable: countryBestFor.indexable !== false,
+        published: countryBestFor.published,
+        document: countryBestFor,
+      });
+    }
+
+    const document = await fetchContentDocumentByKey(`country-topic:${countrySlug}:${slug}`);
     if (!document || document.content_type !== 'country-topic' || document.published === false) return null;
     return route(path, {
       type: 'country-topic',
       countrySlug,
-      topicSlug,
-      slug: topicSlug,
+      topicSlug: slug,
+      slug,
       contentKey: document.content_key,
       indexable: document.indexable !== false,
       published: document.published,
