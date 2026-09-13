@@ -73,7 +73,7 @@ export default function CanonicalHub() {
     case 'broker':
       return route.path === '/brokers' ? <Brokers /> : <BrokerDetail />;
     case 'country':
-      return route.path === '/countries' || route.path.startsWith('/countries/') ? <CountryDetail /> : <Countries />;
+      return route.path === '/countries' ? <Countries /> : <CountryDetail />;
     case 'compare':
       return route.path === '/compare' ? <Compare /> : <ComparePair />;
     case 'localized-seo':
