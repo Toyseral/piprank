@@ -39,6 +39,18 @@ export async function resolveCanonicalPath(pathname: string): Promise<CanonicalR
 
   const segments = path.slice(1).split('/').filter(Boolean).map(decodeURIComponent);
 
+  if (segments.length === 2 && segments[0] === 'countries') {
+    const slug = segments[1];
+    const country = await fetchCountry(slug).catch(() => null);
+    if (!country) return null;
+    return route(path, {
+      type: 'country',
+      slug,
+      indexable: true,
+      published: country.publishing_state !== 'closed',
+    });
+  }
+
   if (segments.length === 2 && segments[0] === 'guides') {
     const slug = segments[1];
     const document = await fetchContentDocumentByTypeAndSlug('guide', slug);
