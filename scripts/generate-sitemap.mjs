@@ -34,14 +34,13 @@ async function main() {
   const staticPaths = ['/', '/brokers', '/countries', '/compare', '/guides', '/methodology', '/quiz', '/tools', '/promotions', '/about', '/authors'];
   const urls = staticPaths.map((loc) => ({ loc }));
 
-  const [brokersResult, countriesResult, documentsResult, localizedResult, intentsResult] = await Promise.all([
+  const [brokersResult, countriesResult, documentsResult, localizedResult] = await Promise.all([
     supabase.from('brokers').select('slug, rating, updated_at'),
     supabase.from('countries').select('id, slug, recommended, updated_at'),
     supabase.from('content_documents').select('content_type, country_slug, topic_slug, slug, published, indexable, updated_at, content_key').eq('published', true),
     supabase.from('localized_seo_pages').select('country_id, language_id, slug, published, indexable, updated_at'),
-    supabase.from('intents').select('slug, updated_at'),
   ]);
-  for (const result of [brokersResult, countriesResult, documentsResult, localizedResult, intentsResult]) {
+  for (const result of [brokersResult, countriesResult, documentsResult, localizedResult]) {
     if (result.error) throw new Error(`[generate-sitemap] Supabase query failed: ${result.error.message}`);
   }
 
@@ -49,7 +48,6 @@ async function main() {
   const countries = countriesResult.data ?? [];
   const documents = documentsResult.data ?? [];
   const localizedSeoPages = localizedResult.data ?? [];
-  const intents = intentsResult.data ?? [];
 
   for (const broker of brokers) if (broker.slug) urls.push({ loc: `/brokers/${broker.slug}`, lastmod: cleanDate(broker.updated_at) });
   for (const country of countries) if (country.slug) urls.push({ loc: `/${country.slug}`, lastmod: cleanDate(country.updated_at) });
@@ -60,25 +58,25 @@ async function main() {
     urls.push({ loc: `/guides/${document.slug}`, lastmod: cleanDate(document.updated_at) });
   }
 
-  // CanonicalHub owns the global Best-For path mapping. The legacy intent
-  // table is used only for current last-modified timestamps. The registry,
-  // not the intent table, determines which canonical URLs exist.
+  // Global Best-For URLs are owned by published global-best-for documents.
+  // The registry identifies the approved commercial slugs, but a URL is only
+  // emitted when its canonical content document actually exists.
   for (const [slug, canonicalPath] of Object.entries(CANONICAL_BEST_FOR_BY_SLUG)) {
-    const intent = intents.find((row) => row.slug === slug);
-    urls.push({ loc: `/${canonicalPath}`, lastmod: cleanDate(intent?.updated_at) });
+    const document = documents.find((row) =>
+      row.content_type === 'global-best-for' &&
+      row.content_key === `best-for:${slug}` &&
+      row.slug === slug &&
+      row.indexable !== false,
+    );
+    if (!document) continue;
+    urls.push({ loc: `/${canonicalPath}`, lastmod: cleanDate(document.updated_at) });
   }
 
-  // Country Best-For URLs are owned only by published country-topic documents.
+  // Country Best-For URLs are owned by country-best-for content documents.
   // No static topic registry or legacy country_best_for row can create a URL.
-  const countryTopicDocs = documents.filter((document) =>
-    document.content_type === 'country-topic' &&
-    Boolean(document.country_slug) &&
-    Boolean(document.topic_slug || document.slug) &&
-    document.indexable !== false,
-  );
-  for (const document of countryTopicDocs) {
-    const topicSlug = document.topic_slug || document.slug;
-    urls.push({ loc: `/${document.country_slug}/${topicSlug}`, lastmod: cleanDate(document.updated_at) });
+  for (const document of documents) {
+    if (document.content_type !== 'country-best-for' || !document.country_slug || !document.slug || document.indexable === false) continue;
+    urls.push({ loc: `/${document.country_slug}/${document.slug}`, lastmod: cleanDate(document.updated_at) });
   }
 
   const countrySlugById = new Map(countries.map((country) => [Number(country.id), country.slug]));
