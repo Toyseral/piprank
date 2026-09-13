@@ -67,11 +67,12 @@ export function canonicalContentKeyForDocument(document: Pick<ContentDocument, '
 export function resolveStaticCanonicalPath(pathname: string): CanonicalRoute | null {
   const path = cleanPath(pathname);
   const first = path.slice(1);
+  const bestForSlug = CANONICAL_BEST_FOR[first as keyof typeof CANONICAL_BEST_FOR];
 
-  if (CANONICAL_BEST_FOR[first]) {
+  if (bestForSlug) {
     return route(path, {
       type: 'global-best-for',
-      slug: CANONICAL_BEST_FOR[first],
+      slug: bestForSlug,
       indexable: true,
       published: true,
     });
