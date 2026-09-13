@@ -1,52 +1,48 @@
-import { Eye, Pencil, Plus } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Eye, Pencil, Plus, X, Loader2 } from 'lucide-react';
 import type { ContentDocument, Intent } from '../../lib/types';
+import PageBuilder, { blocksToHtml, type PageBlock } from '../../components/PageBuilder';
+import supabase from '../../lib/supabase';
 
-export default function GlobalHub({
-  guides,
-  bestForPages = [],
-  onNewGuide,
-  onEditGuide,
-  onNewBestFor = () => undefined,
-  onEditBestFor = () => undefined,
-  intents: _intents,
-  onNewIntent: _onNewIntent,
-  onEditIntent: _onEditIntent,
-  intentToTopic: _intentToTopic,
-}: {
-  guides: ContentDocument[];
-  bestForPages?: ContentDocument[];
-  onNewGuide: () => void;
-  onEditGuide: (g: ContentDocument) => void;
-  onNewBestFor?: () => void;
-  onEditBestFor?: (page: ContentDocument) => void;
-  intents?: Intent[];
-  onNewIntent?: () => void;
-  onEditIntent?: (i: Intent) => void;
-  intentToTopic?: Record<string, string>;
-}) {
-  return (
+function emptyBestFor(): ContentDocument {
+  const slug = `draft-${Date.now()}`;
+  return { id: 0, content_key: `best-for:${slug}`, content_type: 'global-best-for', country_slug: null, topic_slug: null, slug, title: 'New Global Best-For page', excerpt: '', html: '', blocks: [], seo_title: null, seo_description: null, indexable: false, published: false, updated_by: null, created_at: '', updated_at: '', settings: {} };
+}
+
+function BestForEditor({ document, onClose, onSaved }: { document: ContentDocument; onClose: () => void; onSaved: (doc: ContentDocument) => void }) {
+  const [form, setForm] = useState<ContentDocument>({ ...document, blocks: Array.isArray(document.blocks) ? document.blocks : [] });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const save = async () => {
+    setBusy(true); setError('');
+    try {
+      const slug = String(form.slug || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      if (!slug) throw new Error('A canonical slug is required.');
+      if (!form.title.trim()) throw new Error('A page title is required.');
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) throw new Error('Your admin session has expired. Sign in again.');
+      const payload = { ...form, content_type: 'global-best-for', country_slug: null, slug, content_key: `best-for:${slug}`, html: blocksToHtml((form.blocks ?? []) as PageBlock[]) };
+      const res = await fetch('/api/content-documents', { method: form.id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(form.id ? { ...payload, id: form.id } : payload) });
+      const out = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(out.error || 'Could not save global Best-For page.');
+      onSaved(out as ContentDocument); onClose();
+    } catch (e) { setError(e instanceof Error ? e.message : 'Could not save page.'); } finally { setBusy(false); }
+  };
+  return <div className="fixed inset-0 z-[120] flex items-center justify-center bg-ink-950/60 p-3 backdrop-blur-sm"><div className="flex max-h-[96vh] w-full max-w-5xl flex-col overflow-hidden rounded-3xl bg-white shadow-soft-lg"><div className="flex items-center gap-3 bg-ink-950 px-5 py-4 text-white"><div className="min-w-0 flex-1"><p className="font-display font-bold">{form.id?'Edit':'Create'} Global Best-For page</p><p className="text-xs text-slate-400">Canonical page · /{form.slug}</p></div><button onClick={onClose} className="rounded-lg p-2 text-slate-400 hover:bg-white/10"><X size={18}/></button></div><div className="flex-1 overflow-y-auto p-5 sm:p-7">{error&&<p className="mb-5 rounded-xl bg-rose-50 px-4 py-2.5 text-sm text-rose-600">{error}</p>}<div className="grid gap-4 sm:grid-cols-2"><label><span className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-slate-400">Page title / H1</span><input value={form.title} onChange={e=>setForm({...form,title:e.target.value})} className="h-10 w-full rounded-xl border border-line bg-paper px-3 text-sm outline-none focus:border-emerald-500"/></label><label><span className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-slate-400">Canonical slug</span><input value={form.slug||''} onChange={e=>setForm({...form,slug:e.target.value})} className="h-10 w-full rounded-xl border border-line bg-paper px-3 text-sm outline-none focus:border-emerald-500"/></label></div><label className="mt-4 block"><span className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-slate-400">Intro / excerpt</span><textarea value={form.excerpt||''} onChange={e=>setForm({...form,excerpt:e.target.value})} rows={3} className="w-full rounded-xl border border-line bg-paper px-3 py-2.5 text-sm outline-none focus:border-emerald-500"/></label><div className="mt-5"><span className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-slate-400">Visual page builder</span><PageBuilder value={(Array.isArray(form.blocks)?form.blocks:[]) as PageBlock[]} onChange={blocks=>setForm({...form,blocks,html:blocksToHtml(blocks)})}/></div><div className="mt-5 grid gap-4 sm:grid-cols-2"><label><span className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-slate-400">SEO title</span><input value={form.seo_title||''} onChange={e=>setForm({...form,seo_title:e.target.value})} className="h-10 w-full rounded-xl border border-line bg-paper px-3 text-sm outline-none focus:border-emerald-500"/></label><label><span className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-slate-400">SEO description</span><textarea value={form.seo_description||''} onChange={e=>setForm({...form,seo_description:e.target.value})} rows={2} className="w-full rounded-xl border border-line bg-paper px-3 py-2.5 text-sm outline-none focus:border-emerald-500"/></label></div><div className="mt-4 grid gap-3 sm:grid-cols-2"><label className="flex items-center justify-between rounded-xl border border-line bg-paper p-4"><span><span className="block text-sm font-bold">Publish</span><span className="text-xs text-slate-400">Make the page live.</span></span><button type="button" onClick={()=>setForm({...form,published:!form.published})} className={`relative h-6 w-11 rounded-full ${form.published?'bg-emerald-500':'bg-slate-300'}`}><span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow ${form.published?'left-[22px]':'left-0.5'}/></button></label><label className="flex items-center justify-between rounded-xl border border-line bg-paper p-4"><span><span className="block text-sm font-bold">Index</span><span className="text-xs text-slate-400">Allow indexing.</span></span><button type="button" onClick={()=>setForm({...form,indexable:!form.indexable})} className={`relative h-6 w-11 rounded-full ${form.indexable?'bg-emerald-500':'bg-slate-300'}`}><span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow ${form.indexable?'left-[22px]':'left-0.5'}/></button></label></div></div><div className="flex justify-end gap-2 border-t border-line bg-white px-5 py-4"><button onClick={onClose} className="rounded-xl border border-line px-4 py-2 text-xs font-bold text-slate-600">Cancel</button><button onClick={save} disabled={busy} className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2 text-xs font-bold text-white disabled:opacity-60">{busy&&<Loader2 size={14} className="animate-spin"/>}{form.id?'Save changes':'Create page'}</button></div></div></div>;
+}
+
+export default function GlobalHub({ guides, bestForPages: initialBestForPages = [], onNewGuide, onEditGuide, onNewBestFor: _onNewBestFor, onEditBestFor: _onEditBestFor, intents: _intents, onNewIntent: _onNewIntent, onEditIntent: _onEditIntent, intentToTopic: _intentToTopic }: { guides: ContentDocument[]; bestForPages?: ContentDocument[]; onNewGuide: () => void; onEditGuide: (g: ContentDocument) => void; onNewBestFor?: () => void; onEditBestFor?: (page: ContentDocument) => void; intents?: Intent[]; onNewIntent?: () => void; onEditIntent?: (i: Intent) => void; intentToTopic?: Record<string,string> }) {
+  const [bestForPages, setBestForPages] = useState<ContentDocument[]>(initialBestForPages);
+  const [editing, setEditing] = useState<ContentDocument | null>(null);
+  const loadBestFor = async () => { try { const res = await fetch('/api/content-documents?type=global-best-for'); const data = await res.json(); if (Array.isArray(data)) setBestForPages(data); } catch { /* preserve existing list */ } };
+  useEffect(() => { loadBestFor(); }, []);
+  const saved = (doc: ContentDocument) => { setBestForPages((rows) => { const next = rows.filter((row) => row.id !== doc.id); return [doc, ...next]; }); };
+  return <>
     <div className="grid gap-5 lg:grid-cols-2">
-      <div className="rounded-2xl border border-line bg-white shadow-soft">
-        <div className="flex items-center justify-between border-b border-line px-5 py-4">
-          <p className="font-display text-base font-bold text-ink-900">Guides ({guides.length})</p>
-          <button onClick={onNewGuide} className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3.5 py-1.5 text-xs font-bold text-white transition hover:bg-emerald-600"><Plus size={13} /> New guide</button>
-        </div>
-        <div className="divide-y divide-line">
-          {guides.map(g => <div key={g.id} className="flex items-center gap-3 px-5 py-3.5"><div className="min-w-0 flex-1"><p className="truncate text-sm font-bold text-ink-900">{g.title}</p><p className="truncate text-xs text-slate-400">/guides/{g.slug}{g.published ? ' · Published' : ' · Draft'}</p></div>{g.slug && <a href={`/guides/${g.slug}`} target="_blank" rel="noreferrer" className="rounded-lg p-2 text-slate-400 hover:bg-paper hover:text-ink-900" title="Preview live page"><Eye size={14} /></a>}<button onClick={() => onEditGuide(g)} className="rounded-lg p-2 text-slate-400 hover:bg-paper hover:text-ink-900" title="Edit guide"><Pencil size={14} /></button></div>)}
-          {!guides.length && <p className="p-5 text-sm text-slate-400">No guides yet.</p>}
-        </div>
-      </div>
-
-      <div className="rounded-2xl border border-line bg-white shadow-soft">
-        <div className="flex items-center justify-between border-b border-line px-5 py-4">
-          <p className="font-display text-base font-bold text-ink-900">Best-For pages ({bestForPages.length})</p>
-          <button onClick={onNewBestFor} className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3.5 py-1.5 text-xs font-bold text-white transition hover:bg-emerald-600"><Plus size={13} /> New page</button>
-        </div>
-        <div className="divide-y divide-line">
-          {bestForPages.map(page => <div key={page.id} className="flex items-center gap-3 px-5 py-3.5"><div className="min-w-0 flex-1"><p className="truncate text-sm font-bold text-ink-900">{page.title || page.content_key}</p><p className="text-xs text-slate-400">/{page.slug || page.content_key.replace(/^best-for:/, '')}{page.published ? ' · Published' : ' · Draft'}</p></div>{page.slug && <a href={`/${page.slug}`} target="_blank" rel="noreferrer" className="rounded-lg p-2 text-slate-400 hover:bg-paper hover:text-ink-900" title="Preview live page"><Eye size={14} /></a>}<button onClick={() => onEditBestFor(page)} className="rounded-lg p-2 text-slate-400 hover:bg-paper hover:text-ink-900" title="Edit page"><Pencil size={14} /></button></div>)}
-          {!bestForPages.length && <p className="p-5 text-sm text-slate-400">No canonical best-for documents yet. Wire GlobalHub to content_documents to create the first ones.</p>}
-        </div>
-      </div>
+      <div className="rounded-2xl border border-line bg-white shadow-soft"><div className="flex items-center justify-between border-b border-line px-5 py-4"><p className="font-display text-base font-bold text-ink-900">Guides ({guides.length})</p><button onClick={onNewGuide} className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3.5 py-1.5 text-xs font-bold text-white"><Plus size={13}/> New guide</button></div><div className="divide-y divide-line">{guides.map(g=><div key={g.id} className="flex items-center gap-3 px-5 py-3.5"><div className="min-w-0 flex-1"><p className="truncate text-sm font-bold text-ink-900">{g.title}</p><p className="truncate text-xs text-slate-400">/guides/{g.slug}{g.published?' · Published':' · Draft'}</p></div>{g.slug&&<a href={`/guides/${g.slug}`} target="_blank" rel="noreferrer" className="rounded-lg p-2 text-slate-400 hover:bg-paper hover:text-ink-900"><Eye size={14}/></a>}<button onClick={()=>onEditGuide(g)} className="rounded-lg p-2 text-slate-400 hover:bg-paper hover:text-ink-900"><Pencil size={14}/></button></div>)}{!guides.length&&<p className="p-5 text-sm text-slate-400">No guides yet.</p>}</div></div>
+      <div className="rounded-2xl border border-line bg-white shadow-soft"><div className="flex items-center justify-between border-b border-line px-5 py-4"><p className="font-display text-base font-bold text-ink-900">Best-For pages ({bestForPages.length})</p><button onClick={()=>setEditing(emptyBestFor())} className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3.5 py-1.5 text-xs font-bold text-white"><Plus size={13}/> New page</button></div><div className="divide-y divide-line">{bestForPages.map(page=><div key={page.id} className="flex items-center gap-3 px-5 py-3.5"><div className="min-w-0 flex-1"><p className="truncate text-sm font-bold text-ink-900">{page.title||page.content_key}</p><p className="text-xs text-slate-400">/{page.slug||page.content_key.replace(/^best-for:/,'')}{page.published?' · Published':' · Draft'}</p></div>{page.slug&&<a href={`/${page.slug}`} target="_blank" rel="noreferrer" className="rounded-lg p-2 text-slate-400 hover:bg-paper hover:text-ink-900"><Eye size={14}/></a>}<button onClick={()=>setEditing(page)} className="rounded-lg p-2 text-slate-400 hover:bg-paper hover:text-ink-900"><Pencil size={14}/></button></div>)}{!bestForPages.length&&<p className="p-5 text-sm text-slate-400">No global Best-For documents yet.</p>}</div></div>
     </div>
-  );
+    {editing&&<BestForEditor document={editing} onClose={()=>setEditing(null)} onSaved={saved}/>} 
+  </>;
 }
