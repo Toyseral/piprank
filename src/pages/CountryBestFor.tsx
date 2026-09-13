@@ -49,9 +49,9 @@ export default function CountryBestFor() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const currentCountrySlug: string | undefined = countrySlug;
-    const canonicalSlug: string | undefined = slug;
-    if (!currentCountrySlug || !canonicalSlug) { setLoading(false); return; }
+    if (!countrySlug || !slug) { setLoading(false); return; }
+    const currentCountrySlug = countrySlug;
+    const canonicalSlug = slug;
     let active = true;
     setLoading(true);
 
@@ -68,7 +68,7 @@ export default function CountryBestFor() {
 
         // Always derive the intent from the canonical URL slug first. Existing
         // migrated documents may still carry retired topic_slug values.
-        const resolvedIntentSlug: string | null = BEST_FOR_CANONICAL[canonicalSlug] || doc.topic_slug || null;
+        const resolvedIntentSlug = BEST_FOR_CANONICAL[canonicalSlug] || doc.topic_slug || null;
         if (!resolvedIntentSlug) {
           if (active) { setDocument(null); setCountry(null); setIntent(null); }
           return;
@@ -124,14 +124,14 @@ export default function CountryBestFor() {
   if (!document || !country || !intent) return <NotFound />;
 
   const Icon = ICONS[intent.slug] ?? GraduationCap;
-  const blocks: PageBlock[] = Array.isArray(document.blocks) ? (document.blocks as PageBlock[]) : [];
+  const blocks: PageBlock[] = Array.isArray(document.blocks) ? document.blocks as PageBlock[] : [];
 
   return <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6">
     <div className="relative overflow-hidden rounded-3xl bg-ink-950 p-7 sm:p-10"><div className="absolute inset-0 bg-grid-dark"/><div className="relative"><div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500 text-ink-950 shadow-lg shadow-emerald-500/30"><Icon size={24}/></div><p className="mt-4 text-xs font-bold uppercase tracking-widest text-emerald-300">{country.flag} {country.name}</p><h1 className="mt-3 font-display text-3xl font-bold tracking-tight text-white sm:text-4xl">{document.title}</h1>{document.excerpt&&<p className="mt-3 max-w-3xl text-sm leading-relaxed text-slate-400 sm:text-[15px]">{document.excerpt}</p>}</div></div>
     <section className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50/50 p-5"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-widest text-emerald-700">{country.name} broker shortlist</p><h2 className="mt-1 font-display text-lg font-bold text-ink-900">Choose a broker that fits you best</h2></div>{ranked[0]&&<Link to={`/brokers/${ranked[0].slug}`} className="inline-flex items-center gap-2 rounded-xl bg-ink-950 px-4 py-2.5 text-sm font-bold text-white hover:bg-ink-800">Read the top pick <ArrowRight size={15}/></Link>}</div></section>
     <div className="mt-6">
-      <PageBlocksRenderer blocks={blocks} brokers={ranked} countrySlug={countrySlug} intent={intent.slug} />
+      <PageBlocksRenderer blocks={blocks} brokers={ranked} intent={intent.slug} countrySlug={currentCountrySlug} />
     </div>
-    {ranked.length > 0 && <section className="mt-8"><h2 className="font-display text-2xl font-bold text-ink-950">Top {country.name} forex brokers</h2><div className="mt-4 grid gap-4">{ranked.slice(0, 5).map((broker) => <Reveal key={broker.id}><BrokerCard broker={broker} note={reasonFor(intent.slug, broker)} intent={intent.slug} countrySlug={countrySlug} /></Reveal>)}</div></section>}
+    {ranked.length > 0 && <section className="mt-8"><h2 className="font-display text-2xl font-bold text-ink-950">Top {country.name} forex brokers</h2><div className="mt-4 grid gap-4">{ranked.slice(0, 5).map((broker) => <Reveal key={broker.id}><BrokerCard broker={broker} note={reasonFor(intent.slug, broker)} intent={intent.slug} countrySlug={currentCountrySlug} /></Reveal>)}</div></section>}
   </div>;
 }
