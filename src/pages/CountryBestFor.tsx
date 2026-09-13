@@ -63,10 +63,10 @@ export default function CountryBestFor() {
           return;
         }
 
-        // The URL slug is the canonical path slug. The intent table still uses
-        // its internal slug (beginners, low-spread, mt4, etc.). Prefer the
-        // document's topic_slug and fall back to the canonical registry map.
-        const intentSlug = doc.topic_slug || BEST_FOR_CANONICAL[slug] || null;
+        // Always derive the intent from the canonical URL slug first. Existing
+        // migrated documents may still carry retired topic_slug values such as
+        // best-low-spread-forex-brokers or best-mt5-brokers.
+        const intentSlug = BEST_FOR_CANONICAL[slug] || doc.topic_slug || null;
         if (!intentSlug) {
           if (active) { setDocument(null); setCountry(null); setIntent(null); }
           return;
