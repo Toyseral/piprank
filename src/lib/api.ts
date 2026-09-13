@@ -1,4 +1,4 @@
-import type { Broker, BrokerContent, BrokerCountryAvailability, BrokerCountryVerification, CountryPage, Intent, Review, ContentDocument, CountryLanguage, LocalizedSeoPage, CountryIntentBrokerRanking } from './types';
+import type { Broker, BrokerContent, BrokerCountryAvailability, BrokerCountryVerification, CountryBestFor, CountryPage, Intent, Review, ContentDocument, CountryLanguage, LocalizedSeoPage, CountryIntentBrokerRanking } from './types';
 
 async function get<T>(url: string, token?: string): Promise<T> {
   const res = await fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : undefined });
@@ -54,10 +54,34 @@ export const fetchCountryBestForDocument = async (countrySlug: string, slug: str
   return Array.isArray(docs) ? docs.find((doc) => doc.content_type === 'country-best-for' && doc.published !== false) ?? null : null;
 };
 // Compatibility adapter for CountryDetail while it migrates to ContentDocument typing.
-// The data source is canonical content_documents; this does not read country_best_for.
-export const fetchCountryBestFors = async (countrySlug: string) => {
+// The source is canonical content_documents; this does not read country_best_for.
+export const fetchCountryBestFors = async (countrySlug: string): Promise<CountryBestFor[]> => {
   try {
-    return await fetchCountryBestForDocuments(countrySlug);
+    const docs = await fetchCountryBestForDocuments(countrySlug);
+    return docs.map((doc) => {
+      const settings = doc.settings ?? {};
+      const asStringArray = (value: unknown): string[] => Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
+      const sections = Array.isArray(settings.sections) ? settings.sections : [];
+      const faqs = Array.isArray(settings.faqs) ? settings.faqs : [];
+      return {
+        id: doc.id,
+        country_id: 0,
+        country_slug: doc.country_slug ?? countrySlug,
+        slug: doc.slug ?? '',
+        label: typeof settings.label === 'string' ? settings.label : doc.title,
+        title: doc.title,
+        meta_title: doc.seo_title,
+        meta_description: doc.seo_description,
+        intro: doc.excerpt ? [doc.excerpt] : [],
+        icon: typeof settings.icon === 'string' ? settings.icon : 'sparkles',
+        criteria: asStringArray(settings.criteria),
+        sections: sections as CountryBestFor['sections'],
+        faqs: faqs as CountryBestFor['faqs'],
+        indexable: doc.indexable,
+        sort_order: typeof settings.sort_order === 'number' ? settings.sort_order : 0,
+        updated_at: doc.updated_at,
+      };
+    });
   } catch {
     return [];
   }
