@@ -14,6 +14,9 @@ const Admin = lazy(() => import('./pages/Admin'));
 const AdminLocalization = lazy(() => import('./pages/AdminLocalization'));
 const Authors = lazy(() => import('./pages/Authors'));
 const CanonicalHub = lazy(() => import('./pages/CanonicalHub'));
+const CountryBestFor = lazy(() => import('./pages/CountryBestFor'));
+const GlobalBestFor = lazy(() => import('./pages/GlobalBestFor'));
+const GuideTopic = lazy(() => import('./pages/GuideTopic'));
 const LegacyBestForRedirect = lazy(() => import('./pages/LegacyBestForRedirect'));
 const LegacyCountryBestForRedirect = lazy(() => import('./pages/LegacyCountryBestForRedirect'));
 const LegacyCountryRedirect = lazy(() => import('./pages/LegacyCountryRedirect'));
@@ -72,7 +75,34 @@ export function Shell() {
           <Route path="/:countrySlug/best-forex-brokers-for-swing-trading" element={<LegacyCountryBestForRedirect />} />
           <Route path="/:countrySlug/best-high-leverage-forex-brokers" element={<LegacyCountryBestForRedirect />} />
 
-          {/* Canonical route ownership is resolved centrally by CanonicalHub. */}
+          {/* Canonical content routes. These pages own their content type directly; they do not pass through a generic legacy page. */}
+          <Route path="/forex-brokers-for-beginners" element={<GlobalBestFor />} />
+          <Route path="/low-spread-forex-brokers" element={<GlobalBestFor />} />
+          <Route path="/mt4-forex-brokers" element={<GlobalBestFor />} />
+          <Route path="/mt5-forex-brokers" element={<GlobalBestFor />} />
+          <Route path="/gold-forex-brokers" element={<GlobalBestFor />} />
+          <Route path="/forex-brokers-for-scalping" element={<GlobalBestFor />} />
+          <Route path="/islamic-forex-brokers" element={<GlobalBestFor />} />
+          <Route path="/ecn-forex-brokers" element={<GlobalBestFor />} />
+          <Route path="/copy-trading-forex-brokers" element={<GlobalBestFor />} />
+          <Route path="/forex-brokers-for-swing-trading" element={<GlobalBestFor />} />
+          <Route path="/high-leverage-forex-brokers" element={<GlobalBestFor />} />
+
+          <Route path="/:countrySlug/guides/:slug" element={<GuideTopic />} />
+
+          <Route path="/:countrySlug/forex-brokers-for-beginners" element={<CountryBestFor />} />
+          <Route path="/:countrySlug/low-spread-forex-brokers" element={<CountryBestFor />} />
+          <Route path="/:countrySlug/mt4-forex-brokers" element={<CountryBestFor />} />
+          <Route path="/:countrySlug/mt5-forex-brokers" element={<CountryBestFor />} />
+          <Route path="/:countrySlug/gold-forex-brokers" element={<CountryBestFor />} />
+          <Route path="/:countrySlug/forex-brokers-for-scalping" element={<CountryBestFor />} />
+          <Route path="/:countrySlug/islamic-forex-brokers" element={<CountryBestFor />} />
+          <Route path="/:countrySlug/ecn-forex-brokers" element={<CountryBestFor />} />
+          <Route path="/:countrySlug/copy-trading-forex-brokers" element={<CountryBestFor />} />
+          <Route path="/:countrySlug/forex-brokers-for-swing-trading" element={<CountryBestFor />} />
+          <Route path="/:countrySlug/high-leverage-forex-brokers" element={<CountryBestFor />} />
+
+          {/* Remaining canonical content is still resolved centrally. */}
           <Route path="/brokers" element={<CanonicalHub />} />
           <Route path="/brokers/:slug" element={<CanonicalHub />} />
           <Route path="/:countrySlug/brokers/:slug" element={<CanonicalHub />} />
@@ -82,37 +112,9 @@ export function Shell() {
           <Route path="/guides/:slug" element={<CanonicalHub />} />
           <Route path="/countries" element={<CanonicalHub />} />
           <Route path="/countries/:slug" element={<LegacyCountryRedirect />} />
-          <Route path="/:countrySlug/guides/:slug" element={<CanonicalHub />} />
           <Route path="/:countrySlug/:locale/guides/:slug" element={<LocalizedGuide />} />
           <Route path="/:countrySlug/:locale/:topicSlug" element={<CanonicalHub />} />
-
-          {/* Canonical country Best-For pages. */}
-          <Route path="/:countrySlug/forex-brokers-for-beginners" element={<CanonicalHub />} />
-          <Route path="/:countrySlug/low-spread-forex-brokers" element={<CanonicalHub />} />
-          <Route path="/:countrySlug/mt4-forex-brokers" element={<CanonicalHub />} />
-          <Route path="/:countrySlug/mt5-forex-brokers" element={<CanonicalHub />} />
-          <Route path="/:countrySlug/gold-forex-brokers" element={<CanonicalHub />} />
-          <Route path="/:countrySlug/forex-brokers-for-scalping" element={<CanonicalHub />} />
-          <Route path="/:countrySlug/islamic-forex-brokers" element={<CanonicalHub />} />
-          <Route path="/:countrySlug/ecn-forex-brokers" element={<CanonicalHub />} />
-          <Route path="/:countrySlug/copy-trading-forex-brokers" element={<CanonicalHub />} />
-          <Route path="/:countrySlug/forex-brokers-for-swing-trading" element={<CanonicalHub />} />
-          <Route path="/:countrySlug/high-leverage-forex-brokers" element={<CanonicalHub />} />
           <Route path="/:countrySlug/:topicSlug" element={<LegacyCountryTopicRedirect />} />
-
-          {/* Canonical global Best-For pages. */}
-          <Route path="/forex-brokers-for-beginners" element={<CanonicalHub />} />
-          <Route path="/low-spread-forex-brokers" element={<CanonicalHub />} />
-          <Route path="/mt4-forex-brokers" element={<CanonicalHub />} />
-          <Route path="/mt5-forex-brokers" element={<CanonicalHub />} />
-          <Route path="/gold-forex-brokers" element={<CanonicalHub />} />
-          <Route path="/forex-brokers-for-scalping" element={<CanonicalHub />} />
-          <Route path="/islamic-forex-brokers" element={<CanonicalHub />} />
-          <Route path="/ecn-forex-brokers" element={<CanonicalHub />} />
-          <Route path="/copy-trading-forex-brokers" element={<CanonicalHub />} />
-          <Route path="/forex-brokers-for-swing-trading" element={<CanonicalHub />} />
-          <Route path="/high-leverage-forex-brokers" element={<CanonicalHub />} />
-
           <Route path="/:slug" element={<CanonicalHub />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
