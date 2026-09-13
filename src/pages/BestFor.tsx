@@ -1,27 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
-import {
-  ArrowRight, Check, Copy, Crown, Gauge, GraduationCap, MonitorSmartphone, Percent, Timer, Waves, Zap, type LucideIcon,
-} from 'lucide-react';
+import { ArrowRight, Check, Copy, Gauge, GraduationCap, MonitorSmartphone, Percent, Timer, Waves, Zap, type LucideIcon } from 'lucide-react';
 import type { Broker, CountryBestFor, CountryPage, ContentDocument, Intent } from '../lib/types';
-import { fetchBrokers, fetchCountries, fetchCountry, fetchCountryBestFor, fetchCountryBestFors, fetchCountryIntentRankings, fetchIntent, fetchContentDocument } from '../lib/api';
+import { fetchBrokers, fetchCountries, fetchCountry, fetchCountryBestFors, fetchCountryIntentRankings, fetchIntent, fetchContentDocument } from '../lib/api';
 import { useGeo } from '../lib/GeoContext';
 import { track } from '../lib/track';
-const LEGACY_TOPIC_TO_NEW: Record<string, string> = {
-  beginners: 'forex-brokers-for-beginners', 'low-spread': 'low-spread-forex-brokers', mt5: 'mt5-forex-brokers', gold: 'gold-forex-brokers', scalping: 'forex-brokers-for-scalping', islamic: 'islamic-forex-brokers', ecn: 'ecn-forex-brokers', 'copy-trading': 'copy-trading-forex-brokers', 'swing-trading': 'forex-brokers-for-swing-trading', 'high-leverage': 'high-leverage-forex-brokers',
-};
-import { ButtonLink, btnCls } from '../components/Button';
 import BrokerCard from '../components/BrokerCard';
 import Monogram from '../components/Monogram';
-import Stars from '../components/Stars';
-import VisitButton from '../components/VisitButton';
 import Reveal from '../components/Reveal';
 import PageBlocksRenderer from '../components/PageBlocksRenderer';
 import { isBlockShape } from '../lib/contentBlocks';
 import { fmtMoney } from '../lib/format';
 import { useSEO } from '../hooks/useSEO';
 import { buildBreadcrumbJsonLd, buildFAQPageJsonLd, buildItemListJsonLd, intentSeo, countryBestForSeo, bestForPath, BEST_FOR_CANONICAL, type SeoInput } from '../lib/seo';
-import { allInCost, healthScore, scoreColors, tierBest } from '../lib/score';
+import { allInCost } from '../lib/score';
 import NotFound from './NotFound';
 
 const ICONS: Record<string, LucideIcon> = {
@@ -43,9 +35,9 @@ function reasonFor(slug: string, b: Broker): string {
 }
 
 export default function BestFor() {
-  const { slug: paramSlug, countrySlug } = useParams<{ slug: string; countrySlug: string }>();
+  const { slug: paramSlug, countrySlug, topicSlug } = useParams<{ slug?: string; countrySlug?: string; topicSlug?: string }>();
   const { pathname } = useLocation();
-  const slug = paramSlug ?? Object.entries(BEST_FOR_CANONICAL).find(([, canonical]) => canonical === pathname.slice(1))?.[0];
+  const slug = paramSlug ?? topicSlug ?? Object.entries(BEST_FOR_CANONICAL).find(([, canonical]) => canonical === pathname.slice(1))?.[0];
   const [intent, setIntent] = useState<Intent | CountryBestFor | null>(null);
   const [richContent, setRichContent] = useState<ContentDocument | null>(null);
   const [country, setCountry] = useState<CountryPage | null>(null);
@@ -67,19 +59,31 @@ export default function BestFor() {
   useEffect(() => {
     if (!slug) { setRichContent(null); return; }
     const key = countrySlug ? `country-best-for:${countrySlug}:${slug}` : `best-for:${slug}`;
-    fetchContentDocument(key)
-      .then((doc) => setRichContent(doc?.published ? doc : null))
-      .catch(() => setRichContent(null));
+    fetchContentDocument(key).then((doc) => setRichContent(doc?.published ? doc : null)).catch(() => setRichContent(null));
   }, [slug, countrySlug]);
 
   useEffect(() => {
     if (!slug) return;
     setLoading(true); setMissing(false); setError('');
     const request = countrySlug
-      ? Promise.all([fetchCountryBestFor(countrySlug, slug), fetchCountry(countrySlug), fetchBrokers(), fetchCountries(), fetchCountryBestFors(countrySlug), fetchCountryIntentRankings(countrySlug, slug).catch(() => [])])
+      ? Promise.all([
+          fetchIntent(slug),
+          fetchCountry(countrySlug),
+          fetchBrokers(),
+          fetchCountries(),
+          fetchCountryBestFors(countrySlug).catch(() => [] as CountryBestFor[]),
+          fetchCountryIntentRankings(countrySlug, slug).catch(() => []),
+        ])
       : Promise.all([fetchIntent(slug), Promise.resolve(null), fetchBrokers(), fetchCountries(), Promise.resolve([] as CountryBestFor[]), Promise.resolve([] as any[])]);
     request.then(([i, c, b, countryRows, countryBestForRows, rankingRows]) => {
-      setIntent(i as Intent | CountryBestFor); setCountry(c as CountryPage | null); setBrokers(b); setCountries(countryRows ?? []); setCountryBestForPages(countryBestForRows ?? []); setCountryRankingIds((rankingRows ?? []).map((r: any) => Number(r.broker_id))); document.title = `${i.title} | PipRank`; track('intent_view', { intent: i.slug, country: countrySlug ?? 'global' });
+      setIntent(i as Intent | CountryBestFor);
+      setCountry(c as CountryPage | null);
+      setBrokers(b);
+      setCountries(countryRows ?? []);
+      setCountryBestForPages(countryBestForRows ?? []);
+      setCountryRankingIds((rankingRows ?? []).map((r: any) => Number(r.broker_id)));
+      document.title = `${i.title} | PipRank`;
+      track('intent_view', { intent: i.slug, country: countrySlug ?? 'global' });
     }).catch((e) => { setError(e instanceof Error ? e.message : 'Unable to load this page'); setMissing(true); }).finally(() => setLoading(false));
     return () => { document.title = 'PipRank — Forex Broker Reviews, Comparison & Trading Tools'; };
   }, [slug, countrySlug]);
@@ -106,7 +110,7 @@ export default function BestFor() {
   if (loading || !intent) return <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6"><div className="h-48 animate-pulse rounded-3xl border border-line bg-white"/><div className="mt-8 space-y-4">{[0,1,2].map((i)=><div key={i} className="h-44 animate-pulse rounded-3xl border border-line bg-white"/>)}</div>{error&&<p className="mt-4 text-sm text-rose-600">{error}</p>}</div>;
   const Icon = ICONS[intent.icon] ?? GraduationCap;
   const faqs = Array.isArray(intent.faqs) ? intent.faqs : [];
-  const canonicalBlocks = !countrySlug && Array.isArray(richContent?.blocks) && richContent.blocks.length ? richContent.blocks : null;
+  const canonicalBlocks = Array.isArray(richContent?.blocks) && richContent.blocks.length ? richContent.blocks : null;
 
   return <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6">
     <div className="relative overflow-hidden rounded-3xl bg-ink-950 p-7 sm:p-10"><div className="absolute inset-0 bg-grid-dark"/><div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-emerald-500/20 blur-[110px]"/><div className="relative"><div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500 text-ink-950 shadow-lg shadow-emerald-500/30"><Icon size={24}/></div><p className="text-xs font-bold uppercase tracking-widest text-emerald-300">{country?`${country.flag} ${country.name}`:localizedCountry?`${localizedCountry.flag} Localized for ${localizedCountry.name}`:'PipRank'}</p><h1 className="mt-3 font-display text-3xl font-bold tracking-tight text-white sm:text-4xl">{intent.title}</h1>{intent.intro.map((p,i)=><p key={i} className="mt-3 max-w-3xl text-sm leading-relaxed text-slate-400 sm:text-[15px]">{p}</p>)}</div></div>
@@ -116,7 +120,6 @@ export default function BestFor() {
     {canonicalBlocks ? <section className="mt-10" aria-label="Editorial content"><PageBlocksRenderer blocks={canonicalBlocks as any} brokers={brokers} intent={intent.slug} countrySlug={countrySlug??localizedCountry?.slug} className="piprank-rich-content space-y-8" /></section> : ('sections' in intent && isBlockShape(intent.sections) ? <section className="mt-10" aria-label="Editorial content"><PageBlocksRenderer blocks={intent.sections as any} brokers={brokers} intent={intent.slug} countrySlug={countrySlug??localizedCountry?.slug}/></section> : ('sections' in intent && Array.isArray(intent.sections) && intent.sections.length > 0 && <div className="mt-10 space-y-6">{intent.sections.map((section,i)=><section key={`${section.heading}-${i}`} className="rounded-2xl border border-line bg-white p-6"><h2 className="font-display text-xl font-bold text-ink-900">{section.heading}</h2>{section.body?.map((p,pi)=><p key={pi} className="mt-3 text-sm leading-7 text-slate-600">{p}</p>)}{section.bullets?.length?<ul className="mt-4 list-disc space-y-2 pl-5 text-sm leading-6 text-slate-600">{section.bullets.map((b,bi)=><li key={bi}>{b}</li>)}</ul>:null}</section>)}</div>))}
     {'faqs' in intent && Array.isArray(intent.faqs) && intent.faqs.length>0 && <section className="mt-10 rounded-2xl border border-line bg-white p-6"><h2 className="font-display text-xl font-bold text-ink-900">Frequently Asked Questions</h2><div className="mt-4 divide-y divide-line">{faqs.map((faq,i)=><details key={`${faq.q}-${i}`} className="py-4"><summary className="cursor-pointer text-sm font-bold text-ink-900">{faq.q}</summary><p className="mt-2 text-sm leading-6 text-slate-600">{faq.a}</p></details>)}</div></section>}
     {!countrySlug&&countries.length>0&&<section className="mt-8 rounded-2xl border border-line bg-white p-6" aria-labelledby="country-variants"><p className="text-xs font-bold uppercase tracking-widest text-slate-400">Local versions</p><h2 id="country-variants" className="mt-1 font-display text-xl font-bold text-ink-900">Best {intent.title.toLowerCase()} by country</h2><div className="mt-4 flex flex-wrap gap-2">{countries.slice(0,12).map(c=><Link key={c.slug} to={`/${c.slug}/${BEST_FOR_CANONICAL[intent.slug]??intent.slug}`} className="rounded-full border border-line bg-paper px-3.5 py-2 text-xs font-semibold text-slate-600 hover:border-emerald-400 hover:text-ink-900">{c.name}</Link>)}</div></section>}
-    {!countrySlug&&countries.length>0&&<section className="mt-8 rounded-2xl border border-line bg-white p-6" aria-labelledby="country-variants-2"><p className="text-xs font-bold uppercase tracking-widest text-slate-400">Local versions</p><h2 id="country-variants-2" className="mt-1 font-display text-xl font-bold text-ink-900">Explore {intent.title.toLowerCase()} by country</h2><div className="mt-4 flex flex-wrap gap-2">{countries.slice(0,12).map(c=><Link key={c.slug} to={`/${c.slug}/${BEST_FOR_CANONICAL[intent.slug]??intent.slug}`} className="rounded-full border border-line bg-paper px-3.5 py-2 text-xs font-semibold text-slate-600 hover:border-emerald-400 hover:text-ink-900">{c.name}</Link>)}</div></section>}
     {rest.length>0&&<div className="mt-8 rounded-2xl border border-dashed border-line p-6"><p className="text-xs font-bold uppercase tracking-widest text-slate-400">Also reviewed, but didn't make this list</p><div className="mt-3 flex flex-wrap gap-2">{rest.map((b)=><Link key={b.slug} to={`/brokers/${b.slug}`} className="inline-flex items-center gap-2 rounded-full border border-line bg-white px-3.5 py-2 text-xs font-semibold text-slate-600 transition hover:border-ink-900 hover:text-ink-900"><Monogram name={b.name} logoUrl={b.logo_url} color={b.brand_color} size={18} className="rounded-md"/>{b.name}<ArrowRight size={11} className="text-slate-400"/></Link>)}</div></div>}
   </div>;
 }
