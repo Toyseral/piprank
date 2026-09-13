@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowRight, Check, GraduationCap, MonitorSmartphone, Percent, Timer, Waves, Zap, Gauge, type LucideIcon } from 'lucide-react';
+import { ArrowRight, GraduationCap, MonitorSmartphone, Percent, Timer, Waves, Zap, Gauge, type LucideIcon } from 'lucide-react';
 import type { Broker, ContentDocument, CountryPage, Intent } from '../lib/types';
 import { fetchBrokers, fetchContentDocument, fetchCountry, fetchIntent } from '../lib/api';
 import { allInCost } from '../lib/score';
@@ -49,9 +49,13 @@ export default function CountryBestFor() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!countrySlug || !slug) { setLoading(false); return; }
-    const currentCountrySlug = countrySlug;
-    const canonicalSlug = slug;
+    const currentCountrySlug = countrySlug ?? '';
+    const canonicalSlug = slug ?? '';
+    if (currentCountrySlug.length === 0 || canonicalSlug.length === 0) {
+      setLoading(false);
+      return;
+    }
+
     let active = true;
     setLoading(true);
 
@@ -66,10 +70,11 @@ export default function CountryBestFor() {
           return;
         }
 
-        // Always derive the intent from the canonical URL slug first. Existing
-        // migrated documents may still carry retired topic_slug values.
-        const resolvedIntentSlug = BEST_FOR_CANONICAL[canonicalSlug] || doc.topic_slug || null;
-        if (!resolvedIntentSlug) {
+        // Canonical URL slugs always win. Migrated documents may still contain
+        // retired topic_slug values, so only use topic_slug as a fallback.
+        const canonicalIntentSlug = BEST_FOR_CANONICAL[canonicalSlug as keyof typeof BEST_FOR_CANONICAL];
+        const resolvedIntentSlug = canonicalIntentSlug ?? doc.topic_slug ?? '';
+        if (resolvedIntentSlug.length === 0) {
           if (active) { setDocument(null); setCountry(null); setIntent(null); }
           return;
         }
@@ -105,17 +110,26 @@ export default function CountryBestFor() {
       .sort((a, b) => b.rating - a.rating || b.trust_score - a.trust_score);
   }, [brokers, country, intent]);
 
-  const seoInput: SeoInput | null = document && intent && countrySlug ? {
+  const seoInput: SeoInput | null = document && intent && countrySlug && slug ? {
     ...intentSeo(intent),
     title: document.seo_title || document.title || `${intent.title} in ${country?.name ?? countrySlug}`,
     description: document.seo_description || document.excerpt || intentSeo(intent).description,
     path: `/${countrySlug}/${slug}`,
   } : null;
 
-  const seoJsonLd = document && intent && countrySlug && seoInput ? [
-    buildBreadcrumbJsonLd([{ name: 'Home', path: '/' }, { name: country?.name || countrySlug, path: `/${countrySlug}` }, { name: document.title || intent.title, path: seoInput.path }]),
-    buildItemListJsonLd(document.title || intent.title, ranked.slice(0, 10).map((b) => ({ name: b.name, path: `/brokers/${b.slug}` }))),
-    ...(Array.isArray(intent.faqs) && intent.faqs.length ? [buildFAQPageJsonLd(intent.faqs.map((faq) => ({ question: faq.q, answer: faq.a })))] : []),
+  const seoJsonLd = document && intent && countrySlug && slug && seoInput ? [
+    buildBreadcrumbJsonLd([
+      { name: 'Home', path: '/' },
+      { name: country?.name || countrySlug, path: `/${countrySlug}` },
+      { name: document.title || intent.title, path: seoInput.path },
+    ]),
+    buildItemListJsonLd(
+      document.title || intent.title,
+      ranked.slice(0, 10).map((b) => ({ name: b.name, path: `/brokers/${b.slug}` })),
+    ),
+    ...(Array.isArray(intent.faqs) && intent.faqs.length
+      ? [buildFAQPageJsonLd(intent.faqs.map((faq) => ({ question: faq.q, answer: faq.a })))]
+      : []),
   ] : undefined;
 
   useSEO(seoInput, seoJsonLd);
@@ -130,8 +144,8 @@ export default function CountryBestFor() {
     <div className="relative overflow-hidden rounded-3xl bg-ink-950 p-7 sm:p-10"><div className="absolute inset-0 bg-grid-dark"/><div className="relative"><div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500 text-ink-950 shadow-lg shadow-emerald-500/30"><Icon size={24}/></div><p className="mt-4 text-xs font-bold uppercase tracking-widest text-emerald-300">{country.flag} {country.name}</p><h1 className="mt-3 font-display text-3xl font-bold tracking-tight text-white sm:text-4xl">{document.title}</h1>{document.excerpt&&<p className="mt-3 max-w-3xl text-sm leading-relaxed text-slate-400 sm:text-[15px]">{document.excerpt}</p>}</div></div>
     <section className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50/50 p-5"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-widest text-emerald-700">{country.name} broker shortlist</p><h2 className="mt-1 font-display text-lg font-bold text-ink-900">Choose a broker that fits you best</h2></div>{ranked[0]&&<Link to={`/brokers/${ranked[0].slug}`} className="inline-flex items-center gap-2 rounded-xl bg-ink-950 px-4 py-2.5 text-sm font-bold text-white hover:bg-ink-800">Read the top pick <ArrowRight size={15}/></Link>}</div></section>
     <div className="mt-6">
-      <PageBlocksRenderer blocks={blocks} brokers={ranked} intent={intent.slug} countrySlug={currentCountrySlug} />
+      <PageBlocksRenderer blocks={blocks} brokers={ranked} intent={intent.slug} countrySlug={countrySlug} />
     </div>
-    {ranked.length > 0 && <section className="mt-8"><h2 className="font-display text-2xl font-bold text-ink-950">Top {country.name} forex brokers</h2><div className="mt-4 grid gap-4">{ranked.slice(0, 5).map((broker) => <Reveal key={broker.id}><BrokerCard broker={broker} note={reasonFor(intent.slug, broker)} intent={intent.slug} countrySlug={currentCountrySlug} /></Reveal>)}</div></section>}
+    {ranked.length > 0 && <section className="mt-8"><h2 className="font-display text-2xl font-bold text-ink-950">Top {country.name} forex brokers</h2><div className="mt-4 grid gap-4">{ranked.slice(0, 5).map((broker) => <Reveal key={broker.id}><BrokerCard broker={broker} note={reasonFor(intent.slug, broker)} intent={intent.slug} countrySlug={countrySlug} /></Reveal>)}</div></section>}
   </div>;
 }
