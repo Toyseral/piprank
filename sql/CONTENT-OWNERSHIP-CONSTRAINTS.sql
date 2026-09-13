@@ -1,6 +1,5 @@
 -- Canonical content ownership constraints
--- Run after reviewing the migration audit. Existing legacy rows remain readable
--- during migration, but new writes to legacy content types are blocked.
+-- Existing legacy rows remain readable during migration.
 
 create unique index if not exists content_documents_content_key_uidx
   on public.content_documents (content_key);
@@ -10,7 +9,7 @@ returns trigger
 language plpgsql
 as $$
 begin
-  if new.content_type in ('country-topic', 'country-best-for') then
+  if new.content_type in ('country-topic', 'localized-seo-page') then
     raise exception 'Legacy content type % is retired; use canonical content_documents ownership instead.', new.content_type
       using errcode = 'check_violation';
   end if;
@@ -24,12 +23,13 @@ before insert or update of content_type on public.content_documents
 for each row
 execute function public.reject_legacy_content_document_type();
 
--- After all legacy rows have been migrated, run this stronger constraint:
+-- After the migration has removed all legacy rows, enforce the canonical set:
 -- alter table public.content_documents
 --   add constraint content_documents_canonical_type_chk
 --   check (content_type in (
 --     'country',
 --     'country-guide',
+--     'country-best-for',
 --     'global-best-for',
 --     'guide',
 --     'broker',
