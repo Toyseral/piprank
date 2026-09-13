@@ -52,13 +52,29 @@ export function resolveStaticCanonicalPath(pathname: string): CanonicalRoute | n
   return null;
 }
 
+async function fetchDocumentByTypeAndSlug(type: string, slug: string, countrySlug?: string): Promise<ContentDocument | null> {
+  const params = new URLSearchParams({ type, slug });
+  if (countrySlug) params.set('country', countrySlug);
+  try {
+    const response = await fetch(`/api/content-documents?${params.toString()}`);
+    const data = await response.json().catch(() => null);
+    if (!response.ok) return null;
+    return Array.isArray(data) ? data[0] ?? null : data;
+  } catch {
+    return null;
+  }
+}
+
 export async function resolveCanonicalPath(pathname: string): Promise<CanonicalRoute | null> {
   const path = cleanPath(pathname);
   const staticRoute = resolveStaticCanonicalPath(path);
   if (staticRoute?.type === 'global-best-for') {
-    const document = await fetchContentDocument(`best-for:${staticRoute.slug}`).catch(() => null);
+    // Registry values are the internal intent slugs. The public URL is the
+    // canonical SEO slug, so accept either slug form when resolving the document.
+    const document = await fetchContentDocument(`best-for:${staticRoute.slug}`).catch(() => null)
+      || await fetchDocumentByTypeAndSlug('global-best-for', firstSegment(path));
     if (!document || document.content_type !== 'global-best-for' || document.published === false) return null;
-    return route(path, { type: 'global-best-for', slug: staticRoute.slug, contentKey: document.content_key, indexable: document.indexable !== false, published: document.published, document });
+    return route(path, { type: 'global-best-for', slug: document.slug || firstSegment(path), contentKey: document.content_key, indexable: document.indexable !== false, published: document.published, document });
   }
   if (staticRoute) return staticRoute;
 
@@ -88,23 +104,18 @@ export async function resolveCanonicalPath(pathname: string): Promise<CanonicalR
   }
   if (segments.length === 2 && segments[0] === 'compare') return route(path, { type: 'compare', slug: segments[1], indexable: true, published: true });
 
-  // Country Best-For pages are canonical two-segment pages. A country and a
-  // recognized commercial intent are only a candidate; the page becomes
-  // canonical after its own published content_document is verified.
   if (segments.length === 2 && CANONICAL_BEST_FOR_BY_SLUG[segments[1]]) {
     const [countrySlug, slug] = segments;
     const country = await fetchCountry(countrySlug).catch(() => null);
     if (country) {
-      const document = await fetchContentDocument(`country-best-for:${countrySlug}:${slug}`).catch(() => null);
+      const document = await fetchContentDocument(`country-best-for:${countrySlug}:${slug}`).catch(() => null)
+        || await fetchDocumentByTypeAndSlug('country-best-for', slug, countrySlug);
       if (document && document.content_type === 'country-best-for' && document.published !== false) {
         return route(path, {
-          type: 'country-best-for',
-          countrySlug,
-          slug,
+          type: 'country-best-for', countrySlug, slug,
           contentKey: document.content_key,
           indexable: document.indexable !== false && country.publishing_state !== 'closed',
-          published: document.published && country.publishing_state !== 'closed',
-          document,
+          published: document.published && country.publishing_state !== 'closed', document,
         });
       }
     }
@@ -122,12 +133,12 @@ export async function resolveCanonicalPath(pathname: string): Promise<CanonicalR
   return null;
 }
 
+function firstSegment(path: string): string { return path.slice(1).split('/').filter(Boolean)[0] || ''; }
+
 async function fetchContentDocumentByTypeAndSlug(type: string, slug: string, countrySlug?: string) {
   const key = type === 'guide' ? `guide:${slug}` : type === 'country-guide' && countrySlug ? `country-guide:${countrySlug}:${slug}` : null;
   if (key) return fetchContentDocument(key).catch(() => null);
-  const params = new URLSearchParams({ type, slug }); if (countrySlug) params.set('country', countrySlug);
-  const res = await fetch(`/api/content-documents?${params.toString()}`); const data = await res.json().catch(() => null);
-  if (!res.ok || !data) return null; return Array.isArray(data) ? data[0] ?? null : data;
+  return fetchDocumentByTypeAndSlug(type, slug, countrySlug);
 }
 export function globalBestForPath(slug: string): string | null { return CANONICAL_BEST_FOR_BY_SLUG[slug] ?? null; }
 export function globalBestForSlugs(): string[] { return Object.values(CANONICAL_BEST_FOR); }
