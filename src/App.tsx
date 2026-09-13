@@ -9,6 +9,7 @@ import NotFound from './pages/NotFound';
 import { GeoProvider } from './lib/GeoContext';
 
 const SmartCTA = lazy(() => import('./components/SmartCTA'));
+const About = lazy(() => import('./pages/About'));
 const Admin = lazy(() => import('./pages/Admin'));
 const AdminLocalization = lazy(() => import('./pages/AdminLocalization'));
 const Authors = lazy(() => import('./pages/Authors'));
@@ -37,6 +38,7 @@ export function Shell() {
           <Route path="/quiz" element={<Quiz />} />
           <Route path="/tools" element={<Tools />} />
           <Route path="/methodology" element={<Methodology />} />
+          <Route path="/about" element={<About />} />
           <Route path="/authors" element={<Authors />} />
           <Route path="/promotions" element={<Promotions />} />
           <Route path="/archypage/localization" element={<AdminLocalization />} />
