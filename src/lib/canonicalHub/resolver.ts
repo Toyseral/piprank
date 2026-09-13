@@ -8,67 +8,47 @@ function cleanPath(path: string): string {
   return normalized === '/' ? '/' : normalized;
 }
 
-function route(path: string, input: Omit<CanonicalRoute, 'path' | 'canonicalPath'>): CanonicalRoute {
-  return { ...input, path, canonicalPath: path };
+function route(path: string, input: Omit<CanonicalRoute, 'path' | 'canonicalPath'> & { canonicalPath?: string }): CanonicalRoute {
+  return { ...input, path, canonicalPath: input.canonicalPath ?? path };
 }
 
 function encode(value: string): string {
   return encodeURIComponent(value);
 }
 
-/** Single source of truth for how an editable content document maps to a public URL. */
 export function canonicalPathForDocument(document: Pick<ContentDocument, 'content_type' | 'country_slug' | 'topic_slug' | 'slug'>): string | null {
   const country = document.country_slug ? encode(document.country_slug) : null;
   const topic = document.topic_slug ? encode(document.topic_slug) : null;
   const slug = document.slug ? encode(document.slug) : null;
 
   switch (document.content_type) {
-    case 'global-best-for':
-      return slug ? `/${slug}` : null;
-    case 'country-best-for':
-      return country && slug ? `/${country}/${slug}` : null;
-    case 'guide':
-      return slug && !country ? `/guides/${slug}` : null;
-    case 'country-guide':
-      return country && slug ? `/${country}/guides/${slug}` : null;
-    case 'country-topic':
-      return country && (topic || slug) ? `/${country}/${topic || slug}` : null;
-    case 'broker':
-      return slug ? `/brokers/${slug}` : null;
-    case 'country':
-      return country ? `/${country}` : slug ? `/${slug}` : null;
-    case 'compare':
-      return slug ? `/compare/${slug}` : null;
-    default:
-      return null;
+    case 'global-best-for': return slug ? `/${slug}` : null;
+    case 'country-best-for': return country && slug ? `/${country}/${slug}` : null;
+    case 'guide': return slug && !country ? `/guides/${slug}` : null;
+    case 'country-guide': return country && slug ? `/${country}/guides/${slug}` : null;
+    case 'country-topic': return country && (topic || slug) ? `/${country}/${topic || slug}` : null;
+    case 'broker': return slug ? `/brokers/${slug}` : null;
+    case 'country': return country ? `/${country}` : slug ? `/${slug}` : null;
+    case 'compare': return slug ? `/compare/${slug}` : null;
+    default: return null;
   }
 }
 
-/** Single source of truth for content identity when creating a new canonical document. */
 export function canonicalContentKeyForDocument(document: Pick<ContentDocument, 'content_type' | 'country_slug' | 'topic_slug' | 'slug'>): string | null {
   const country = document.country_slug || '';
   const topic = document.topic_slug || document.slug || '';
   const slug = document.slug || '';
 
   switch (document.content_type) {
-    case 'global-best-for':
-      return slug ? `best-for:${slug}` : null;
-    case 'country-best-for':
-      return country && slug ? `country-best-for:${country}:${slug}` : null;
-    case 'guide':
-      return slug ? `guide:${slug}` : null;
-    case 'country-guide':
-      return country && slug ? `country-guide:${country}:${slug}` : null;
-    case 'country-topic':
-      return country && topic ? `country-topic:${country}:${topic}` : null;
-    case 'broker':
-      return slug ? `broker:${slug}:main` : null;
-    case 'country':
-      return country || slug ? `country:${country || slug}:hub` : null;
-    case 'compare':
-      return slug ? `compare:${slug}` : null;
-    default:
-      return null;
+    case 'global-best-for': return slug ? `best-for:${slug}` : null;
+    case 'country-best-for': return country && slug ? `country-best-for:${country}:${slug}` : null;
+    case 'guide': return slug ? `guide:${slug}` : null;
+    case 'country-guide': return country && slug ? `country-guide:${country}:${slug}` : null;
+    case 'country-topic': return country && topic ? `country-topic:${country}:${topic}` : null;
+    case 'broker': return slug ? `broker:${slug}:main` : null;
+    case 'country': return country || slug ? `country:${country || slug}:hub` : null;
+    case 'compare': return slug ? `compare:${slug}` : null;
+    default: return null;
   }
 }
 
@@ -77,20 +57,11 @@ export function resolveStaticCanonicalPath(pathname: string): CanonicalRoute | n
   const first = path.slice(1);
   const bestForSlug = CANONICAL_BEST_FOR[first as keyof typeof CANONICAL_BEST_FOR];
 
-  if (bestForSlug) {
-    return route(path, {
-      type: 'global-best-for',
-      slug: bestForSlug,
-      indexable: true,
-      published: true,
-    });
-  }
-
+  if (bestForSlug) return route(path, { type: 'global-best-for', slug: bestForSlug, indexable: true, published: true });
   if (path === '/guides') return route(path, { type: 'guide', indexable: true, published: true });
   if (path === '/countries') return route(path, { type: 'country', indexable: true, published: true });
   if (path === '/brokers') return route(path, { type: 'broker', indexable: true, published: true });
   if (path === '/compare') return route(path, { type: 'compare', indexable: true, published: true });
-
   return null;
 }
 
@@ -98,147 +69,89 @@ export async function resolveCanonicalPath(pathname: string): Promise<CanonicalR
   const path = cleanPath(pathname);
   const staticRoute = resolveStaticCanonicalPath(path);
   if (staticRoute) return staticRoute;
-
   const segments = path.slice(1).split('/').filter(Boolean).map(decodeURIComponent);
 
   if (segments.length === 2 && segments[0] === 'countries') {
     const slug = segments[1];
     const country = await fetchCountry(slug).catch(() => null);
     if (!country) return null;
-    return route(path, {
-      type: 'country',
-      slug,
-      indexable: true,
-      published: country.publishing_state !== 'closed',
-    });
+    return route(path, { type: 'country', slug, indexable: true, published: country.publishing_state !== 'closed' });
   }
 
   if (segments.length === 2 && segments[0] === 'guides') {
     const slug = segments[1];
     const document = await fetchContentDocumentByTypeAndSlug('guide', slug);
     if (!document || document.content_type !== 'guide' || document.published === false) return null;
-    return route(path, {
-      type: 'guide',
-      slug,
-      contentKey: document.content_key,
-      indexable: document.indexable !== false,
-      published: document.published,
-      document,
-    });
+    return route(path, { type: 'guide', slug, contentKey: document.content_key, indexable: document.indexable !== false, published: document.published, document });
   }
 
   if (segments.length === 3 && segments[1] === 'guides') {
     const [countrySlug, , slug] = segments;
     const document = await fetchContentDocumentByTypeAndSlug('country-guide', slug, countrySlug);
     if (!document || document.content_type !== 'country-guide' || document.published === false) return null;
-    return route(path, {
-      type: 'country-guide',
-      countrySlug,
-      slug,
-      contentKey: document.content_key,
-      indexable: document.indexable !== false,
-      published: document.published,
-      document,
-    });
+    return route(path, { type: 'country-guide', countrySlug, slug, contentKey: document.content_key, indexable: document.indexable !== false, published: document.published, document });
   }
 
   if (segments.length === 2 && segments[0] === 'brokers') {
     const slug = segments[1];
     const broker = await fetchBroker(slug).catch(() => null);
     if (!broker) return null;
-    return route(path, {
-      type: 'broker',
-      slug,
-      indexable: true,
-      published: true,
-    });
+    return route(path, { type: 'broker', slug, indexable: true, published: true });
   }
 
   if (segments.length === 3 && segments[1] === 'brokers') {
     const [countrySlug, , slug] = segments;
-    const [country, broker] = await Promise.all([
-      fetchCountry(countrySlug).catch(() => null),
-      fetchBroker(slug).catch(() => null),
-    ]);
+    const [country, broker] = await Promise.all([fetchCountry(countrySlug).catch(() => null), fetchBroker(slug).catch(() => null)]);
     if (!country || !broker) return null;
-    return route(path, {
-      type: 'broker',
-      countrySlug,
-      slug,
-      indexable: true,
-      published: country.publishing_state !== 'closed',
-    });
+    return route(path, { type: 'broker', countrySlug, slug, indexable: true, published: country.publishing_state !== 'closed' });
   }
 
-  if (segments.length === 2 && segments[0] === 'compare') {
-    return route(path, {
-      type: 'compare',
-      slug: segments[1],
-      indexable: true,
-      published: true,
-    });
-  }
+  if (segments.length === 2 && segments[0] === 'compare') return route(path, { type: 'compare', slug: segments[1], indexable: true, published: true });
 
   if (segments.length === 3) {
     const [countrySlug, locale, topicSlug] = segments;
     const localized = await fetchLocalizedSeoPage(countrySlug, locale, topicSlug).catch(() => null);
     const legacyVietnamese = countrySlug === 'vietnam' && locale === 'vi';
     if (!localized && !legacyVietnamese) return null;
-    return route(path, {
-      type: 'localized-seo',
-      countrySlug,
-      slug: topicSlug,
-      topicSlug,
-      indexable: localized?.indexable !== false,
-      published: localized?.published !== false,
-    });
+    return route(path, { type: 'localized-seo', countrySlug, slug: topicSlug, topicSlug, indexable: localized?.indexable !== false, published: localized?.published !== false });
   }
 
   if (segments.length === 2) {
     const [countrySlug, slug] = segments;
-
-    // Country Best-For owns this exact country-first URL shape. It must be
-    // checked before the legacy country-topic resolver because both use two
-    // URL segments but they are different content types and editors.
     const countryBestFor = await fetchContentDocumentByTypeAndSlug('country-best-for', slug, countrySlug);
     if (countryBestFor && countryBestFor.content_type === 'country-best-for' && countryBestFor.published !== false) {
+      return route(path, { type: 'country-best-for', countrySlug, slug, contentKey: countryBestFor.content_key, indexable: countryBestFor.indexable !== false, published: countryBestFor.published, document: countryBestFor });
+    }
+
+    // Some legacy country guides were linked without /guides/. If a canonical
+    // country-guide document owns that slug, send it to the editorial URL
+    // rather than letting the country-topic renderer make it look like a
+    // commercial Best-For page.
+    const countryGuide = await fetchContentDocumentByTypeAndSlug('country-guide', slug, countrySlug);
+    if (countryGuide && countryGuide.content_type === 'country-guide' && countryGuide.published !== false) {
       return route(path, {
-        type: 'country-best-for',
+        type: 'country-guide',
         countrySlug,
         slug,
-        contentKey: countryBestFor.content_key,
-        indexable: countryBestFor.indexable !== false,
-        published: countryBestFor.published,
-        document: countryBestFor,
+        contentKey: countryGuide.content_key,
+        indexable: countryGuide.indexable !== false,
+        published: countryGuide.published,
+        document: countryGuide,
+        canonicalPath: `/${encode(countrySlug)}/guides/${encode(slug)}`,
       });
     }
 
     const document = await fetchContentDocumentByKey(`country-topic:${countrySlug}:${slug}`);
     if (!document || document.content_type !== 'country-topic' || document.published === false) return null;
-    return route(path, {
-      type: 'country-topic',
-      countrySlug,
-      topicSlug: slug,
-      slug,
-      contentKey: document.content_key,
-      indexable: document.indexable !== false,
-      published: document.published,
-      document,
-    });
+    return route(path, { type: 'country-topic', countrySlug, topicSlug: slug, slug, contentKey: document.content_key, indexable: document.indexable !== false, published: document.published, document });
   }
 
   if (segments.length === 1) {
     const slug = segments[0];
     const country = await fetchCountry(slug).catch(() => null);
     if (!country) return null;
-    return route(path, {
-      type: 'country',
-      slug,
-      indexable: true,
-      published: country.publishing_state !== 'closed',
-    });
+    return route(path, { type: 'country', slug, indexable: true, published: country.publishing_state !== 'closed' });
   }
-
   return null;
 }
 
@@ -255,18 +168,7 @@ async function fetchContentDocumentByTypeAndSlug(type: string, slug: string, cou
   return Array.isArray(data) ? data[0] ?? null : data;
 }
 
-export function globalBestForPath(slug: string): string | null {
-  return CANONICAL_BEST_FOR_BY_SLUG[slug] ?? null;
-}
-
-export function globalBestForSlugs(): string[] {
-  return Object.values(CANONICAL_BEST_FOR);
-}
-
-export function canonicalCountryTopicPath(countrySlug: string, topicSlug: string): string {
-  return `/${encode(countrySlug)}/${encode(topicSlug)}`;
-}
-
-export function canonicalCountryGuidePath(countrySlug: string, slug: string): string {
-  return `/${encode(countrySlug)}/guides/${encode(slug)}`;
-}
+export function globalBestForPath(slug: string): string | null { return CANONICAL_BEST_FOR_BY_SLUG[slug] ?? null; }
+export function globalBestForSlugs(): string[] { return Object.values(CANONICAL_BEST_FOR); }
+export function canonicalCountryTopicPath(countrySlug: string, topicSlug: string): string { return `/${encode(countrySlug)}/${encode(topicSlug)}`; }
+export function canonicalCountryGuidePath(countrySlug: string, slug: string): string { return `/${encode(countrySlug)}/guides/${encode(slug)}`; }
