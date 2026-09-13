@@ -6,22 +6,11 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { requireSiteUrlForProduction } from './seo-config.mjs';
 import { vietnameseCommercialTopics } from './vietnamese-localization.mjs';
+import { CANONICAL_BEST_FOR_BY_SLUG } from '../src/lib/canonicalHub/registry.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DIST = join(__dirname, '..', 'dist');
 const MAX_BROKERS_FOR_PAIRS = 12;
-const BEST_FOR_CANONICAL = {
-  beginners: 'forex-brokers-for-beginners',
-  'low-spread': 'low-spread-forex-brokers',
-  mt5: 'mt5-forex-brokers',
-  gold: 'gold-forex-brokers',
-  ecn: 'ecn-forex-brokers',
-  'copy-trading': 'copy-trading-forex-brokers',
-  scalping: 'forex-brokers-for-scalping',
-  'swing-trading': 'forex-brokers-for-swing-trading',
-  'high-leverage': 'high-leverage-forex-brokers',
-  islamic: 'islamic-forex-brokers',
-};
 
 function escXml(value) {
   return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
@@ -71,11 +60,11 @@ async function main() {
     urls.push({ loc: `/guides/${document.slug}`, lastmod: cleanDate(document.updated_at) });
   }
 
-  // Global Best-For URLs remain canonical, but the intent table supplies the
-  // editorial last-modified date for the legacy intent registry.
+  // CanonicalHub owns the global Best-For path mapping. The legacy intent
+  // table is used only for the current last-modified timestamp.
   for (const intent of intents) {
-    const canonical = BEST_FOR_CANONICAL[intent.slug];
-    if (canonical) urls.push({ loc: `/${canonical}`, lastmod: cleanDate(intent.updated_at) });
+    const canonicalPath = CANONICAL_BEST_FOR_BY_SLUG[intent.slug];
+    if (canonicalPath) urls.push({ loc: `/${canonicalPath}`, lastmod: cleanDate(intent.updated_at) });
   }
 
   // Country Best-For URLs are owned only by published country-topic documents.
