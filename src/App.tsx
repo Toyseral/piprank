@@ -16,6 +16,7 @@ const Authors = lazy(() => import('./pages/Authors'));
 const CanonicalHub = lazy(() => import('./pages/CanonicalHub'));
 const LegacyBestForRedirect = lazy(() => import('./pages/LegacyBestForRedirect'));
 const LegacyCountryBestForRedirect = lazy(() => import('./pages/LegacyCountryBestForRedirect'));
+const LegacyCountryRedirect = lazy(() => import('./pages/LegacyCountryRedirect'));
 const LegacyCountryTopicRedirect = lazy(() => import('./pages/LegacyCountryTopicRedirect'));
 const LocalizedGuide = lazy(() => import('./pages/LocalizedGuide'));
 const Methodology = lazy(() => import('./pages/Methodology'));
@@ -68,9 +69,11 @@ export function Shell() {
           <Route path="/guides" element={<CanonicalHub />} />
           <Route path="/guides/:slug" element={<CanonicalHub />} />
 
-          {/* Country informational hub remains an explicit surface; canonical child pages are Hub-driven. */}
+          {/* Country directory is canonical at /countries. */}
           <Route path="/countries" element={<CanonicalHub />} />
-          <Route path="/countries/:slug" element={<CanonicalHub />} />
+
+          {/* /countries/:slug is legacy. The server 301 is preferred; this is the client fallback. */}
+          <Route path="/countries/:slug" element={<LegacyCountryRedirect />} />
 
           {/* Country guides are canonical content documents. */}
           <Route path="/:countrySlug/guides/:slug" element={<CanonicalHub />} />
