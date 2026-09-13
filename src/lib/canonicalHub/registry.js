@@ -18,6 +18,7 @@ export const CANONICAL_BEST_FOR_BY_SLUG = Object.freeze(
 
 export const CANONICAL_TYPES = Object.freeze({
   GLOBAL_BEST_FOR: 'global-best-for',
+  COUNTRY_BEST_FOR: 'country-best-for',
   COUNTRY_TOPIC: 'country-topic',
   GUIDE: 'guide',
   COUNTRY_GUIDE: 'country-guide',
