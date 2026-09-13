@@ -1,6 +1,7 @@
+import type { ContentDocument } from '../types';
 import type { CanonicalRoute } from './types';
 import { CANONICAL_BEST_FOR, CANONICAL_BEST_FOR_BY_SLUG } from './registry';
-import { fetchContentDocument, fetchCountry } from '../api';
+import { fetchBroker, fetchContentDocument, fetchCountry, fetchLocalizedSeoPage } from '../api';
 
 function cleanPath(path: string): string {
   const normalized = `/${path.replace(/^\/+|\/+$/g, '')}`;
@@ -9,6 +10,38 @@ function cleanPath(path: string): string {
 
 function route(path: string, input: Omit<CanonicalRoute, 'path' | 'canonicalPath'>): CanonicalRoute {
   return { ...input, path, canonicalPath: path };
+}
+
+function encode(value: string): string {
+  return encodeURIComponent(value);
+}
+
+/**
+ * Single source of truth for how an editable content document maps to a public URL.
+ * PageManager uses this for previews/listing; CanonicalHub uses the resolver below
+ * for actual public ownership.
+ */
+export function canonicalPathForDocument(document: Pick<ContentDocument, 'content_type' | 'country_slug' | 'topic_slug' | 'slug'>): string | null {
+  const country = document.country_slug ? encode(document.country_slug) : null;
+  const topic = document.topic_slug ? encode(document.topic_slug) : null;
+  const slug = document.slug ? encode(document.slug) : null;
+
+  switch (document.content_type) {
+    case 'guide':
+      return slug && !country ? `/guides/${slug}` : null;
+    case 'country-guide':
+      return country && slug ? `/${country}/guides/${slug}` : null;
+    case 'country-topic':
+      return country && (topic || slug) ? `/${country}/${topic || slug}` : null;
+    case 'broker':
+      return slug ? `/brokers/${slug}` : null;
+    case 'country':
+      return country || (slug ? `/${slug}` : null);
+    case 'compare':
+      return slug ? `/compare/${slug}` : null;
+    default:
+      return null;
+  }
 }
 
 export function resolveStaticCanonicalPath(pathname: string): CanonicalRoute | null {
@@ -81,21 +114,30 @@ export async function resolveCanonicalPath(pathname: string): Promise<CanonicalR
   }
 
   if (segments.length === 2 && segments[0] === 'brokers') {
+    const slug = segments[1];
+    const broker = await fetchBroker(slug).catch(() => null);
+    if (!broker) return null;
     return route(path, {
       type: 'broker',
-      slug: segments[1],
+      slug,
       indexable: true,
       published: true,
     });
   }
 
   if (segments.length === 3 && segments[1] === 'brokers') {
+    const [countrySlug, , slug] = segments;
+    const [country, broker] = await Promise.all([
+      fetchCountry(countrySlug).catch(() => null),
+      fetchBroker(slug).catch(() => null),
+    ]);
+    if (!country || !broker) return null;
     return route(path, {
       type: 'broker',
-      countrySlug: segments[0],
-      slug: segments[2],
+      countrySlug,
+      slug,
       indexable: true,
-      published: true,
+      published: country.publishing_state !== 'closed',
     });
   }
 
@@ -109,13 +151,17 @@ export async function resolveCanonicalPath(pathname: string): Promise<CanonicalR
   }
 
   if (segments.length === 3) {
+    const [countrySlug, locale, topicSlug] = segments;
+    const localized = await fetchLocalizedSeoPage(countrySlug, locale, topicSlug).catch(() => null);
+    const legacyVietnamese = countrySlug === 'vietnam' && locale === 'vi';
+    if (!localized && !legacyVietnamese) return null;
     return route(path, {
       type: 'localized-seo',
-      countrySlug: segments[0],
-      slug: segments[2],
-      topicSlug: segments[2],
-      indexable: true,
-      published: true,
+      countrySlug,
+      slug: topicSlug,
+      topicSlug,
+      indexable: localized?.indexable !== false,
+      published: localized?.published !== false,
     });
   }
 
@@ -172,9 +218,9 @@ export function globalBestForSlugs(): string[] {
 }
 
 export function canonicalCountryTopicPath(countrySlug: string, topicSlug: string): string {
-  return `/${encodeURIComponent(countrySlug)}/${encodeURIComponent(topicSlug)}`;
+  return `/${encode(countrySlug)}/${encode(topicSlug)}`;
 }
 
 export function canonicalCountryGuidePath(countrySlug: string, slug: string): string {
-  return `/${encodeURIComponent(countrySlug)}/guides/${encodeURIComponent(slug)}`;
+  return `/${encode(countrySlug)}/guides/${encode(slug)}`;
 }
