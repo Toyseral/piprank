@@ -4,6 +4,7 @@ import type { Broker, ContentDocument, CountryPage } from '../lib/types';
 import PageBuilder, { blocksToHtml } from './PageBuilder';
 import ManualBrokerOrder from './ManualBrokerOrder';
 import { getCountrySeoTopic, rankCountryTopicBrokers } from '../data/countrySeoTopics';
+import { canonicalContentKeyForDocument, canonicalPathForDocument } from '../lib/canonicalHub/resolver';
 
 type ManagedPage = ContentDocument & { route: string; entityType: 'country'|'broker'|'document' };
 
@@ -23,9 +24,9 @@ export default function PageManager({ countries, brokers, contentDocs, token, on
   const [generatorBusy,setGeneratorBusy]=useState(false);
   const [generatorMsg,setGeneratorMsg]=useState('');
   const pages=useMemo<ManagedPage[]>(()=>{
-    const docs=contentDocs.filter(d=>d.content_type!=='country-best-for').map(d=>({...d,route:d.content_type==='broker'&&d.slug?`/brokers/${d.slug}`:d.content_type==='country-guide'&&d.country_slug&&d.slug?`/${d.country_slug}/guides/${d.slug}`:d.country_slug&&d.topic_slug?`/${d.country_slug}/${d.topic_slug}`:d.country_slug?`/${d.country_slug}`:d.slug?`/${d.slug}`:'#',entityType:(d.content_type==='broker'?'broker':d.country_slug?'country':'document') as ManagedPage['entityType']}));
+    const docs=contentDocs.filter(d=>d.content_type!=='country-best-for').map(d=>({...d,route:canonicalPathForDocument(d)||'#',entityType:(d.content_type==='broker'?'broker':d.country_slug?'country':'document') as ManagedPage['entityType']}));
     const keys=new Set(docs.map(d=>d.content_key)); const generated:ManagedPage[]=[];
-    countries.forEach(c=>{const key=`country:${c.slug}:hub`;if(!keys.has(key))generated.push({id:-c.id,content_key:key,content_type:'country',country_slug:c.slug,topic_slug:null,slug:c.slug,title:`${c.name} Forex Brokers`,excerpt:'',html:'',blocks:[],seo_title:c.seo_title||'',seo_description:c.seo_description||'',indexable:true,published:true,updated_by:null,created_at:'',updated_at:'',settings:{},route:`/${c.slug}`,entityType:'country'});});
+    countries.forEach(c=>{const key=`country:${c.slug}:hub`;if(!keys.has(key))generated.push({id:-c.id,content_key:key,content_type:'country',country_slug:c.slug,topic_slug:null,slug:c.slug,title:`${c.name} Forex Brokers`,excerpt:'',html:'',blocks:[],seo_title:c.seo_title||'',seo_description:c.seo_description||'',indexable:true,published:true,updated_by:null,created_at:'',updated_at:'',settings:{},route:canonicalPathForDocument({content_type:'country',country_slug:c.slug,topic_slug:null,slug:c.slug})||`/${c.slug}`,entityType:'country'});});
     return [...generated,...docs].sort((a,b)=>String(b.updated_at||'').localeCompare(String(a.updated_at||'')));
   },[countries,contentDocs]);
   const filtered=pages.filter(p=>{if(kind!=='all'&&p.entityType!==kind)return false;if(status==='published'&&!p.published)return false;if(status==='draft'&&p.published)return false;if(status==='noindex'&&p.indexable)return false;const q=query.toLowerCase().trim();return !q||[p.title,p.content_key,p.route,p.country_slug,p.topic_slug].some(v=>String(v||'').toLowerCase().includes(q));});
@@ -88,7 +89,7 @@ function PageManagerEditor({document,countries,brokers,token,onClose,onSave}:{do
   const isNew=!document||document.id===0; const [form,setForm]=useState<any>(()=>document?{...document,settings:document.settings||{}}:{content_key:'',content_type:'country-guide',country_slug:'',topic_slug:'',slug:'',title:'',excerpt:'',html:'',blocks:[],seo_title:'',seo_description:'',indexable:true,published:false,settings:{}});
   const [busy,setBusy]=useState(false); const [err,setErr]=useState(''); const [preview,setPreview]=useState(false);
   const settings=form.settings||{}; const [rankingMode,setRankingMode]=useState(settings.rankingMode||'auto'); const [pinned,setPinned]=useState<string[]>(settings.pinnedBrokerSlugs||[]); const [excluded,setExcluded]=useState<string[]>(settings.excludedBrokerSlugs||[]); const [faqs,setFaqs]=useState<any[]>(settings.faqs||[]); const [links,setLinks]=useState<any[]>(settings.internalLinks||[]);
-  const isBroker=form.content_type==='broker'; const route=isBroker&&form.slug?`/brokers/${form.slug}`:form.content_type==='country-guide'&&form.country_slug&&form.slug?`/${form.country_slug}/guides/${form.slug}`:form.country_slug?(form.topic_slug?`/${form.country_slug}/${form.topic_slug}`:`/${form.country_slug}`):'#'; const input='h-10 w-full rounded-xl border border-line bg-paper px-3 text-sm outline-none focus:border-emerald-500';
+  const isBroker=form.content_type==='broker'; const route=canonicalPathForDocument(form)||'#'; const input='h-10 w-full rounded-xl border border-line bg-paper px-3 text-sm outline-none focus:border-emerald-500';
   const manualPool=useMemo(()=>{
     if(form.content_type!=='country-topic') return [] as Broker[];
     const country=countries.find(c=>c.slug===form.country_slug);
@@ -101,7 +102,8 @@ function PageManagerEditor({document,countries,brokers,token,onClose,onSave}:{do
   const uploadImage=async(file:File)=>{const reader=new FileReader();const data=await new Promise<string>((resolve,reject)=>{reader.onload=()=>resolve(String(reader.result));reader.onerror=reject;reader.readAsDataURL(file)});const r=await fetch('/api/content-assets',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({filename:file.name,contentType:file.type,dataBase64:data})});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||'Image upload failed');return d.url};
   const save=async()=>{setBusy(true);setErr('');try{
     if(form.content_type==='country-topic'&&rankingMode==='manual'&&pinned.length===0) throw new Error('Manual ranking requires at least one selected eligible broker.');
-    const key=form.content_key||(isBroker?`broker:${form.slug}:main`:(form.content_type==='country-guide'?`country-guide:${form.country_slug}:${form.slug||form.topic_slug}`:`country-topic:${form.country_slug}:${form.topic_slug}`));
+    const key=form.content_key||canonicalContentKeyForDocument(form);
+    if(!key) throw new Error('Complete the page type and canonical fields before saving.');
     const cleanPinned=Array.from(new Set(pinned));
     await onSave({...form,content_key:key,html:blocksToHtml(form.blocks||[]),settings:{...settings,rankingMode,pinnedBrokerSlugs:cleanPinned,excludedBrokerSlugs:excluded,faqs,internalLinks:links},...(isNew?{}:{id:document!.id})},isNew)
   }catch(e){setErr(e instanceof Error?e.message:'Could not save')}finally{setBusy(false)}};
