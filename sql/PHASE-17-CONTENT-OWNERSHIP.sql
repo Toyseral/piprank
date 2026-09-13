@@ -1,16 +1,17 @@
 -- PipRank Phase 17 — Canonical content ownership migration
 --
--- This migration is intentionally non-destructive. Run the diagnostic queries
--- first and resolve their results before adding/enforcing final constraints.
+-- Country Best-For pages are canonical and migrate into content_documents
+-- using content_type='country-best-for'. Only country-topic and the old
+-- localized-seo-page ownership remain legacy here.
 
--- 1. Legacy page ownership that must be migrated before removal.
+-- 1. Legacy page ownership that must be migrated/removed.
 select content_type, count(*) as row_count
 from public.content_documents
-where content_type in ('country-topic', 'country-best-for', 'localized-seo-page')
+where content_type in ('country-topic', 'localized-seo-page')
 group by content_type
 order by content_type;
 
--- 2. Duplicate content keys. These must be zero before a unique index is
+-- 2. Duplicate content keys. These must be zero before the unique index is
 -- enforced on content_documents.content_key.
 select content_key, count(*) as row_count
 from public.content_documents
@@ -23,7 +24,7 @@ order by row_count desc, content_key;
 select id, content_key, content_type, country_slug, topic_slug, slug,
        published, indexable, updated_at
 from public.content_documents
-where content_type in ('country-topic', 'country-best-for', 'localized-seo-page')
+where content_type in ('country-topic', 'localized-seo-page')
   and published = true
   and indexable = true
 order by updated_at desc;
@@ -34,6 +35,7 @@ from public.content_documents
 where content_type in (
   'country',
   'country-guide',
+  'country-best-for',
   'global-best-for',
   'guide',
   'broker',
@@ -42,7 +44,13 @@ where content_type in (
 group by content_type
 order by content_type;
 
--- DO NOT add the final CHECK constraint or unique index until the migration
--- report is clean and all required legacy pages have been redirected/migrated.
--- The existing Phase 16 unique-index migration can be applied after duplicate
--- content keys have been resolved.
+-- 5. Country Best-For migration source inventory.
+select count(*) as legacy_country_best_for_rows
+from public.country_best_for;
+
+-- The old country_best_for table is a migration source only. New canonical
+-- pages must be written to content_documents with keys:
+--   country-best-for:{country_slug}:{slug}
+--
+-- Do not drop the legacy table until all required rows have been migrated and
+-- the canonical routes resolve through CanonicalHub.
