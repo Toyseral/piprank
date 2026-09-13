@@ -47,15 +47,20 @@ export const fetchCountry = (slug: string) => get<CountryPage>(`/api/countries?s
 export const fetchCountryIntentRankings = (countrySlug: string, intentSlug: string) => get<CountryIntentBrokerRanking[]>(`/api/country-intent-rankings?country=${encodeURIComponent(countrySlug)}&intent=${encodeURIComponent(publicIntentSlug(intentSlug))}`);
 export const fetchCountryBestForDocuments = async (countrySlug: string): Promise<ContentDocument[]> => {
   const docs = await get<ContentDocument[]>(`/api/content-documents?type=country-best-for&country=${encodeURIComponent(countrySlug)}`);
-  return Array.isArray(docs)
-    ? docs.filter((doc) => doc.content_type === 'country-best-for' && doc.published !== false)
-    : [];
+  return Array.isArray(docs) ? docs.filter((doc) => doc.content_type === 'country-best-for' && doc.published !== false) : [];
 };
 export const fetchCountryBestForDocument = async (countrySlug: string, slug: string): Promise<ContentDocument | null> => {
   const docs = await get<ContentDocument[]>(`/api/content-documents?type=country-best-for&country=${encodeURIComponent(countrySlug)}&slug=${encodeURIComponent(slug)}`);
-  return Array.isArray(docs)
-    ? docs.find((doc) => doc.content_type === 'country-best-for' && doc.published !== false) ?? null
-    : null;
+  return Array.isArray(docs) ? docs.find((doc) => doc.content_type === 'country-best-for' && doc.published !== false) ?? null : null;
+};
+// Compatibility adapter for CountryDetail while it migrates to ContentDocument typing.
+// The data source is canonical content_documents; this does not read country_best_for.
+export const fetchCountryBestFors = async (countrySlug: string) => {
+  try {
+    return await fetchCountryBestForDocuments(countrySlug);
+  } catch {
+    return [];
+  }
 };
 export const createReview = async (payload: { broker_id: number; author: string; country: string; rating: number; title: string; body: string }, authToken?: string): Promise<Review> => { const res = await fetch('/api/reviews', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}) }, body: JSON.stringify(payload) }); const data = await res.json().catch(() => ({})); if (!res.ok) throw new Error((data as { error?: string }).error || `Request failed (${res.status})`); return data as Review; };
 export const voteHelpful = (id: number) => send<Review>('/api/reviews', 'PUT', { id });
