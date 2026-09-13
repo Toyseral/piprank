@@ -22,7 +22,7 @@ import {
   Zap,
   type LucideIcon,
 } from 'lucide-react';
-import type { Broker, CountryPage, Guide, Intent } from '../lib/types';
+import type { Broker, CountryPage, ContentDocument, Intent } from '../lib/types';
 import { fetchBrokers, fetchCountries, fetchGuides, fetchIntents } from '../lib/api';
 import { useGeo } from '../lib/GeoContext';
 import BrokerCard from '../components/BrokerCard';
@@ -62,7 +62,7 @@ const STEPS = [
 export default function Home() {
   const [brokers, setBrokers] = useState<Broker[]>([]);
   const [intents, setIntents] = useState<Intent[]>([]);
-  const [guides, setGuides] = useState<Guide[]>([]);
+  const [guides, setGuides] = useState<ContentDocument[]>([]);
   const [countries, setCountries] = useState<CountryPage[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -512,15 +512,15 @@ export default function Home() {
                 <Link to={`/guides/${g.slug}`} className="group block">
                   <div className="overflow-hidden rounded-2xl border border-line shadow-soft">
                     <img
-                      src={g.image}
+                      src={String(g.settings?.image ?? "")}
                       alt={g.title}
                       className="aspect-[16/9] w-full object-cover transition duration-500 group-hover:scale-105"
                       loading="lazy"
                     />
                   </div>
                   <div className="mt-4 flex items-center gap-2 text-xs">
-                    <span className="rounded-full bg-ink-900 px-2.5 py-1 font-bold text-white">{g.category}</span>
-                    <span className="text-slate-400">{g.minutes} min read · {g.level}</span>
+                    <span className="rounded-full bg-ink-900 px-2.5 py-1 font-bold text-white">{String(g.settings?.category ?? "Basics")}</span>
+                    <span className="text-slate-400">{Number(g.settings?.minutes ?? 0)} min read · {String(g.settings?.level ?? "Beginner")}</span>
                   </div>
                   <h3 className="mt-2 font-display text-lg font-bold leading-snug text-ink-900 transition group-hover:text-emerald-700">
                     {g.title}

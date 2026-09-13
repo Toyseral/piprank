@@ -1,5 +1,5 @@
 import type { PageBlock } from '../components/PageBuilder';
-import type { BrokerContent, FAQ, GuideSection } from './types';
+import type { BrokerContent, FAQ } from './types';
 
 /**
  * A generic "legacy section" shape that every content type's own structured
@@ -121,10 +121,6 @@ export function brokerContentToLegacySections(content: BrokerContent | null | un
   return sections;
 }
 
-export function guideSectionsToLegacySections(sections: GuideSection[] | undefined | null): LegacySection[] {
-  if (!Array.isArray(sections)) return [];
-  return sections.map((s) => ({ heading: s.heading, paragraphs: s.body ?? [], bullets: s.bullets }));
-}
 
 export function introCriteriaToLegacySections(
   intro: string[] | undefined,

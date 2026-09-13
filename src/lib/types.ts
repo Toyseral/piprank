@@ -103,26 +103,6 @@ export interface Review {
   verified: boolean;
   created_at: string;
 }
-
-export interface GuideSection {
-  heading: string;
-  body: string[];
-  bullets?: string[];
-}
-
-export interface Guide {
-  id: number;
-  slug: string;
-  title: string;
-  excerpt: string;
-  category: string;
-  level: string;
-  minutes: number;
-  image: string;
-  sections: GuideSection[];
-  published: string;
-}
-
 export interface Intent {
   id: number;
   slug: string;

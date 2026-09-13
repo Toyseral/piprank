@@ -1,4 +1,4 @@
-import type { Broker, BrokerContent, BrokerCountryAvailability, BrokerCountryVerification, CountryBestFor, CountryPage, Guide, Intent, Review, ContentDocument, CountryLanguage, LocalizedSeoPage, CountryIntentBrokerRanking } from './types';
+import type { Broker, BrokerContent, BrokerCountryAvailability, BrokerCountryVerification, CountryBestFor, CountryPage, Intent, Review, ContentDocument, CountryLanguage, LocalizedSeoPage, CountryIntentBrokerRanking } from './types';
 
 async function get<T>(url: string, token?: string): Promise<T> {
   const res = await fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : undefined });
@@ -29,8 +29,23 @@ export const fetchIntent = async (slug: string) => {
   try { return await get<Intent>(`/api/intents?slug=${encodeURIComponent(mapped)}`); }
   catch (e) { if (mapped === slug) throw e; return get<Intent>(`/api/intents?slug=${encodeURIComponent(slug)}`); }
 };
-export const fetchGuides = () => get<Guide[]>('/api/guides');
-export const fetchGuide = (slug: string) => get<Guide>(`/api/guides?slug=${encodeURIComponent(slug)}`);
+export const fetchGuides = async (): Promise<ContentDocument[]> => {
+  const docs = await get<ContentDocument[]>('/api/content-documents?type=guide');
+
+  return Array.isArray(docs)
+    ? docs.filter((doc) => doc.country_slug === null)
+    : [];
+};
+
+export const fetchGuide = async (slug: string): Promise<ContentDocument | null> => {
+  const docs = await get<ContentDocument[]>(
+    `/api/content-documents?type=guide&slug=${encodeURIComponent(slug)}`
+  );
+
+  return Array.isArray(docs)
+    ? docs.find((doc) => doc.country_slug === null) ?? null
+    : null;
+};
 export const fetchReviews = (brokerId: number) => get<Review[]>(`/api/reviews?broker_id=${brokerId}`);
 export const fetchBrokerContent = (brokerId: number) => get<BrokerContent | null>(`/api/broker-assets?resource=content&broker_id=${brokerId}`);
 export const fetchBrokerAvailability = (brokerId: number) => get<BrokerCountryAvailability[]>(`/api/broker-assets?resource=availability&broker_id=${brokerId}`);

@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
-import type { Guide } from '../lib/types';
+import type { ContentDocument } from '../lib/types';
 import { fetchGuides } from '../lib/api';
 import Reveal from '../components/Reveal';
 import { useSEO } from '../hooks/useSEO';
 import { staticPageSeo, buildBreadcrumbJsonLd, buildWebPageJsonLd, buildItemListJsonLd } from '../lib/seo';
 
 export default function Guides() {
-  const [guides, setGuides] = useState<Guide[]>([]);
+  const [guides, setGuides] = useState<ContentDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [cat, setCat] = useState('All');
@@ -20,11 +20,18 @@ export default function Guides() {
       .finally(() => setLoading(false));
   }, []);
 
-  const cats = useMemo(() => ['All', ...new Set(guides.map((g) => g.category))], [guides]);
-  const list = useMemo(
-    () => (cat === 'All' ? guides : guides.filter((g) => g.category === cat)),
-    [guides, cat]
-  );
+const cats = useMemo(
+  () => ['All', ...new Set(guides.map((g) => String(g.settings?.category ?? 'Basics')))],
+  [guides]
+);
+
+const list = useMemo(
+  () =>
+    cat === 'All'
+      ? guides
+      : guides.filter((g) => String(g.settings?.category ?? 'Basics') === cat),
+  [guides, cat]
+);
 
   useSEO(staticPageSeo.guides, [
     buildWebPageJsonLd(staticPageSeo.guides),
@@ -89,13 +96,13 @@ export default function Guides() {
               >
                 <div className="relative overflow-hidden">
                   <img
-                    src={g.image}
+                    src={String(g.settings?.image ?? '')}
                     alt={g.title}
                     className="aspect-[16/9] w-full object-cover transition duration-500 group-hover:scale-105"
                     loading="lazy"
                   />
                   <span className="absolute left-3 top-3 rounded-full bg-ink-950/90 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white backdrop-blur">
-                    {g.category}
+                    {String(g.settings?.category ?? 'Basics')}
                   </span>
                 </div>
                 <div className="flex flex-1 flex-col p-5">
@@ -105,7 +112,7 @@ export default function Guides() {
                   <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-slate-500">{g.excerpt}</p>
                   <div className="mt-auto flex items-center justify-between pt-4">
                     <span className="text-xs font-medium text-slate-400">
-                      {g.minutes} min · {g.level}
+                      {Number(g.settings?.minutes ?? 0)} min · {String(g.settings?.level ?? 'Beginner')}
                     </span>
                     <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600">
                       Read <ArrowRight size={12} className="transition group-hover:translate-x-0.5" />

@@ -44,8 +44,8 @@ import LocalizationWorkspace from '../components/admin/LocalizationWorkspace';
 import TeamTab from './admin/TeamTab';
 import PromosTab from './admin/PromosTab';
 import ConversionsTab from './admin/ConversionsTab';
-import type { Broker, BrokerContent, CountryBestFor, CountryPage, FAQ, Guide, GuideSection, Intent, Promotion, Regulation, Review, TestResult, ContentDocument, CountryLanguage, LocalizedSeoPage } from '../lib/types';
-import { legacySectionsToBlocks, brokerContentToLegacySections, guideSectionsToLegacySections, introCriteriaToLegacySections, faqsToBlocks, isBlockShape } from '../lib/contentBlocks';
+import type { Broker, BrokerContent, CountryBestFor, CountryPage, FAQ, Intent, Promotion, Regulation, Review, TestResult, ContentDocument, CountryLanguage, LocalizedSeoPage } from '../lib/types';
+import { legacySectionsToBlocks, brokerContentToLegacySections, introCriteriaToLegacySections, faqsToBlocks, isBlockShape } from '../lib/contentBlocks';
 import Monogram from '../components/Monogram';
 import Stars from '../components/Stars';
 import { fmtDate, timeAgo } from '../lib/format';
@@ -388,7 +388,6 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [brokers, setBrokers] = useState<Broker[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
-  const [guides, setGuides] = useState<Guide[]>([]);
   const [intents, setIntents] = useState<Intent[]>([]);
   const [countries, setCountries] = useState<CountryPage[]>([]);
   const [countryBestFors, setCountryBestFors] = useState<CountryBestFor[]>([]);
@@ -398,7 +397,6 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');
   const [editingBroker, setEditingBroker] = useState<Broker | null | 'new'>(null);
-  const [editingGuide, setEditingGuide] = useState<Guide | null | 'new'>(null);
   const [editingCountry, setEditingCountry] = useState<CountryPage | null | 'new'>(null);
   const [editingIntent, setEditingIntent] = useState<Intent | null | 'new'>(null);
   const [editingCountryBestFor, setEditingCountryBestFor] = useState<CountryBestFor | 'new' | null>(null);
@@ -433,10 +431,9 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
           return fallback;
         }
       };
-      const [b, r, g, i, co, cb, s, c, cd, cl, lp] = await Promise.all([
+      const [b, r, i, co, cb, s, c, cd, cl, lp] = await Promise.all([
         safeJson(fetch('/api/brokers'), []),
         safeJson(fetch('/api/reviews', { headers: headers() }), []),
-        safeJson(fetch('/api/guides'), []),
         safeJson(fetch('/api/intents'), []),
         safeJson(fetch('/api/countries'), []),
         safeJson(fetch('/api/country-best-for'), []),
@@ -448,7 +445,6 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
       ]);
       if (Array.isArray(b)) setBrokers(b);
       if (Array.isArray(r)) setReviews(r);
-      if (Array.isArray(g)) setGuides(g);
       if (Array.isArray(i)) setIntents(i);
       if (Array.isArray(co)) setCountries(co);
       if (Array.isArray(cb)) setCountryBestFors(cb);
@@ -718,17 +714,6 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
             } else {
               await mutate('/api/brokers', 'PUT', { id: editingBroker.id, ...fields }, 'Saved — live on site');
             }
-          }}
-        />
-      )}
-      {editingGuide && (
-        <GuideEditor
-          guide={editingGuide === 'new' ? null : editingGuide}
-          token={session.access_token}
-          onClose={() => setEditingGuide(null)}
-          onSave={async (fields, isNew) => {
-            await mutate('/api/guides', isNew ? 'POST' : 'PUT', fields, isNew ? 'Guide published' : 'Guide saved');
-            if (isNew) setEditingGuide(null);
           }}
         />
       )}
@@ -2295,289 +2280,6 @@ function ToggleGrid({
 
 /* ============================ CONTENT TAB ============================ */
 
-function ContentTab({
-  guides,
-  intents,
-  countries,
-  countryBestFors,
-  brokers,
-  onNewGuide,
-  onEditGuide,
-  onDeleteGuide,
-  onNewIntent,
-  onEditIntent,
-  onDeleteIntent,
-  onNewCountryBestFor,
-  onEditCountryBestFor,
-  onDeleteCountryBestFor,
-  onEditBrokerContent,
-  onNewCountry,
-  onEditCountry,
-  onDeleteCountry,
-  contentDocs,
-  onNewContentDoc,
-  onEditContentDoc,
-  onDeleteContentDoc,
-}: {
-  guides: Guide[];
-  intents: Intent[];
-  countries: CountryPage[];
-  countryBestFors: CountryBestFor[];
-  brokers: Broker[];
-  onNewGuide: () => void;
-  onEditGuide: (g: Guide) => void;
-  onDeleteGuide: (g: Guide) => void;
-  onNewIntent: () => void;
-  onEditIntent: (i: Intent) => void;
-  onDeleteIntent: (i: Intent) => void;
-  onNewCountryBestFor: () => void;
-  onEditCountryBestFor: (p: CountryBestFor) => void;
-  onDeleteCountryBestFor: (p: CountryBestFor) => void;
-  onEditBrokerContent: (b: Broker) => void;
-  onNewCountry: () => void;
-  onEditCountry: (c: CountryPage) => void;
-  onDeleteCountry: (c: CountryPage) => void;
-  contentDocs: ContentDocument[];
-  onNewContentDoc: () => void;
-  onEditContentDoc: (d: ContentDocument) => void;
-  onDeleteContentDoc: (d: ContentDocument) => void;
-}) {
-  return (
-    <div className="grid gap-5 lg:grid-cols-2">
-      <div className="rounded-2xl border border-line bg-white shadow-soft">
-        <div className="flex items-center justify-between border-b border-line px-5 py-4">
-          <p className="font-display text-base font-bold text-ink-900">Guides ({guides.length})</p>
-          <button
-            onClick={onNewGuide}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3.5 py-1.5 text-xs font-bold text-white transition hover:bg-emerald-600"
-          >
-            <Plus size={13} /> New guide
-          </button>
-        </div>
-        <div className="divide-y divide-line">
-          {guides.map((g) => (
-            <div key={g.id} className="flex items-center gap-3 px-5 py-3.5">
-              <img src={g.image} alt="" className="h-10 w-16 rounded-lg object-cover" />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-bold text-ink-900">{g.title}</p>
-                <p className="text-xs text-slate-400">
-                  {g.category} · {g.level} · {g.minutes} min · {fmtDate(g.published)}
-                </p>
-              </div>
-              <Link
-                to={`/guides/${g.slug}`}
-                target="_blank"
-                className="rounded-lg p-2 text-slate-400 transition hover:bg-paper hover:text-ink-900"
-              >
-                <ArrowUpRight size={15} />
-              </Link>
-              <button
-                onClick={() => onEditGuide(g)}
-                className="rounded-lg p-2 text-slate-400 transition hover:bg-emerald-50 hover:text-emerald-700"
-                title="Edit guide"
-              >
-                <Pencil size={15} />
-              </button>
-              <button
-                onClick={() => onDeleteGuide(g)}
-                className="rounded-lg p-2 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
-                title="Delete guide"
-              >
-                <Trash2 size={15} />
-              </button>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="rounded-2xl border border-line bg-white shadow-soft">
-        <div className="flex items-center justify-between border-b border-line px-5 py-4">
-          <p className="font-display text-base font-bold text-ink-900">SEO intent pages ({intents.length})</p>
-          <button
-            onClick={onNewIntent}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3.5 py-1.5 text-xs font-bold text-white transition hover:bg-emerald-600"
-          >
-            <Plus size={13} /> New page
-          </button>
-        </div>
-        <div className="divide-y divide-line">
-          {intents.map((i) => (
-            <div key={i.id} className="flex items-center gap-3 px-5 py-3.5">
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-bold text-ink-900">{i.title}</p>
-                <p className="text-xs text-slate-400">/{SUPERSEDED_INTENT_TO_TOPIC[i.slug] ?? i.slug}</p>
-              </div>
-              <Link
-                to={`/${SUPERSEDED_INTENT_TO_TOPIC[i.slug] ?? i.slug}`}
-                target="_blank"
-                className="rounded-lg p-2 text-slate-400 transition hover:bg-paper hover:text-ink-900"
-                title="View public page"
-              >
-                <ArrowUpRight size={15} />
-              </Link>
-              <button
-                onClick={() => onEditIntent(i)}
-                className="rounded-lg p-2 text-slate-400 transition hover:bg-emerald-50 hover:text-emerald-700"
-                title="Edit intent"
-              >
-                <Pencil size={15} />
-              </button>
-              <button
-                onClick={() => onDeleteIntent(i)}
-                className="rounded-lg p-2 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
-                title="Delete intent"
-              >
-                <Trash2 size={15} />
-              </button>
-            </div>
-          ))}
-        </div>
-        <p className="px-5 py-4 text-xs leading-relaxed text-slate-400">
-          Broker categories are assigned per broker in the broker editor — the Categories &amp; features tab.
-        </p>
-      </div>
-
-      {/* ------------------------- BROKER DETAILED CONTENT ------------------------- */}
-      <div className="rounded-2xl border border-line bg-white shadow-soft lg:col-span-2">
-        <div className="border-b border-line px-5 py-4">
-          <p className="font-display text-base font-bold text-ink-900">Broker detailed content</p>
-          <p className="mt-0.5 text-xs text-slate-400">Edit platform, account-type and deposit/withdrawal content used on broker pages. Do not invent broker facts.</p>
-        </div>
-        <div className="grid gap-0 sm:grid-cols-2">
-          {brokers.map((b) => (
-            <div key={b.id} className="flex items-center gap-3 border-b border-line px-5 py-3.5 sm:border-r">
-              <Monogram name={b.name} logoUrl={b.logo_url} color={b.brand_color} size={32} className="rounded-lg" />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-bold text-ink-900">{b.name}</p>
-                <p className="text-xs text-slate-400">Platforms · accounts · payment methods</p>
-              </div>
-              <button onClick={() => onEditBrokerContent(b)} className="rounded-lg p-2 text-slate-400 transition hover:bg-emerald-50 hover:text-emerald-700" title="Edit broker detailed content"><Pencil size={15} /></button>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* ------------------------- COUNTRY BEST-FOR SEO ------------------------- */}
-      <div className="rounded-2xl border border-line bg-white shadow-soft lg:col-span-2">
-        <div className="flex items-center justify-between border-b border-line px-5 py-4">
-          <div>
-            <p className="font-display text-base font-bold text-ink-900">Country Best-For SEO pages ({countryBestFors.length})</p>
-            <p className="mt-0.5 text-xs text-slate-400">Editable country-specific commercial landing pages.</p>
-          </div>
-          <button onClick={onNewCountryBestFor} className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3.5 py-1.5 text-xs font-bold text-white transition hover:bg-emerald-600">
-            <Plus size={13} /> New page
-          </button>
-        </div>
-        <div className="grid gap-0 sm:grid-cols-2">
-          {countryBestFors.map((p) => (
-            <div key={p.id} className="flex items-center gap-3 border-b border-line px-5 py-3.5 sm:border-r">
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-bold text-ink-900">{p.title}</p>
-                <p className="text-xs text-slate-400">
-                  {SUPERSEDED_INTENT_TO_TOPIC[p.slug]
-                    ? <>/countries/{p.country_slug}/best/{p.slug} → redirects to /{p.country_slug}/{SUPERSEDED_INTENT_TO_TOPIC[p.slug]}</>
-                    : <>/countries/{p.country_slug}/best/{p.slug} · {p.indexable ? 'Indexable' : 'Noindex'}</>}
-                </p>
-              </div>
-              <Link
-                to={SUPERSEDED_INTENT_TO_TOPIC[p.slug] ? `/${p.country_slug}/${SUPERSEDED_INTENT_TO_TOPIC[p.slug]}` : `/${p.country_slug}/${SUPERSEDED_INTENT_TO_TOPIC[p.slug] ?? p.slug}`}
-                target="_blank"
-                className="rounded-lg p-2 text-slate-400 transition hover:bg-paper hover:text-ink-900"
-                title={SUPERSEDED_INTENT_TO_TOPIC[p.slug] ? 'View the live canonical page (this row now redirects there)' : 'View public page'}
-              >
-                <ArrowUpRight size={15} />
-              </Link>
-              <button onClick={() => onEditCountryBestFor(p)} className="rounded-lg p-2 text-slate-400 transition hover:bg-emerald-50 hover:text-emerald-700" title="Edit"><Pencil size={15} /></button>
-              <button onClick={() => onDeleteCountryBestFor(p)} className="rounded-lg p-2 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600" title="Delete"><Trash2 size={15} /></button>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* ------------------------- BROKER PROFILE CMS ------------------------- */}
-      <div className="rounded-2xl border border-line bg-white shadow-soft lg:col-span-2">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4">
-          <div><p className="font-display text-base font-bold text-ink-900">Broker Profile CMS ({brokers.length})</p><p className="mt-0.5 text-xs text-slate-400">Edit broker editorial pages with the same rich-text, image and table tools used for country SEO content.</p></div>
-        </div>
-        <div className="grid gap-0 sm:grid-cols-2">
-          {brokers.map(b=><div key={b.id} className="flex items-center gap-3 border-b border-line px-5 py-3.5 sm:border-r"><Monogram name={b.name} logoUrl={b.logo_url} color={b.brand_color} size={32} className="rounded-lg"/><div className="min-w-0 flex-1"><p className="truncate text-sm font-bold text-ink-900">{b.name}</p><p className="truncate text-xs text-slate-400">/brokers/{b.slug}</p></div><Link to={`/brokers/${b.slug}`} target="_blank" className="rounded-lg p-2 text-slate-400 hover:bg-paper hover:text-ink-900" title="View live"><Eye size={15}/></Link><button onClick={()=>onEditBrokerContent(b)} className="rounded-lg p-2 text-slate-400 hover:bg-emerald-50 hover:text-emerald-700" title="Open broker CMS"><Pencil size={15}/></button></div>)}
-        </div>
-      </div>
-
-      {/* ------------------------- RICH CONTENT STUDIO ------------------------- */}
-      <div className="rounded-2xl border border-line bg-white shadow-soft lg:col-span-2">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4">
-          <div><p className="font-display text-base font-bold text-ink-900">Rich Content Studio ({contentDocs.length})</p><p className="mt-0.5 text-xs text-slate-400">Edit existing localized pages or add new editorial sections with formatting, images, links and tables.</p></div>
-          <button onClick={onNewContentDoc} className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3.5 py-1.5 text-xs font-bold text-white"><Plus size={13}/> New rich content</button>
-        </div>
-        <div className="divide-y divide-line">
-          {contentDocs.map((d) => <div key={d.id} className="flex items-center gap-3 px-5 py-3.5"><div className="min-w-0 flex-1"><p className="truncate text-sm font-bold text-ink-900">{d.title || d.content_key}</p><p className="truncate text-xs text-slate-400">{d.content_key} · {d.published ? 'Published' : 'Draft'} · updated {fmtDate(d.updated_at)}</p></div><button onClick={()=>onEditContentDoc(d)} className="rounded-lg p-2 text-slate-400 hover:bg-emerald-50 hover:text-emerald-700" title="Edit"><Pencil size={15}/></button><button onClick={()=>onDeleteContentDoc(d)} className="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600" title="Delete"><Trash2 size={15}/></button></div>)}
-          {!contentDocs.length && <p className="p-6 text-sm text-slate-400">No rich content documents yet. Create one for a country topic or another page section.</p>}
-        </div>
-      </div>
-
-      {/* ------------------------------ COUNTRIES ------------------------------ */}
-      <div className="rounded-2xl border border-line bg-white shadow-soft lg:col-span-2">
-        <div className="flex items-center justify-between border-b border-line px-5 py-4">
-          <p className="font-display text-base font-bold text-ink-900">
-            Country guides ({countries.length})
-          </p>
-          <button
-            onClick={onNewCountry}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3.5 py-1.5 text-xs font-bold text-white transition hover:bg-emerald-600"
-          >
-            <Plus size={13} /> New country
-          </button>
-        </div>
-        <div className="grid gap-0 sm:grid-cols-2">
-          {countries.map((c) => (
-            <div
-              key={c.id}
-              className="flex items-center gap-3 border-b border-line px-5 py-3.5 last:border-0 sm:border-r sm:odd:border-r"
-            >
-              <span className="text-2xl">{c.flag}</span>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-bold text-ink-900">{c.name}</p>
-                <p className="text-xs text-slate-400">
-                  /{c.slug} · {c.recommended.length} picks
-                  {c.unavailable.length > 0 && ` · ${c.unavailable.length} excluded`}
-                </p>
-              </div>
-              <Link
-                to={`/${c.slug}`}
-                target="_blank"
-                className="rounded-lg p-2 text-slate-400 transition hover:bg-paper hover:text-ink-900"
-                title="View public page"
-              >
-                <ArrowUpRight size={15} />
-              </Link>
-              <button
-                onClick={() => onEditCountry(c)}
-                className="rounded-lg p-2 text-slate-400 transition hover:bg-emerald-50 hover:text-emerald-700"
-                title="Edit"
-              >
-                <Pencil size={15} />
-              </button>
-              <button
-                onClick={() => onDeleteCountry(c)}
-                className="rounded-lg p-2 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
-                title="Delete"
-              >
-                <Trash2 size={15} />
-              </button>
-            </div>
-          ))}
-        </div>
-        <p className="px-5 py-4 text-xs leading-relaxed text-slate-400">
-          Recommendations per country flow straight into the quiz matcher and geo banner.
-        </p>
-      </div>
-    </div>
-  );
-}
-
-/* ======================= RICH CONTENT EDITOR ======================= */
-
 function ContentDocumentEditor({ document, countries, token, defaultCountrySlug, onClose, onSave }: {
   document: ContentDocument | null;
   countries: CountryPage[];
@@ -2821,172 +2523,7 @@ interface PromoForm {
 
 const GUIDE_CATEGORIES = ['Basics', 'Risk', 'Psychology', 'Platforms', 'Costs', 'Strategy'];
 const GUIDE_LEVELS = ['Beginner', 'Intermediate', 'Advanced', 'All levels'];
-const GUIDE_IMAGES = [
-  '/images/guides/basics.jpg',
-  '/images/guides/risk.jpg',
-  '/images/guides/psychology.jpg',
-  '/images/guides/platforms.jpg',
-  '/images/guides/costs.jpg',
-  '/images/guides/strategy.jpg',
-];
 
-interface GuideForm {
-  title: string;
-  excerpt: string;
-  category: string;
-  level: string;
-  minutes: string;
-  published: string;
-  image: string;
-  sections: GuideSection[];
-}
-
-function GuideEditor({
-  guide,
-  token,
-  onClose,
-  onSave,
-}: {
-  guide: Guide | null;
-  token: string;
-  onClose: () => void;
-  onSave: (fields: Record<string, unknown>, isNew: boolean) => Promise<void>;
-}) {
-  const [form, setForm] = useState<GuideForm>(() =>
-    guide
-      ? JSON.parse(JSON.stringify({ ...guide, minutes: String(guide.minutes) }))
-      : {
-          title: '',
-          excerpt: '',
-          category: 'Basics',
-          level: 'Beginner',
-          minutes: '10',
-          published: new Date().toISOString().slice(0, 10),
-          image: GUIDE_IMAGES[0],
-          sections: [],
-        }
-  );
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState('');
-
-  // The article body is now edited as PageBuilder blocks directly on the
-  // same `sections` field the public page renders — no separate document.
-  // Guides written before this change are auto-converted the first time
-  // they're opened here; nothing is lost, they just become editable blocks.
-  const initialBlocks = useMemo(
-    () => (isBlockShape(form.sections) ? (form.sections as unknown as PageBlock[]) : legacySectionsToBlocks(guideSectionsToLegacySections(form.sections as GuideSection[]))),
-    []
-  );
-
-  const uploadImage = async (file: File) => {
-    const reader = new FileReader();
-    const data = await new Promise<string>((resolve, reject) => { reader.onload = () => resolve(String(reader.result)); reader.onerror = reject; reader.readAsDataURL(file); });
-    const res = await fetch('/api/content-assets', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ filename: file.name, contentType: file.type, dataBase64: data }) });
-    const out = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(out.error || 'Image upload failed');
-    return out.url;
-  };
-
-  const submit = async () => {
-    if (form.title.trim().length < 4) return setErr('A guide title is required.');
-    setBusy(true);
-    try {
-      const out: Record<string, unknown> = {
-        ...form,
-        minutes: parseInt(form.minutes, 10) || 8,
-      };
-      if (guide) out.id = guide.id;
-      await onSave(out, !guide);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const inputCls =
-    'h-10 w-full rounded-xl border border-line bg-paper px-3 text-sm font-medium outline-none transition focus:border-emerald-500';
-
-  return (
-    <DrawerShell title={guide ? 'Edit guide' : 'New guide'} onClose={onClose} wide>
-      <div className="space-y-5">
-        {err && <p className="rounded-xl bg-rose-50 px-4 py-2.5 text-sm font-medium text-rose-600">{err}</p>}
-
-        {/* meta */}
-        <div className="space-y-3">
-          <label className="block">
-            <FieldLabel>Title</FieldLabel>
-            <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className={inputCls} placeholder="e.g. Forex Trading for Beginners" />
-          </label>
-          <label className="block">
-            <FieldLabel>Excerpt</FieldLabel>
-            <textarea
-              value={form.excerpt}
-              onChange={(e) => setForm({ ...form, excerpt: e.target.value })}
-              rows={2}
-              className="w-full rounded-xl border border-line bg-paper px-3 py-2.5 text-sm outline-none focus:border-emerald-500"
-            />
-          </label>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <label className="block">
-              <FieldLabel>Category</FieldLabel>
-              <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className={inputCls}>
-                {GUIDE_CATEGORIES.map((c) => (<option key={c}>{c}</option>))}
-              </select>
-            </label>
-            <label className="block">
-              <FieldLabel>Level</FieldLabel>
-              <select value={form.level} onChange={(e) => setForm({ ...form, level: e.target.value })} className={inputCls}>
-                {GUIDE_LEVELS.map((l) => (<option key={l}>{l}</option>))}
-              </select>
-            </label>
-            <label className="block">
-              <FieldLabel>Minutes</FieldLabel>
-              <input type="number" value={form.minutes} onChange={(e) => setForm({ ...form, minutes: e.target.value })} className={`tnum ${inputCls}`} />
-            </label>
-            <label className="block">
-              <FieldLabel>Published</FieldLabel>
-              <input value={form.published} onChange={(e) => setForm({ ...form, published: e.target.value })} className={inputCls} />
-            </label>
-          </div>
-          {/* image picker */}
-          <div>
-            <FieldLabel>Cover image</FieldLabel>
-            <div className="mt-1.5 grid grid-cols-3 gap-2">
-              {GUIDE_IMAGES.map((img) => (
-                <button
-                  key={img}
-                  type="button"
-                  onClick={() => setForm({ ...form, image: img })}
-                  className={`overflow-hidden rounded-xl border-2 transition ${form.image === img ? 'border-emerald-500 ring-2 ring-emerald-500/30' : 'border-transparent opacity-70 hover:opacity-100'}`}
-                >
-                  <img src={img} alt="" className="aspect-[16/9] w-full object-cover" />
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* sections — block-based editor, same one used everywhere else */}
-        <div>
-          <FieldLabel hint="Reorder, add headings, images, tables, callouts and more">Article content</FieldLabel>
-          <div className="mt-1.5">
-            <PageBuilder value={initialBlocks} onChange={(blocks) => setForm((f) => ({ ...f, sections: blocks as unknown as GuideSection[] }))} onUploadImage={uploadImage} />
-          </div>
-        </div>
-
-        <button
-          onClick={submit}
-          disabled={busy}
-          className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-ink-950 text-sm font-bold text-white transition hover:bg-ink-800 disabled:opacity-60"
-        >
-          {busy && <Loader2 size={15} className="animate-spin" />}
-          {guide ? 'Save guide' : 'Publish guide'}
-        </button>
-      </div>
-    </DrawerShell>
-  );
-}
-
-/* ============================ INTENT EDITOR ============================ */
 
 const ICON_OPTIONS = [
   { value: 'beginners', label: 'Beginners (graduation cap)' },

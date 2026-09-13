@@ -130,7 +130,7 @@ async function main() {
     const [{ data: b, error: be }, { data: c, error: ce }, { data: g, error: ge }, { data: i, error: ie }, { data: cbf, error: cbfe }, { data: rv, error: rve }, { data: lsp, error: lspe }] = await Promise.all([
       supabase.from('brokers').select('*'),
       supabase.from('countries').select('*'),
-      supabase.from('guides').select('*'),
+      supabase.from('content_documents').select('*').eq('content_type', 'guide').is('country_slug', null).eq('published', true),
       supabase.from('intents').select('*').order('id', { ascending: true }),
       supabase.from('country_best_for').select('*, countries!inner(name, slug)').eq('indexable', true),
       supabase.from('reviews').select('broker_id, rating, verified, created_at'),
@@ -812,38 +812,55 @@ async function main() {
   } else warn('Vietnam country record not found; Vietnamese cluster was not prerendered.');
 
   // --- Admin-managed Country × Language commercial cluster ------------
-  // --- Guides ---------------------------------------------------------
+  // --- Global Guides -------------------------------------------------
   for (const g of guides) {
     if (!g.slug) continue;
-    const title = `${g.title} | ${SITE_NAME} Guides`;
-    const description = g.excerpt && g.excerpt.trim() ? g.excerpt : `${g.title} — a ${g.category ?? 'trading'} guide from ${SITE_NAME}.`;
-    const sections = Array.isArray(g.sections) ? g.sections : [];
 
-    const content = `
+    const title = `${g.title} | ${SITE_NAME} Guides`;
+    const description =
+      g.excerpt && g.excerpt.trim()
+        ? g.excerpt
+        : `${g.title} — a ${g.settings?.category ?? "trading"} guide from ${SITE_NAME}.`;
+
+    const guideHtml = typeof g.html === "string" ? g.html : "";
+
+    const content = \`
       <main>
-        <nav aria-label="Breadcrumb"><a href="/">Home</a> &rsaquo; <a href="/guides">Guides</a> &rsaquo; <span>${esc(g.title)}</span></nav>
+        <nav aria-label="Breadcrumb">
+          <a href="/">Home</a> &rsaquo;
+          <a href="/guides">Guides</a> &rsaquo;
+          <span>${esc(g.title)}</span>
+        </nav>
         <h1>${esc(g.title)}</h1>
-        <p>${esc(g.excerpt || '')}</p>
-        ${sections
-          .map((s) => `<h2>${esc(s.heading ?? '')}</h2>${Array.isArray(s.paragraphs) ? s.paragraphs.map((p) => `<p>${esc(p)}</p>`).join('') : ''}`)
-          .join('\n')}
+        ${g.excerpt ? `<p>${esc(g.excerpt)}</p>` : ""}
+        ${guideHtml}
         <p><a href="/guides">See all guides</a></p>
       </main>
-    `;
+    \`;
 
     const jsonLd = [
-      webPageJsonLd(title, description, `/guides/${g.slug}`, 'Article'),
+      webPageJsonLd(title, description, `/guides/${g.slug}`, "Article"),
       breadcrumbJsonLd([
-        { name: 'Home', path: '/' },
-        { name: 'Guides', path: '/guides' },
+        { name: "Home", path: "/" },
+        { name: "Guides", path: "/guides" },
         { name: g.title, path: `/guides/${g.slug}` },
       ]),
     ];
 
-    writePage(`/guides/${g.slug}`, { title, description, path: `/guides/${g.slug}` }, jsonLd, content, shell, writtenPaths);
+    writePage(
+      `/guides/${g.slug}`,
+      { title, description, path: `/guides/${g.slug}` },
+      jsonLd,
+      content,
+      shell,
+      writtenPaths
+    );
     written++;
   }
-
+  // --- Compare pairs ---------------------------------------------------
+  // --- Compare pairs ---------------------------------------------------
+  // --- Compare pairs ---------------------------------------------------
+  // --- Compare pairs ---------------------------------------------------
   // --- Compare pairs ---------------------------------------------------
   const topBrokers = [...brokers]
     .filter((b) => b.slug)
