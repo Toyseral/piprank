@@ -3,23 +3,22 @@ import type { ContentDocument, Intent } from '../../lib/types';
 
 export default function GlobalHub({
   guides,
-  bestForPages,
+  bestForPages = [],
   onNewGuide,
   onEditGuide,
-  onNewBestFor,
-  onEditBestFor,
-  // Temporary compatibility: Admin still supplies these while IntentEditor is retired.
+  onNewBestFor = () => undefined,
+  onEditBestFor = () => undefined,
   intents: _intents,
   onNewIntent: _onNewIntent,
   onEditIntent: _onEditIntent,
   intentToTopic: _intentToTopic,
 }: {
   guides: ContentDocument[];
-  bestForPages: ContentDocument[];
+  bestForPages?: ContentDocument[];
   onNewGuide: () => void;
   onEditGuide: (g: ContentDocument) => void;
-  onNewBestFor: () => void;
-  onEditBestFor: (page: ContentDocument) => void;
+  onNewBestFor?: () => void;
+  onEditBestFor?: (page: ContentDocument) => void;
   intents?: Intent[];
   onNewIntent?: () => void;
   onEditIntent?: (i: Intent) => void;
@@ -45,7 +44,7 @@ export default function GlobalHub({
         </div>
         <div className="divide-y divide-line">
           {bestForPages.map(page => <div key={page.id} className="flex items-center gap-3 px-5 py-3.5"><div className="min-w-0 flex-1"><p className="truncate text-sm font-bold text-ink-900">{page.title || page.content_key}</p><p className="text-xs text-slate-400">/{page.slug || page.content_key.replace(/^best-for:/, '')}{page.published ? ' · Published' : ' · Draft'}</p></div>{page.slug && <a href={`/${page.slug}`} target="_blank" rel="noreferrer" className="rounded-lg p-2 text-slate-400 hover:bg-paper hover:text-ink-900" title="Preview live page"><Eye size={14} /></a>}<button onClick={() => onEditBestFor(page)} className="rounded-lg p-2 text-slate-400 hover:bg-paper hover:text-ink-900" title="Edit page"><Pencil size={14} /></button></div>)}
-          {!bestForPages.length && <p className="p-5 text-sm text-slate-400">No canonical best-for documents yet.</p>}
+          {!bestForPages.length && <p className="p-5 text-sm text-slate-400">No canonical best-for documents yet. Wire GlobalHub to content_documents to create the first ones.</p>}
         </div>
       </div>
     </div>
