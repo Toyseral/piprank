@@ -35,8 +35,6 @@ export function Shell() {
       <Suspense fallback={<RouteLoader />}>
         <Routes>
           <Route path="/" element={<Home />} />
-
-          {/* Non-canonical application/tools/admin surfaces remain explicit. */}
           <Route path="/quiz" element={<Quiz />} />
           <Route path="/tools" element={<Tools />} />
           <Route path="/methodology" element={<Methodology />} />
@@ -46,11 +44,25 @@ export function Shell() {
           <Route path="/archypage/localization" element={<AdminLocalization />} />
           <Route path="/archypage" element={<Admin />} />
 
-          {/* Legacy URLs remain redirects and never own canonical content. */}
+          {/* Retired global Best-For URLs are redirects only. */}
           <Route path="/best/:slug" element={<LegacyBestForRedirect />} />
+          <Route path="/best-forex-brokers-for-beginners" element={<LegacyBestForRedirect />} />
+          <Route path="/best-low-spread-forex-brokers" element={<LegacyBestForRedirect />} />
+          <Route path="/best-mt4-forex-brokers" element={<LegacyBestForRedirect />} />
+          <Route path="/best-mt5-forex-brokers" element={<LegacyBestForRedirect />} />
+          <Route path="/best-gold-forex-brokers" element={<LegacyBestForRedirect />} />
+          <Route path="/best-forex-brokers-for-scalping" element={<LegacyBestForRedirect />} />
+          <Route path="/best-islamic-forex-brokers" element={<LegacyBestForRedirect />} />
+          <Route path="/best-ecn-forex-brokers" element={<LegacyBestForRedirect />} />
+          <Route path="/best-copy-trading-forex-brokers" element={<LegacyBestForRedirect />} />
+          <Route path="/best-forex-brokers-for-swing-trading" element={<LegacyBestForRedirect />} />
+          <Route path="/best-high-leverage-forex-brokers" element={<LegacyBestForRedirect />} />
+
+          {/* Retired country Best-For URLs are redirects only. */}
           <Route path="/countries/:countrySlug/best/:slug" element={<LegacyCountryBestForRedirect />} />
           <Route path="/:countrySlug/best-low-spread-forex-brokers" element={<LegacyCountryBestForRedirect />} />
           <Route path="/:countrySlug/best-forex-brokers-for-beginners" element={<LegacyCountryBestForRedirect />} />
+          <Route path="/:countrySlug/best-mt4-forex-brokers" element={<LegacyCountryBestForRedirect />} />
           <Route path="/:countrySlug/best-mt5-forex-brokers" element={<LegacyCountryBestForRedirect />} />
           <Route path="/:countrySlug/best-gold-forex-brokers" element={<LegacyCountryBestForRedirect />} />
           <Route path="/:countrySlug/best-forex-brokers-for-scalping" element={<LegacyCountryBestForRedirect />} />
@@ -68,19 +80,13 @@ export function Shell() {
           <Route path="/compare/:pair" element={<CanonicalHub />} />
           <Route path="/guides" element={<CanonicalHub />} />
           <Route path="/guides/:slug" element={<CanonicalHub />} />
-
-          {/* Country directory is canonical at /countries. */}
           <Route path="/countries" element={<CanonicalHub />} />
-
-          {/* /countries/:slug is legacy. The server 301 is preferred; this is the client fallback. */}
           <Route path="/countries/:slug" element={<LegacyCountryRedirect />} />
-
-          {/* Country guides are canonical content documents. */}
           <Route path="/:countrySlug/guides/:slug" element={<CanonicalHub />} />
           <Route path="/:countrySlug/:locale/guides/:slug" element={<LocalizedGuide />} />
           <Route path="/:countrySlug/:locale/:topicSlug" element={<CanonicalHub />} />
 
-          {/* Canonical country Best-For pages use the two-segment country URL. */}
+          {/* Canonical country Best-For pages. */}
           <Route path="/:countrySlug/forex-brokers-for-beginners" element={<CanonicalHub />} />
           <Route path="/:countrySlug/low-spread-forex-brokers" element={<CanonicalHub />} />
           <Route path="/:countrySlug/mt4-forex-brokers" element={<CanonicalHub />} />
@@ -92,11 +98,9 @@ export function Shell() {
           <Route path="/:countrySlug/copy-trading-forex-brokers" element={<CanonicalHub />} />
           <Route path="/:countrySlug/forex-brokers-for-swing-trading" element={<CanonicalHub />} />
           <Route path="/:countrySlug/high-leverage-forex-brokers" element={<CanonicalHub />} />
-
-          {/* Old country-topic URLs no longer render topic content. */}
           <Route path="/:countrySlug/:topicSlug" element={<LegacyCountryTopicRedirect />} />
 
-          {/* Root-level global Best-For URLs are all resolved through CanonicalHub. */}
+          {/* Canonical global Best-For pages. */}
           <Route path="/forex-brokers-for-beginners" element={<CanonicalHub />} />
           <Route path="/low-spread-forex-brokers" element={<CanonicalHub />} />
           <Route path="/mt4-forex-brokers" element={<CanonicalHub />} />
@@ -109,7 +113,6 @@ export function Shell() {
           <Route path="/forex-brokers-for-swing-trading" element={<CanonicalHub />} />
           <Route path="/high-leverage-forex-brokers" element={<CanonicalHub />} />
 
-          {/* Root-level country routes are resolved through CanonicalHub. */}
           <Route path="/:slug" element={<CanonicalHub />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
