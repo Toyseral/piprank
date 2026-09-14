@@ -12,7 +12,10 @@ function route(path: string, input: Omit<CanonicalRoute, 'path' | 'canonicalPath
 }
 function encode(value: string): string { return encodeURIComponent(value); }
 function localeOf(document: Pick<ContentDocument, 'settings'>): string {
-  return String((document.settings as any)?.locale || (document.settings as any)?.languageCode || '').trim();
+  const settings = document.settings ?? {};
+  const locale = typeof settings.locale === 'string' ? settings.locale : '';
+  const languageCode = typeof settings.languageCode === 'string' ? settings.languageCode : '';
+  return String(locale || languageCode).trim();
 }
 
 export function canonicalPathForDocument(document: Pick<ContentDocument, 'content_type' | 'country_slug' | 'topic_slug' | 'slug' | 'settings'>): string | null {
