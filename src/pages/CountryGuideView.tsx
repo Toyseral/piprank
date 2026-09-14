@@ -42,6 +42,7 @@ export default function CountryGuideView({ countrySlug, slug, contentKey, docume
     description: doc.seo_description || doc.excerpt,
     path: `/${country.slug}/guides/${slug}`,
     type: 'article' as const,
+    noindex: doc.indexable === false,
   } : null;
 
   useSEO(seo, seo && country && doc ? [
