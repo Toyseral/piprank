@@ -13,11 +13,10 @@ import CountryDetail from './CountryDetail';
 import GuideDetail from './GuideDetail';
 import GuideTopic from './GuideTopic';
 import Guides from './Guides';
-import LocalizedCountrySeoTopic from './LocalizedCountrySeoTopic';
 import NotFound from './NotFound';
 
 function Loading() {
-  return <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6"><div className="h-48 animate-pulse rounded-3xl border border-line bg-white" /></div>;
+  return <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6"><div className="h-48 animate-pulse rounded-3xl border border-line bg-white" />
 }
 
 export default function CanonicalHub() {
@@ -78,8 +77,6 @@ export default function CanonicalHub() {
       return route.path === '/countries' || route.path.startsWith('/countries/') ? <CountryDetail /> : <Countries />;
     case 'compare':
       return route.path === '/compare' ? <Compare /> : <ComparePair />;
-    case 'localized-seo':
-      return <LocalizedCountrySeoTopic />;
     default:
       return <NotFound />;
   }
