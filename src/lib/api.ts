@@ -1,4 +1,4 @@
-import type { Broker, BrokerContent, BrokerCountryAvailability, BrokerCountryVerification, CountryBestFor, CountryPage, Intent, Review, ContentDocument, CountryLanguage, CountryIntentBrokerRanking } from './types';
+import type { Broker, BrokerContent, BrokerCountryAvailability, BrokerCountryVerification, CountryPage, Intent, Review, ContentDocument, CountryLanguage, CountryIntentBrokerRanking } from './types';
 
 async function get<T>(url: string, token?: string): Promise<T> {
   const res = await fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : undefined });
@@ -33,8 +33,6 @@ export const saveBrokerVerification = (payload: Partial<BrokerCountryVerificatio
 export const fetchCountries = () => get<CountryPage[]>('/api/countries');
 export const fetchCountry = (slug: string) => get<CountryPage>(`/api/countries?slug=${encodeURIComponent(slug)}`);
 export const fetchCountryIntentRankings = (countrySlug: string, intentSlug: string) => get<CountryIntentBrokerRanking[]>(`/api/country-intent-rankings?country=${encodeURIComponent(countrySlug)}&intent=${encodeURIComponent(publicIntentSlug(intentSlug))}`);
-export const fetchCountryBestFors = (countrySlug: string) => get<CountryBestFor[]>(`/api/country-best-for?country=${encodeURIComponent(countrySlug)}`);
-export const fetchCountryBestFor = async (countrySlug: string, slug: string) => { const mapped = publicIntentSlug(slug); try { return await get<CountryBestFor>(`/api/country-best-for?country=${encodeURIComponent(countrySlug)}&slug=${encodeURIComponent(mapped)}`); } catch (e) { if (mapped === slug) throw e; return get<CountryBestFor>(`/api/country-best-for?country=${encodeURIComponent(countrySlug)}&slug=${encodeURIComponent(slug)}`); } };
 export const createReview = async (payload: { broker_id: number; author: string; country: string; rating: number; title: string; body: string }, authToken?: string): Promise<Review> => { const res = await fetch('/api/reviews', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}) }, body: JSON.stringify(payload) }); const data = await res.json().catch(() => ({})); if (!res.ok) throw new Error((data as { error?: string }).error || `Request failed (${res.status})`); return data as Review; };
 export const voteHelpful = (id: number) => send<Review>('/api/reviews', 'PUT', { id });
 export const subscribeNewsletter = (email: string) => send<{ ok: boolean; duplicate?: boolean }>('/api/newsletter', 'POST', { email });
@@ -45,3 +43,14 @@ export const fetchLocalizationGlossary = (languageCode?: string) => get<{ id: nu
 export const fetchLocalizationHealth = (token: string) => get<{ totals: { pages: number; published: number; issues: number }; issues: { id: number; type: string; message: string; slug?: string; country?: string }[] }>('/api/localization-health', token);
 export const saveLocalizationUiPack = (language_code: string, strings: Record<string, string>, token: string) => fetch('/api/localization-ui-packs', { method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ language_code, strings }) }).then(async (res) => { const data = await res.json().catch(() => ({})); if (!res.ok) throw new Error((data as { error?: string }).error || 'Failed to save UI pack'); return data; });
 export const saveGlossaryTerm = (payload: { language_code: string; term_en: string; term_local: string; notes?: string; id?: number }, token: string) => fetch('/api/localization-glossary', { method: payload.id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) }).then(async (res) => { const data = await res.json().catch(() => ({})); if (!res.ok) throw new Error((data as { error?: string }).error || 'Failed to save glossary term'); return data; });
+
+export const fetchContentDocument = (key: string) => get<ContentDocument | null>(`/api/content-documents?key=${encodeURIComponent(key)}`);
+export const fetchContentDocuments = (params?: { type?: string; country?: string; topic?: string; slug?: string }) => {
+  const query = new URLSearchParams();
+  if (params?.type) query.set('type', params.type);
+  if (params?.country) query.set('country', params.country);
+  if (params?.topic) query.set('topic', params.topic);
+  if (params?.slug) query.set('slug', params.slug);
+  const suffix = query.toString();
+  return get<ContentDocument[]>(`/api/content-documents${suffix ? `?${suffix}` : ''}`);
+};
