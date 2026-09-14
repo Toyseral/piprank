@@ -12,7 +12,7 @@ export default function CanonicalEditorLauncher({ token, brokers, countries, kin
   useEffect(()=>{
     let active=true;
     const key=kind==='global'
-      ? `global-best-for:${topicSlug}`
+      ? `best-for:${topicSlug}`
       : `country-best-for:${countrySlug}:${topicSlug}`;
     fetchAdminContentDocument(key, token).then((d)=>{if(active)setDoc(d)}).finally(()=>{if(active)setLoading(false)});
     return()=>{active=false};
@@ -29,7 +29,7 @@ export default function CanonicalEditorLauncher({ token, brokers, countries, kin
     onClose={onClose}
     onSave={async(d,isNew)=>{
       const contentKey=kind==='global'
-        ? `global-best-for:${topicSlug}`
+        ? `best-for:${topicSlug}`
         : `country-best-for:${countrySlug}:${topicSlug}`;
       const res=await fetch('/api/content-documents',{
         method:isNew?'POST':'PUT',
