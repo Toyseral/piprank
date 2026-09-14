@@ -1,15 +1,15 @@
 import { useState } from 'react';
 import { BookOpen, Languages, ListChecks } from 'lucide-react';
-import type { ContentDocument, CountryLanguage, CountryPage, LocalizedSeoPage } from '../../lib/types';
+import type { ContentDocument, CountryLanguage, CountryPage } from '../../lib/types';
 import LocalizationManager from './LocalizationManager';
 import LocalizedGuidesManager from './LocalizedGuidesManager';
 
 type Mutate = (path: string, method: string, body: unknown, msg: string) => Promise<void>;
 
-export default function LocalizationWorkspace({ countries, languages, pages, contentDocs, mutate, accessToken }: {
+export default function LocalizationWorkspace({ countries, languages, pages: _pages, contentDocs, mutate, accessToken }: {
   countries: CountryPage[];
   languages: CountryLanguage[];
-  pages: LocalizedSeoPage[];
+  pages?: unknown[];
   contentDocs: ContentDocument[];
   mutate: Mutate;
   accessToken: string;
@@ -26,6 +26,6 @@ export default function LocalizationWorkspace({ countries, languages, pages, con
         <button onClick={() => setSection('best-for')} className={`flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold transition ${section === 'best-for' ? 'bg-white text-ink-950 shadow-sm' : 'text-slate-500 hover:text-ink-950'}`}><ListChecks size={15}/> Local Best-For</button>
       </div>
     </div>
-    {section === 'guides' ? <LocalizedGuidesManager countries={countries} languages={languages} contentDocs={contentDocs} mutate={mutate} accessToken={accessToken}/> : <LocalizationManager countries={countries} languages={languages} pages={pages} mutate={mutate} accessToken={accessToken}/>} 
+    {section === 'guides' ? <LocalizedGuidesManager countries={countries} languages={languages} contentDocs={contentDocs} mutate={mutate} accessToken={accessToken}/> : <LocalizationManager countries={countries} languages={languages} mutate={mutate} accessToken={accessToken}/>} 
   </div>;
 }
