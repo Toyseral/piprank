@@ -2,6 +2,7 @@ import supabase from './_lib/db-client.js';
 import { requireRole } from './_lib/admin-guard.js';
 
 const CONTENT_WRITE = ['super_admin', 'admin', 'content_admin'];
+const RETIRED_CONTENT_TYPES = new Set(['country-topic']);
 
 function slugify(value) {
   return String(value ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
@@ -48,12 +49,34 @@ function normalize(body) {
   };
 }
 
+function rejectRetiredType(payload, res) {
+  if (RETIRED_CONTENT_TYPES.has(String(payload.content_type || '').trim().toLowerCase())) {
+    res.status(410).json({
+      error: 'country-topic is retired. Use country-guide for guides or country-best-for for commercial pages.',
+    });
+    return true;
+  }
+  if (String(payload.content_key || '').startsWith('country-topic:')) {
+    res.status(410).json({
+      error: 'country-topic content keys are retired. Use country-guide:* or country-best-for:*.',
+    });
+    return true;
+  }
+  return false;
+}
+
 export default async function handler(req, res) {
   if (req.method === 'GET') {
     const wantsAdmin = String(req.query?.admin || '').toLowerCase() === 'true';
     if (wantsAdmin && !(await requireRole(req, res, CONTENT_WRITE))) return;
 
     const { key, country, topic, type, slug, id } = req.query || {};
+    if (String(type || '').toLowerCase() === 'country-topic' || String(key || '').startsWith('country-topic:')) {
+      return res.status(410).json({
+        error: 'country-topic is retired. Use country-guide or country-best-for.',
+      });
+    }
+
     let query = supabase.from('content_documents').select('*').order('updated_at', { ascending: false });
     if (!wantsAdmin) query = query.eq('published', true);
     if (id) query = query.eq('id', Number(id));
@@ -79,6 +102,7 @@ export default async function handler(req, res) {
 
   if (req.method === 'POST') {
     const payload = normalize(req.body || {});
+    if (rejectRetiredType(payload, res)) return;
     if (!payload.content_key) return res.status(400).json({ error: 'content_key is required' });
     const { data, error } = await supabase.from('content_documents').insert({ ...payload, updated_by: actor.email }).select().single();
     if (error) throw error;
@@ -89,6 +113,7 @@ export default async function handler(req, res) {
     const { id, ...rest } = req.body || {};
     if (!id) return res.status(400).json({ error: 'id is required' });
     const payload = { ...normalize(rest), updated_by: actor.email };
+    if (rejectRetiredType(payload, res)) return;
     delete payload.content_key;
     const { data, error } = await supabase.from('content_documents').update(payload).eq('id', Number(id)).select().single();
     if (error) throw error;
