@@ -22,7 +22,7 @@
     { "source": "/countries/:countrySlug/best/ecn", "destination": "/:countrySlug/ecn-forex-brokers", "statusCode": 301 },
     { "source": "/countries/:countrySlug/best/copy-trading", "destination": "/:countrySlug/copy-trading-forex-brokers", "statusCode": 301 },
     { "source": "/countries/:countrySlug/best/swing-trading", "destination": "/:countrySlug/forex-brokers-for-swing-trading", "statusCode": 301 },
-    { "source": "/countries/:countrySlug/best/high-leverage", "destination": "/:countrySlug/forex-brokers-for-high-leverage", "statusCode": 301 },
+    { "source": "/countries/:countrySlug/best/high-leverage", "destination": "/:countrySlug/high-leverage-forex-brokers", "statusCode": 301 },
     { "source": "/countries/:countrySlug/best/islamic", "destination": "/:countrySlug/islamic-forex-brokers", "statusCode": 301 },
     { "source": "/:countrySlug/best-low-spread-forex-brokers", "destination": "/:countrySlug/low-spread-forex-brokers", "statusCode": 301 },
     { "source": "/:countrySlug/best-forex-brokers-for-beginners", "destination": "/:countrySlug/forex-brokers-for-beginners", "statusCode": 301 },
