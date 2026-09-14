@@ -28,7 +28,6 @@ export default function CanonicalHub() {
     case 'guide':
     case 'localized-guide':
     case 'country-guide':
-    case 'country-topic':
     case 'localized-seo':
       return <ContentRenderer route={route} />;
     case 'broker':
