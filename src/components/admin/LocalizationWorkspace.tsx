@@ -9,6 +9,8 @@ type Mutate = (path: string, method: string, body: unknown, msg: string) => Prom
 type Props = {
   countries: CountryPage[];
   languages: CountryLanguage[];
+  /** @deprecated Compatibility only. Legacy localized SEO pages are not read or written. */
+  pages?: unknown[];
   contentDocs: ContentDocument[];
   mutate: Mutate;
   accessToken: string;
