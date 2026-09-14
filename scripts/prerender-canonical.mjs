@@ -104,7 +104,7 @@ async function main() {
   const [brokersRes, countriesRes, docsRes] = await Promise.all([
     supabase.from('brokers').select('*'),
     supabase.from('countries').select('*'),
-    supabase.from('content_documents').select('*').in('content_type', ['guide', 'global-best-for', 'country-guide', 'country-best-for', 'localized-guide', 'broker', 'country']).eq('published', true),
+    supabase.from('content_documents').select('*').in('content_type', ['guide', 'global-best-for', 'country-guide', 'country-best-for', 'localized-guide', 'localized-best-for', 'broker', 'country']).eq('published', true),
   ]);
   if (brokersRes.error) throw brokersRes.error;
   if (countriesRes.error) throw countriesRes.error;
@@ -123,6 +123,7 @@ async function main() {
   const countryGuides = docs.filter((d) => d.content_type === 'country-guide' && d.country_slug && d.slug);
   const countryBestFors = docs.filter((d) => d.content_type === 'country-best-for' && d.country_slug && d.slug);
   const localizedGuides = docs.filter((d) => d.content_type === 'localized-guide' && d.country_slug && d.slug && ((d.settings || {}).locale || (d.settings || {}).languageCode));
+  const localizedBestFors = docs.filter((d) => d.content_type === 'localized-best-for' && d.country_slug && d.slug && ((d.settings || {}).locale || (d.settings || {}).languageCode));
 
   const sortedBrokers = [...brokers].filter((b) => b.slug).sort((a, b) => Number(b.rating || 0) - Number(a.rating || 0));
   const homeContent = `<main><h1>Best Forex Brokers ${new Date().getFullYear()}</h1><p>Compare forex brokers using PipRank data on regulation, trading costs, platforms, execution and account features.</p><h2>Top forex brokers</h2><ol>${sortedBrokers.slice(0, 10).map((b) => `<li><a href="/brokers/${esc(b.slug)}">${esc(b.name)}</a></li>`).join('')}</ol><p><a href="/countries">Find brokers by country</a> · <a href="/guides">Read forex guides</a></p></main>`;
@@ -183,7 +184,7 @@ async function main() {
     const title = doc.seo_title || `${doc.title} | ${SITE_NAME}`;
     const description = doc.seo_description || doc.excerpt || '';
     const faqs = Array.isArray(doc.settings?.faqs) ? doc.settings.faqs : [];
-    const content = `<main><h1>${esc(doc.title)}</h1>${doc.excerpt ? `<p>${esc(doc.excerpt)}</p>` : ''}${renderDocument(doc, brokersById)}${faqs.length ? `<h2>Frequently Asked Questions</h2>${faqs.map((f) => `<details><summary>${esc(f.q)}</summary><p>${esc(f.a)}</p></details>`).join('') : ''}</main>`;
+    const content = `<main><h1>${esc(doc.title)}</h1>${doc.excerpt ? `<p>${esc(doc.excerpt)}</p>` : ''}${renderDocument(doc, brokersById)}${faqs.length ? `<h2>Frequently Asked Questions</h2>${faqs.map((f) => `<details><summary>${esc(f.q)}</summary><p>${esc(f.a)}</p></details>`).join('')}` : ''}</main>`;
     if (writePage(shell, writtenPaths, path, { title, description }, content, [pageJsonLd(title, description, path), breadcrumbJsonLd([{ name: 'Home', path: '/' }, { name: countriesBySlug.get(doc.country_slug)?.name || doc.country_slug, path: `/${doc.country_slug}` }, { name: doc.title, path }]), ...(faqs.length ? [faqJsonLd(faqs)] : [])])) written++;
   }
 
@@ -195,6 +196,17 @@ async function main() {
     const description = doc.seo_description || doc.excerpt || '';
     const content = `<main><h1>${esc(doc.title)}</h1>${doc.excerpt ? `<p>${esc(doc.excerpt)}</p>` : ''}${renderDocument(doc, brokersById)}</main>`;
     if (writePage(shell, writtenPaths, path, { title, description }, content, [pageJsonLd(title, description, path, 'Article')])) written++;
+  }
+
+  for (const doc of localizedBestFors) {
+    const locale = String(doc.settings?.locale || doc.settings?.languageCode || '').trim();
+    if (!locale || !countriesBySlug.has(doc.country_slug)) continue;
+    const path = `/${doc.country_slug}/${encodeURIComponent(locale)}/${doc.slug}`;
+    const title = doc.seo_title || doc.title;
+    const description = doc.seo_description || doc.excerpt || '';
+    const faqs = Array.isArray(doc.settings?.faqs) ? doc.settings.faqs : [];
+    const content = `<main><h1>${esc(doc.title)}</h1>${doc.excerpt ? `<p>${esc(doc.excerpt)}</p>` : ''}${renderDocument(doc, brokersById)}${faqs.length ? `<h2>Frequently Asked Questions</h2>${faqs.map((f) => `<details><summary>${esc(f.q)}</summary><p>${esc(f.a)}</p></details>`).join('')}` : ''}</main>`;
+    if (writePage(shell, writtenPaths, path, { title, description }, content, [pageJsonLd(title, description, path), breadcrumbJsonLd([{ name: 'Home', path: '/' }, { name: countriesBySlug.get(doc.country_slug)?.name || doc.country_slug, path: `/${doc.country_slug}` }, { name: doc.title, path }]), ...(faqs.length ? [faqJsonLd(faqs)] : [])])) written++;
   }
 
   log(`Canonical prerender complete: ${written} pages from ${docs.length} published content documents.`);
