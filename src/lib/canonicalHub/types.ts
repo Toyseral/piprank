@@ -5,6 +5,7 @@ export type CanonicalContentType =
   | 'country-topic'
   | 'guide'
   | 'country-guide'
+  | 'localized-guide'
   | 'broker'
   | 'country'
   | 'compare'
@@ -18,6 +19,7 @@ export interface CanonicalRoute {
   countrySlug?: string;
   topicSlug?: string;
   slug?: string;
+  locale?: string;
   indexable: boolean;
   published: boolean;
   document?: ContentDocument | null;
