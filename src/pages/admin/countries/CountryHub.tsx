@@ -1,14 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Eye, Pencil, Plus, Search } from 'lucide-react';
-import type { Broker, ContentDocument, CountryPage } from '../../../lib/types';
+import type { Broker, ContentDocument, CountryBestFor, CountryPage } from '../../../lib/types';
 import CountryGuides from '../CountryGuides';
 
+type Props = { countries: CountryPage[]; brokers: Broker[]; countryBestFors?: CountryBestFor[]; contentDocs: ContentDocument[]; token: string; notify: (msg: string) => void; onNewCountry: () => void; onEditCountry: (country: CountryPage) => void; onEditBestFor: (doc: ContentDocument) => void; onNewBestFor: (countrySlug: string) => void; onEditCountryBestFor?: (page: CountryBestFor) => void; onNewCountryBestFor?: () => void };
 function HubMetric({ label, value, sub }: { label: string; value: string; sub: string }) { return <div className="rounded-xl border border-line bg-paper p-3"><p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{label}</p><p className="mt-1 font-display text-xl font-bold text-ink-900">{value}</p><p className="mt-0.5 text-[10px] text-slate-400">{sub}</p></div>; }
 function EntityPanel({ title, items }: { title: string; items: string[] }) { return <div className="rounded-2xl border border-line bg-white p-5"><h3 className="font-display text-lg font-bold text-ink-900">{title}</h3><div className="mt-3 space-y-2">{items.map((item)=><div key={item} className="flex items-center gap-2 rounded-lg bg-paper px-3 py-2 text-xs font-medium text-slate-600"><span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500"/>{item}</div>)}</div></div>; }
-
-type Props = { countries: CountryPage[]; brokers: Broker[]; contentDocs: ContentDocument[]; token: string; notify: (msg: string) => void; onNewCountry: () => void; onEditCountry: (country: CountryPage) => void; onEditBestFor: (doc: ContentDocument) => void; onNewBestFor: (countrySlug: string) => void };
-
-export default function CountryHub({ countries, brokers, contentDocs, token, notify, onNewCountry, onEditCountry, onEditBestFor, onNewBestFor }: Props) {
+export default function CountryHub({ countries, brokers, contentDocs, token, notify, onNewCountry, onEditCountry, onEditBestFor, onNewBestFor }: Props & { countryBestFors?: CountryBestFor[]; onEditCountryBestFor?: (page: CountryBestFor) => void; onNewCountryBestFor?: () => void }) { return <CountryHubInner countries={countries} brokers={brokers} contentDocs={contentDocs} token={token} notify={notify} onNewCountry={onNewCountry} onEditCountry={onEditCountry} onEditBestFor={onEditBestFor} onNewBestFor={onNewBestFor}/>; }
+function CountryHubInner({ countries, brokers, contentDocs, token, notify, onNewCountry, onEditCountry, onEditBestFor, onNewBestFor }: Omit<Props,'countryBestFors'|'onEditCountryBestFor'|'onNewCountryBestFor'>) {
   const [query, setQuery] = useState(''); const [selectedSlug, setSelectedSlug] = useState(() => countries[0]?.slug ?? '');
   useEffect(() => { if (!selectedSlug && countries[0]) setSelectedSlug(countries[0].slug); }, [countries, selectedSlug]);
   const filtered = countries.filter((c) => `${c.name} ${c.slug}`.toLowerCase().includes(query.toLowerCase()));
