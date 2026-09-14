@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { Check, Copy, Gauge, GraduationCap, MonitorSmartphone, Percent, Sparkles, Timer, Waves, Zap, type LucideIcon } from 'lucide-react';
 import type { Broker, ContentDocument, FAQ, Intent } from '../lib/types';
 import type { CanonicalRoute } from '../lib/canonicalHub/types';
@@ -10,7 +9,7 @@ import BrokerCard from './BrokerCard';
 import Reveal from './Reveal';
 import NewsletterForm from './NewsletterForm';
 import { useSEO } from '../hooks/useSEO';
-import { absoluteUrl, bestForPath, buildBreadcrumbJsonLd, buildFAQPageJsonLd, buildItemListJsonLd, buildWebPageJsonLd, type SeoInput } from '../lib/seo';
+import { bestForPath, buildBreadcrumbJsonLd, buildFAQPageJsonLd, buildItemListJsonLd, buildWebPageJsonLd, type SeoInput } from '../lib/seo';
 import { allInCost } from '../lib/score';
 import { fmtMoney } from '../lib/format';
 import { isBlockShape } from '../lib/contentBlocks';
