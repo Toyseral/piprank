@@ -19,18 +19,20 @@ async function main() {
   const errors = [];
 
   for (const doc of rows) {
-    if (doc.content_type === 'country-topic' && (doc.published || doc.indexable)) {
-      errors.push(`Retired country-topic is public: ${doc.content_key}`);
+    if (doc.content_type === 'country-topic' || String(doc.content_key || '').startsWith('country-topic:')) {
+      errors.push(`Retired country-topic document still exists: ${doc.content_key || doc.id}`);
     }
 
     if (doc.content_type === 'country-guide') {
       const expected = doc.country_slug && doc.slug ? `country-guide:${doc.country_slug}:${doc.slug}` : null;
-      if (expected && doc.content_key !== expected) errors.push(`Country guide has non-canonical content_key: ${doc.content_key} (expected ${expected})`);
+      if (!expected) errors.push(`Country guide is missing country_slug or slug: ${doc.id}`);
+      else if (doc.content_key !== expected) errors.push(`Country guide has non-canonical content_key: ${doc.content_key} (expected ${expected})`);
     }
 
     if (doc.content_type === 'country-best-for') {
       const expected = doc.country_slug && doc.slug ? `country-best-for:${doc.country_slug}:${doc.slug}` : null;
-      if (expected && doc.content_key !== expected) errors.push(`Country Best-For has non-canonical content_key: ${doc.content_key} (expected ${expected})`);
+      if (!expected) errors.push(`Country Best-For is missing country_slug or slug: ${doc.id}`);
+      else if (doc.content_key !== expected) errors.push(`Country Best-For has non-canonical content_key: ${doc.content_key} (expected ${expected})`);
     }
   }
 
