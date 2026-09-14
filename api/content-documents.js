@@ -6,25 +6,30 @@ const RETIRED_CONTENT_TYPES = new Set(['country-topic']);
 const ALLOWED_TAGS = new Set(['p','br','strong','em','b','i','u','s','blockquote','ul','ol','li','h2','h3','h4','a','img','figure','figcaption','table','thead','tbody','tr','th','td','hr','code','pre','mark','span','div']);
 const ALLOWED_ATTRS = new Set(['href','title','target','rel','src','alt','width','height','loading','colspan','rowspan','class']);
 const PUBLIC_FIELDS = 'id,content_key,content_type,country_slug,topic_slug,slug,title,excerpt,html,blocks,settings,seo_title,seo_description,indexable,published,updated_at';
+const BLOCK_TYPES = new Set(['richtext','heading','image','table','callout','divider','links','structured_broker_data','broker_card','broker_grid','comparison_table','broker_cta','piprank_verdict']);
+const BLOCK_KEYS = {
+  richtext: ['id','type','title','html'],
+  heading: ['id','type','title'],
+  image: ['id','type','title','src','alt'],
+  table: ['id','type','title','rows'],
+  callout: ['id','type','title','html','tone'],
+  divider: ['id','type','title'],
+  links: ['id','type','title','links'],
+  structured_broker_data: ['id','type','title','brokerId','section'],
+  broker_card: ['id','type','title','brokerId','variant'],
+  broker_grid: ['id','type','title','brokerIds','variant'],
+  comparison_table: ['id','type','title','brokerIds','fields','ctaLabel','showCta'],
+  broker_cta: ['id','type','title','brokerId','variant','ctaLabel','ctaHref','headline','buttonLabel'],
+  piprank_verdict: ['id','type','title','html'],
+};
 
-const PUBLIC_SETTING_KEYS = [
-  'locale',
-  'languageCode',
-  'icon',
-  'label',
-  'criteria',
-  'sections',
-  'faqs',
-  'ranking_intent_slug',
-  'canonicalIntentSlug',
-  'image',
-];
+const PUBLIC_SETTING_KEYS = ['locale','languageCode','icon','label','criteria','sections','faqs','ranking_intent_slug','canonicalIntentSlug','image'];
 
 function slugify(value) { return String(value ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''); }
 function safeUrl(value, { image = false } = {}) {
   const raw = String(value ?? '').trim();
   if (!raw) return null;
-  if (/^(https?:|mailto:|tel:|\/|#)/i.test(raw)) return raw;
+  if (/^(https:\/\/|\/|#)/i.test(raw)) return raw;
   if (image && /^data:image\/(png|jpe?g|gif|webp);base64,/i.test(raw)) return raw;
   return null;
 }
@@ -61,25 +66,50 @@ function cleanHtml(input = '') {
   const html = String(input).replace(/<!--[\s\S]*?-->/g, '');
   return html.replace(/<[^>]*>/g, sanitizeTag).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '').trim();
 }
+function cleanText(value, max = 500) { return String(value ?? '').trim().slice(0, max); }
+function cleanStringArray(value, max = 100, itemMax = 300) {
+  return Array.isArray(value) ? value.filter((item) => typeof item === 'string').map((item) => cleanText(item, itemMax)).filter(Boolean).slice(0, max) : [];
+}
+function cleanRows(value) {
+  if (!Array.isArray(value)) return [];
+  return value.slice(0, 100).map((row) => Array.isArray(row) ? row.slice(0, 20).map((cell) => cleanText(cell, 500)) : []).filter((row) => row.length);
+}
+function cleanLinks(value) {
+  if (!Array.isArray(value)) return [];
+  return value.slice(0, 100).map((link) => ({ label: cleanText(link?.label, 180), href: safeUrl(link?.href) || '#' })).filter((link) => link.label);
+}
+function cleanBlock(block) {
+  if (!block || typeof block !== 'object' || Array.isArray(block)) return null;
+  const type = String(block.type || '').trim();
+  if (!BLOCK_TYPES.has(type)) return null;
+  const output = {};
+  for (const key of BLOCK_KEYS[type]) {
+    if (block[key] !== undefined) output[key] = block[key];
+  }
+  output.id = cleanText(output.id || `block_${Math.random().toString(36).slice(2, 10)}`, 120);
+  output.type = type;
+  if ('title' in output) output.title = cleanText(output.title, 300);
+  if ('html' in output) output.html = cleanHtml(output.html);
+  if ('src' in output) output.src = safeUrl(output.src, { image: true });
+  if ('alt' in output) output.alt = cleanText(output.alt, 300);
+  if ('rows' in output) output.rows = cleanRows(output.rows);
+  if ('links' in output) output.links = cleanLinks(output.links);
+  if ('tone' in output && !['neutral','success','warning','dark'].includes(output.tone)) output.tone = 'neutral';
+  if ('section' in output && !['overview','pricing','trust','platforms','features','editorial'].includes(output.section)) output.section = 'overview';
+  if ('variant' in output && !['default','compact','featured','primary','dark','soft'].includes(output.variant)) delete output.variant;
+  if ('brokerId' in output) output.brokerId = Number.isFinite(Number(output.brokerId)) ? Number(output.brokerId) : null;
+  if ('brokerIds' in output) output.brokerIds = Array.isArray(output.brokerIds) ? output.brokerIds.map(Number).filter(Number.isFinite).slice(0, 20) : [];
+  if ('fields' in output) output.fields = cleanStringArray(output.fields, 20, 80);
+  if ('ctaLabel' in output) output.ctaLabel = cleanText(output.ctaLabel, 180);
+  if ('ctaHref' in output) output.ctaHref = safeUrl(output.ctaHref) || null;
+  if ('headline' in output) output.headline = cleanText(output.headline, 300);
+  if ('buttonLabel' in output) output.buttonLabel = cleanText(output.buttonLabel, 180);
+  if ('showCta' in output) output.showCta = Boolean(output.showCta);
+  return output;
+}
 function cleanBlocks(blocks) {
   if (!Array.isArray(blocks)) return [];
-  return blocks.map((block) => {
-    if (!block || typeof block !== 'object') return block;
-    const next = { ...block };
-    if (typeof next.html === 'string') next.html = cleanHtml(next.html);
-    if (typeof next.src === 'string') next.src = safeUrl(next.src, { image: true });
-    if (typeof next.href === 'string') next.href = safeUrl(next.href);
-    if (Array.isArray(next.links)) {
-      next.links = next.links
-        .filter((link) => link && typeof link === 'object')
-        .map((link) => ({
-          ...link,
-          label: String(link.label ?? '').slice(0, 180),
-          href: safeUrl(link.href) || '#',
-        }));
-    }
-    return next;
-  });
+  return blocks.map(cleanBlock).filter(Boolean).slice(0, 200);
 }
 function sanitizePublicSettings(settings) {
   if (!settings || typeof settings !== 'object' || Array.isArray(settings)) return {};
@@ -87,52 +117,16 @@ function sanitizePublicSettings(settings) {
   for (const key of PUBLIC_SETTING_KEYS) {
     const value = settings[key];
     if (value === undefined || value === null) continue;
-    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-      output[key] = typeof value === 'string' ? value.slice(0, 500) : value;
-      continue;
-    }
-    if (key === 'criteria' && Array.isArray(value)) {
-      output[key] = value.filter((item) => typeof item === 'string').map((item) => item.slice(0, 300)).slice(0, 100);
-      continue;
-    }
-    if (key === 'sections' && Array.isArray(value)) {
-      output[key] = value.filter((item) => item && typeof item === 'object' && !Array.isArray(item)).slice(0, 100);
-      continue;
-    }
-    if (key === 'faqs' && Array.isArray(value)) {
-      output[key] = value
-        .filter((item) => item && typeof item === 'object' && !Array.isArray(item))
-        .map((item) => ({
-          q: typeof item.q === 'string' ? item.q.slice(0, 500) : '',
-          a: typeof item.a === 'string' ? item.a.slice(0, 2000) : '',
-        }))
-        .filter((item) => item.q && item.a)
-        .slice(0, 100);
-      continue;
-    }
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') { output[key] = typeof value === 'string' ? value.slice(0, 500) : value; continue; }
+    if (key === 'criteria' && Array.isArray(value)) { output[key] = value.filter((item) => typeof item === 'string').map((item) => item.slice(0, 300)).slice(0, 100); continue; }
+    if (key === 'sections' && Array.isArray(value)) { output[key] = value.filter((item) => item && typeof item === 'object' && !Array.isArray(item)).slice(0, 100); continue; }
+    if (key === 'faqs' && Array.isArray(value)) { output[key] = value.filter((item) => item && typeof item === 'object' && !Array.isArray(item)).map((item) => ({ q: typeof item.q === 'string' ? item.q.slice(0, 500) : '', a: typeof item.a === 'string' ? item.a.slice(0, 2000) : '' })).filter((item) => item.q && item.a).slice(0, 100); }
   }
   return output;
 }
 function toPublicDocument(document) {
   if (!document || typeof document !== 'object') return document;
-  return {
-    id: document.id,
-    content_key: document.content_key,
-    content_type: document.content_type,
-    country_slug: document.country_slug,
-    topic_slug: document.topic_slug,
-    slug: document.slug,
-    title: document.title,
-    excerpt: document.excerpt,
-    html: document.html,
-    blocks: document.blocks,
-    settings: sanitizePublicSettings(document.settings),
-    seo_title: document.seo_title,
-    seo_description: document.seo_description,
-    indexable: document.indexable,
-    published: document.published,
-    updated_at: document.updated_at,
-  };
+  return { id: document.id, content_key: document.content_key, content_type: document.content_type, country_slug: document.country_slug, topic_slug: document.topic_slug, slug: document.slug, title: document.title, excerpt: document.excerpt, html: document.html, blocks: document.blocks, settings: sanitizePublicSettings(document.settings), seo_title: document.seo_title, seo_description: document.seo_description, indexable: document.indexable, published: document.published, updated_at: document.updated_at };
 }
 function normalize(body) {
   const contentType = String(body.content_type || 'page').slice(0, 40);
@@ -140,13 +134,7 @@ function normalize(body) {
   const topicSlug = body.topic_slug ? slugify(body.topic_slug) : null;
   const slug = body.slug ? slugify(body.slug) : (topicSlug || slugify(body.title || body.content_key || '') || null);
   const contentKey = String(body.content_key || [contentType, countrySlug, topicSlug, slug].filter(Boolean).join(':')).slice(0, 180);
-  return {
-    content_key: contentKey, content_type: contentType, country_slug: countrySlug, topic_slug: topicSlug, slug,
-    title: String(body.title || '').slice(0, 180), excerpt: String(body.excerpt || '').slice(0, 600), html: cleanHtml(body.html || ''), blocks: cleanBlocks(body.blocks),
-    settings: body.settings && typeof body.settings === 'object' && !Array.isArray(body.settings) ? body.settings : {},
-    seo_title: body.seo_title ? String(body.seo_title).slice(0, 180) : null, seo_description: body.seo_description ? String(body.seo_description).slice(0, 320) : null,
-    indexable: body.indexable === undefined ? true : Boolean(body.indexable), published: body.published === undefined ? true : Boolean(body.published),
-  };
+  return { content_key: contentKey, content_type: contentType, country_slug: countrySlug, topic_slug: topicSlug, slug, title: String(body.title || '').slice(0, 180), excerpt: String(body.excerpt || '').slice(0, 600), html: cleanHtml(body.html || ''), blocks: cleanBlocks(body.blocks), settings: body.settings && typeof body.settings === 'object' && !Array.isArray(body.settings) ? body.settings : {}, seo_title: body.seo_title ? String(body.seo_title).slice(0, 180) : null, seo_description: body.seo_description ? String(body.seo_description).slice(0, 320) : null, indexable: body.indexable === undefined ? true : Boolean(body.indexable), published: body.published === undefined ? true : Boolean(body.published) };
 }
 function rejectRetiredType(payload, res) {
   if (RETIRED_CONTENT_TYPES.has(String(payload.content_type || '').trim().toLowerCase())) { res.status(410).json({ error: 'country-topic is retired. Use country-guide for guides or country-best-for for commercial pages.' }); return true; }
