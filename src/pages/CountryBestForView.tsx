@@ -96,18 +96,19 @@ export default function CountryBestForView({ countrySlug, slug, contentKey, docu
   }, [country, brokers, rankingIds]);
 
   const seo = page ? countryBestForSeo(countrySlug, page) : null;
-  useSEO(seo, seo && page && country ? [
+  const seoWithIndexability = seo && page ? { ...seo, noindex: page.indexable === false } : null;
+  useSEO(seoWithIndexability, seoWithIndexability && page && country ? [
     buildBreadcrumbJsonLd([
       { name: 'Home', path: '/' },
       { name: country.name, path: `/${country.slug}` },
-      { name: page.title, path: seo.path },
+      { name: page.title, path: seoWithIndexability.path },
     ]),
     buildItemListJsonLd(page.title, ranked.slice(0, 10).map((b) => ({ name: b.name, path: `/brokers/${b.slug}` }))),
     ...(page.faqs.length ? [buildFAQPageJsonLd(page.faqs.map((f) => ({ question: f.q, answer: f.a })))] : []),
   ] : undefined);
 
   if (loading) return <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6"><div className="h-80 animate-pulse rounded-3xl border border-line bg-white"/><div className="mt-8 h-96 animate-pulse rounded-3xl border border-line bg-white"/></div>;
-  if (!country || !doc || !page || !doc.published || !page.indexable) return <NotFound />;
+  if (!country || !doc || !page || !doc.published) return <NotFound />;
 
   const canonicalIntent = CANONICAL_INTENT_SLUGS[slug] ?? slug;
   const blocks = Array.isArray(doc.blocks) ? doc.blocks : [];
