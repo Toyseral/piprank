@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import type { CanonicalRoute } from '../lib/canonicalHub/types';
 import { resolveCanonicalPath } from '../lib/canonicalHub/resolver';
 import { useSEO } from '../hooks/useSEO';
+import ContentRenderer from '../components/ContentRenderer';
 import BestFor from './BestFor';
 import BrokerDetail from './BrokerDetail';
 import Brokers from './Brokers';
@@ -10,10 +11,6 @@ import Compare from './Compare';
 import ComparePair from './ComparePair';
 import Countries from './Countries';
 import CountryDetail from './CountryDetail';
-import CountrySeoTopic from './CountrySeoTopic';
-import GuideDetail from './GuideDetail';
-import GuideTopic from './GuideTopic';
-import Guides from './Guides';
 import LocalizedCountrySeoTopic from './LocalizedCountrySeoTopic';
 import NotFound from './NotFound';
 
@@ -64,12 +61,10 @@ export default function CanonicalHub() {
   switch (route.type) {
     case 'global-best-for':
       return <BestFor />;
-    case 'country-topic':
-      return <CountrySeoTopic />;
     case 'guide':
-      return route.path === '/guides' ? <Guides /> : <GuideDetail />;
     case 'country-guide':
-      return <GuideTopic />;
+    case 'country-topic':
+      return <ContentRenderer route={route} />;
     case 'broker':
       return route.path === '/brokers' ? <Brokers /> : <BrokerDetail />;
     case 'country':
