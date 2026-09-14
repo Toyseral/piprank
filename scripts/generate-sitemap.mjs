@@ -5,7 +5,6 @@ import { writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { requireSiteUrlForProduction } from './seo-config.mjs';
-import { vietnameseCommercialTopics } from './vietnamese-localization.mjs';
 import { CANONICAL_BEST_FOR_BY_SLUG } from '../src/lib/canonicalHub/registry.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -19,6 +18,9 @@ function cleanDate(value) {
   if (!value) return undefined;
   const d = new Date(value);
   return Number.isNaN(d.getTime()) ? undefined : d.toISOString().slice(0, 10);
+}
+function documentLocale(document) {
+  return String(document?.settings?.locale || document?.settings?.languageCode || '').trim();
 }
 
 async function main() {
@@ -34,22 +36,22 @@ async function main() {
   const staticPaths = ['/', '/brokers', '/countries', '/compare', '/guides', '/methodology', '/quiz', '/tools', '/promotions', '/about', '/authors'];
   const urls = staticPaths.map((loc) => ({ loc }));
 
-  const [brokersResult, countriesResult, documentsResult, localizedResult, intentsResult] = await Promise.all([
+  const [brokersResult, countriesResult, documentsResult, intentsResult, languagesResult] = await Promise.all([
     supabase.from('brokers').select('slug, rating, updated_at'),
     supabase.from('countries').select('id, slug, recommended, updated_at'),
-    supabase.from('content_documents').select('content_type, country_slug, topic_slug, slug, published, indexable, updated_at, content_key').eq('published', true),
-    supabase.from('localized_seo_pages').select('country_id, language_id, slug, published, indexable, updated_at'),
+    supabase.from('content_documents').select('content_type, country_slug, topic_slug, slug, published, indexable, updated_at, content_key, settings').eq('published', true),
     supabase.from('intents').select('slug, updated_at'),
+    supabase.from('country_languages').select('id, country_id, code, url_prefix, locale, active'),
   ]);
-  for (const result of [brokersResult, countriesResult, documentsResult, localizedResult, intentsResult]) {
+  for (const result of [brokersResult, countriesResult, documentsResult, intentsResult, languagesResult]) {
     if (result.error) throw new Error(`[generate-sitemap] Supabase query failed: ${result.error.message}`);
   }
 
   const brokers = brokersResult.data ?? [];
   const countries = countriesResult.data ?? [];
   const documents = documentsResult.data ?? [];
-  const localizedSeoPages = localizedResult.data ?? [];
   const intents = intentsResult.data ?? [];
+  const languages = languagesResult.data ?? [];
 
   for (const broker of brokers) if (broker.slug) urls.push({ loc: `/brokers/${broker.slug}`, lastmod: cleanDate(broker.updated_at) });
   for (const country of countries) if (country.slug) urls.push({ loc: `/${country.slug}`, lastmod: cleanDate(country.updated_at) });
@@ -76,29 +78,31 @@ async function main() {
   }
 
   const countrySlugById = new Map(countries.map((country) => [Number(country.id), country.slug]));
-  const { data: languageRows, error: languageError } = await supabase.from('country_languages').select('id, country_id, url_prefix, locale, active');
-  if (languageError) throw new Error(`[generate-sitemap] Failed to query country_languages: ${languageError.message}`);
-  const languageById = new Map((languageRows ?? []).map((language) => [Number(language.id), language]));
-  const localizedLocs = new Set();
-
-  for (const page of localizedSeoPages) {
-    if (!page.slug || !page.published || !page.indexable) continue;
-    const countrySlug = countrySlugById.get(Number(page.country_id));
-    const language = languageById.get(Number(page.language_id));
-    if (!countrySlug || !language?.active || !language.url_prefix) continue;
-    const loc = `/${countrySlug}/${language.url_prefix}/${page.slug}`;
-    localizedLocs.add(loc);
-    urls.push({ loc, lastmod: cleanDate(page.updated_at) });
+  const languageByCountryAndLocale = new Map();
+  for (const language of languages) {
+    if (!language.active || !language.url_prefix) continue;
+    const countrySlug = countrySlugById.get(Number(language.country_id));
+    if (!countrySlug) continue;
+    for (const locale of [language.url_prefix, language.code, language.locale].filter(Boolean)) {
+      languageByCountryAndLocale.set(`${countrySlug}:${String(locale).toLowerCase()}`, language.url_prefix);
+    }
   }
 
-  const vietnam = countries.find((country) => country.slug === 'vietnam');
-  if (vietnam) {
-    const recommended = new Set((vietnam.recommended ?? []).map((item) => item?.slug));
-    for (const localized of vietnameseCommercialTopics) {
-      const loc = `/vietnam/vi/${localized.slug}`;
-      if (localizedLocs.has(loc)) continue;
-      if (recommended.size > 0) urls.push({ loc, lastmod: cleanDate(vietnam.updated_at) });
-    }
+  // Localized pages are owned exclusively by canonical content_documents.
+  const localizedDocs = documents.filter((document) =>
+    (document.content_type === 'localized-guide' || document.content_type === 'localized-best-for') &&
+    Boolean(document.country_slug) &&
+    Boolean(document.slug) &&
+    document.indexable !== false &&
+    Boolean(documentLocale(document)),
+  );
+  for (const document of localizedDocs) {
+    const locale = documentLocale(document);
+    const prefix = languageByCountryAndLocale.get(`${document.country_slug}:${locale.toLowerCase()}`) || locale;
+    const path = document.content_type === 'localized-guide'
+      ? `/${document.country_slug}/${prefix}/guides/${document.slug}`
+      : `/${document.country_slug}/${prefix}/${document.slug}`;
+    urls.push({ loc: path, lastmod: cleanDate(document.updated_at) });
   }
 
   // Country guides own the /:country/guides/:slug namespace.
