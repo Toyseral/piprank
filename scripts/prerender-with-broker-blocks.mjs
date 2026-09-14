@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, unlinkSync, readdirSync, rmSync } from 'node:fs';
+import { readFileSync, writeFileSync, unlinkSync, readdirSync, rmSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -98,12 +98,16 @@ try {
   // Remove any per-country static files produced by the legacy prerender loop
   // so the vercel.json 301 is always the authoritative owner of that path.
   const legacyCountriesDir = join(here, '..', 'dist', 'countries');
-  for (const entry of readdirSync(legacyCountriesDir, { withFileTypes: true })) {
-    if (entry.isDirectory()) rmSync(join(legacyCountriesDir, entry.name), { recursive: true, force: true });
+  if (existsSync(legacyCountriesDir)) {
+    for (const entry of readdirSync(legacyCountriesDir, { withFileTypes: true })) {
+      if (entry.isDirectory()) rmSync(join(legacyCountriesDir, entry.name), { recursive: true, force: true });
+    }
+    const countryIndex = join(legacyCountriesDir, 'index.html');
+    if (existsSync(countryIndex)) {
+      const countryIndexHtml = readFileSync(countryIndex, 'utf8');
+      writeFileSync(countryIndex, countryIndexHtml.replaceAll('href="/countries/', 'href="/'), 'utf8');
+    }
   }
-  const countryIndex = join(legacyCountriesDir, 'index.html');
-  const countryIndexHtml = readFileSync(countryIndex, 'utf8');
-  writeFileSync(countryIndex, countryIndexHtml.replaceAll('href="/countries/', 'href="/'), 'utf8');
 } finally {
   try { unlinkSync(runtimePath); } catch {}
 }
