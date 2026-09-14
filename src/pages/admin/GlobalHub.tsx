@@ -1,6 +1,6 @@
 import { Eye, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import type { ContentDocument } from '../../lib/types';
+import type { ContentDocument, Intent } from '../../lib/types';
 import supabase from '../../lib/supabase';
 import PageBuilder, { blocksToHtml, type PageBlock } from '../../components/PageBuilder';
 
@@ -27,6 +27,11 @@ type Props = {
   guides: ContentDocument[];
   onNewGuide: () => void;
   onEditGuide: (guide: ContentDocument) => void;
+  /** Legacy intent-config callbacks kept source-compatible with Admin while intents remain non-owning config. */
+  intents?: Intent[];
+  onNewIntent?: () => void;
+  onEditIntent?: (intent: Intent) => void;
+  intentToTopic?: Record<string, string>;
 };
 
 export default function GlobalHub({ guides, onNewGuide, onEditGuide }: Props) {
@@ -76,7 +81,7 @@ export default function GlobalHub({ guides, onNewGuide, onEditGuide }: Props) {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-bold text-ink-900">{guide.title}</p>
                   <p className="truncate text-xs text-slate-400">
-                    /guides/{guide.slug}{guide.published ? ' · Published' : ' · Draft'}
+                    /guides/{guide.slug ?? ''}{guide.published ? ' · Published' : ' · Draft'}
                   </p>
                 </div>
                 {guide.slug && (
@@ -106,11 +111,12 @@ export default function GlobalHub({ guides, onNewGuide, onEditGuide }: Props) {
           <div className="divide-y divide-line">
             {loading && <p className="p-5 text-sm text-slate-400">Loading…</p>}
             {!loading && sortedBestFors.map((doc) => {
-              const path = GLOBAL_BEST_FOR_PATHS[doc.slug] ?? doc.slug;
+              const slug = doc.slug ?? '';
+              const path = GLOBAL_BEST_FOR_PATHS[slug] ?? slug;
               return (
                 <div key={doc.id} className="flex items-center gap-3 px-5 py-3.5">
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-bold text-ink-900">{doc.title || doc.slug}</p>
+                    <p className="truncate text-sm font-bold text-ink-900">{doc.title || slug}</p>
                     <p className="truncate text-xs text-slate-400">
                       /{path}{doc.published ? ' · Published' : ' · Draft'}{doc.indexable ? '' : ' · Noindex'}
                     </p>
@@ -123,7 +129,7 @@ export default function GlobalHub({ guides, onNewGuide, onEditGuide }: Props) {
                   </button>
                   <button
                     onClick={() => {
-                      if (window.confirm(`Delete ${doc.title || doc.slug}?`)) {
+                      if (window.confirm(`Delete ${doc.title || slug}?`)) {
                         void deleteGlobalBestFor(doc.id, loadBestFors, setError);
                       }
                     }}
@@ -238,13 +244,14 @@ function GlobalBestForEditor({
   };
 
   const save = async () => {
-    if (!form.slug.trim()) return setError('A URL slug is required.');
+    const rawSlug = form.slug ?? '';
+    if (!rawSlug.trim()) return setError('A URL slug is required.');
     if (!form.title.trim()) return setError('A page title/H1 is required.');
     setBusy(true);
     setError('');
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const slug = form.slug.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      const slug = rawSlug.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
       const payload = {
         ...form,
         content_type: 'global-best-for',
@@ -288,7 +295,7 @@ function GlobalBestForEditor({
           <div className="grid gap-4 sm:grid-cols-2">
             <label>
               <span className="mb-1 block text-[10px] font-bold uppercase text-slate-400">URL slug</span>
-              <input value={form.slug} onChange={(e) => set({ slug: e.target.value })} placeholder="mt5-forex-brokers" className="h-10 w-full rounded-xl border border-line bg-paper px-3 text-sm outline-none" />
+              <input value={form.slug ?? ''} onChange={(e) => set({ slug: e.target.value })} placeholder="mt5-forex-brokers" className="h-10 w-full rounded-xl border border-line bg-paper px-3 text-sm outline-none" />
             </label>
             <label>
               <span className="mb-1 block text-[10px] font-bold uppercase text-slate-400">Content key</span>
