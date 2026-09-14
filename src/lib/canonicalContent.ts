@@ -34,8 +34,3 @@ export async function fetchPublishedContentDocuments(filters: PublicContentFilte
   const data = await publicContent<ContentDocument[]>(filters);
   return Array.isArray(data) ? data.filter((doc) => doc.published) : [];
 }
-
-export async function fetchCanonicalCountryTopic(countrySlug: string, topicSlug: string): Promise<ContentDocument | null> {
-  const data = await fetchPublishedContentDocument(`country-topic:${countrySlug}:${topicSlug}`);
-  return data?.content_type === 'country-topic' ? data : null;
-}
