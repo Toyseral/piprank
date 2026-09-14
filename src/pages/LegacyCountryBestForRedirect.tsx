@@ -2,9 +2,18 @@ import { Navigate, useLocation, useParams } from 'react-router-dom';
 
 const LEGACY_TO_CANONICAL: Record<string, string> = {
   beginners: 'forex-brokers-for-beginners',
+  'forex-brokers-for-beginners': 'forex-brokers-for-beginners',
   'low-spread': 'low-spread-forex-brokers',
+  'low-spread-forex-brokers': 'low-spread-forex-brokers',
+  mt4: 'mt4-forex-brokers',
+  'mt4-brokers': 'mt4-forex-brokers',
+  'mt4-forex-brokers': 'mt4-forex-brokers',
   mt5: 'mt5-forex-brokers',
+  'mt5-brokers': 'mt5-forex-brokers',
+  'mt5-forex-brokers': 'mt5-forex-brokers',
   gold: 'gold-forex-brokers',
+  'gold-brokers': 'gold-forex-brokers',
+  'gold-forex-brokers': 'gold-forex-brokers',
   scalping: 'forex-brokers-for-scalping',
   islamic: 'islamic-forex-brokers',
   ecn: 'ecn-forex-brokers',

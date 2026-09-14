@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import type { CanonicalRoute } from '../lib/canonicalHub/types';
 import { resolveCanonicalPath } from '../lib/canonicalHub/resolver';
 import { useSEO } from '../hooks/useSEO';
@@ -60,9 +60,14 @@ export default function CanonicalHub() {
 
   if (state === 'loading') return <Loading />;
   if (state === 'missing' || !route) return <NotFound />;
+  if (route.canonicalPath !== route.path) return <Navigate replace to={route.canonicalPath} />;
 
   switch (route.type) {
     case 'global-best-for':
+    case 'country-best-for':
+      // Keep the established Best-For presentation: hero, ranked BrokerCards,
+      // comparison/criteria sections and the existing CRO flow. CanonicalHub
+      // decides ownership; it does not replace the page design.
       return <BestFor />;
     case 'country-topic':
       return <CountrySeoTopic />;
