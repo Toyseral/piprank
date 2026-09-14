@@ -7,6 +7,19 @@ const ALLOWED_TAGS = new Set(['p','br','strong','em','b','i','u','s','blockquote
 const ALLOWED_ATTRS = new Set(['href','title','target','rel','src','alt','width','height','loading','colspan','rowspan','class']);
 const PUBLIC_FIELDS = 'id,content_key,content_type,country_slug,topic_slug,slug,title,excerpt,html,blocks,settings,seo_title,seo_description,indexable,published,updated_at';
 
+const PUBLIC_SETTING_KEYS = [
+  'locale',
+  'languageCode',
+  'icon',
+  'label',
+  'criteria',
+  'sections',
+  'faqs',
+  'ranking_intent_slug',
+  'canonicalIntentSlug',
+  'image',
+];
+
 function slugify(value) { return String(value ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''); }
 function safeUrl(value, { image = false } = {}) {
   const raw = String(value ?? '').trim();
@@ -70,10 +83,35 @@ function cleanBlocks(blocks) {
 }
 function sanitizePublicSettings(settings) {
   if (!settings || typeof settings !== 'object' || Array.isArray(settings)) return {};
-  return {
-    ...(typeof settings.locale === 'string' ? { locale: settings.locale.slice(0, 20) } : {}),
-    ...(typeof settings.languageCode === 'string' ? { languageCode: settings.languageCode.slice(0, 20) } : {}),
-  };
+  const output = {};
+  for (const key of PUBLIC_SETTING_KEYS) {
+    const value = settings[key];
+    if (value === undefined || value === null) continue;
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+      output[key] = typeof value === 'string' ? value.slice(0, 500) : value;
+      continue;
+    }
+    if (key === 'criteria' && Array.isArray(value)) {
+      output[key] = value.filter((item) => typeof item === 'string').map((item) => item.slice(0, 300)).slice(0, 100);
+      continue;
+    }
+    if (key === 'sections' && Array.isArray(value)) {
+      output[key] = value.filter((item) => item && typeof item === 'object' && !Array.isArray(item)).slice(0, 100);
+      continue;
+    }
+    if (key === 'faqs' && Array.isArray(value)) {
+      output[key] = value
+        .filter((item) => item && typeof item === 'object' && !Array.isArray(item))
+        .map((item) => ({
+          q: typeof item.q === 'string' ? item.q.slice(0, 500) : '',
+          a: typeof item.a === 'string' ? item.a.slice(0, 2000) : '',
+        }))
+        .filter((item) => item.q && item.a)
+        .slice(0, 100);
+      continue;
+    }
+  }
+  return output;
 }
 function toPublicDocument(document) {
   if (!document || typeof document !== 'object') return document;
