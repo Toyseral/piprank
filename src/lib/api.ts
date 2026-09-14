@@ -1,4 +1,4 @@
-import type { Broker, BrokerContent, BrokerCountryAvailability, BrokerCountryVerification, CountryBestFor, CountryPage, Intent, Review, ContentDocument, CountryLanguage, CountryIntentBrokerRanking } from './types';
+import type { Broker, BrokerContent, BrokerCountryAvailability, BrokerCountryVerification, CountryPage, Intent, Review, ContentDocument, CountryLanguage, CountryIntentBrokerRanking } from './types';
 
 async function get<T>(url: string, token?: string): Promise<T> {
   const res = await fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : undefined });
@@ -33,8 +33,6 @@ export const saveBrokerVerification = (payload: Partial<BrokerCountryVerificatio
 export const fetchCountries = () => get<CountryPage[]>('/api/countries');
 export const fetchCountry = (slug: string) => get<CountryPage>(`/api/countries?slug=${encodeURIComponent(slug)}`);
 export const fetchCountryIntentRankings = (countrySlug: string, intentSlug: string) => get<CountryIntentBrokerRanking[]>(`/api/country-intent-rankings?country=${encodeURIComponent(countrySlug)}&intent=${encodeURIComponent(publicIntentSlug(intentSlug))}`);
-export const fetchCountryBestFors = (countrySlug: string) => get<CountryBestFor[]>(`/api/country-best-for?country=${encodeURIComponent(countrySlug)}`);
-export const fetchCountryBestFor = async (countrySlug: string, slug: string) => { const mapped = publicIntentSlug(slug); try { return await get<CountryBestFor>(`/api/country-best-for?country=${encodeURIComponent(countrySlug)}&slug=${encodeURIComponent(mapped)}`); } catch (e) { if (mapped === slug) throw e; return get<CountryBestFor>(`/api/country-best-for?country=${encodeURIComponent(countrySlug)}&slug=${encodeURIComponent(slug)}`); } };
 export const createReview = async (payload: { broker_id: number; author: string; country: string; rating: number; title: string; body: string }, authToken?: string): Promise<Review> => { const res = await fetch('/api/reviews', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}) }, body: JSON.stringify(payload) }); const data = await res.json().catch(() => ({})); if (!res.ok) throw new Error((data as { error?: string }).error || `Request failed (${res.status})`); return data as Review; };
 export const voteHelpful = (id: number) => send<Review>('/api/reviews', 'PUT', { id });
 export const subscribeNewsletter = (email: string) => send<{ ok: boolean; duplicate?: boolean }>('/api/newsletter', 'POST', { email });
