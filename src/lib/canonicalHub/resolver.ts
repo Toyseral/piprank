@@ -76,7 +76,6 @@ export async function resolveCanonicalPath(pathname: string): Promise<CanonicalR
     return route(path, { type: 'guide', slug, contentKey: document.content_key, indexable: document.indexable !== false, published: document.published, document });
   }
 
-  // This is the only owner for /:country/guides/:slug.
   if (segments.length === 3 && segments[1] === 'guides') {
     const [countrySlug, , slug] = segments;
     const document = await fetchContentDocumentByKey(`country-guide:${countrySlug}:${slug}`);
@@ -108,14 +107,30 @@ export async function resolveCanonicalPath(pathname: string): Promise<CanonicalR
     return route(path, { type: 'localized-seo', countrySlug, slug: topicSlug, topicSlug, indexable: localized?.indexable !== false, published: localized?.published !== false });
   }
 
-  // The two-segment country namespace is exclusively commercial. Editorial
-  // country guides MUST use /:country/guides/:slug and can never claim the
-  // commercial URL even if their slug is identical to a Best-For slug.
+  // The two-segment country namespace is exclusively commercial. If no
+  // country-best-for owns the URL, an existing legacy country guide gets a
+  // temporary non-indexable redirect to its new /guides/ namespace.
   if (segments.length === 2) {
     const [countrySlug, slug] = segments;
     const countryBestFor = await fetchContentDocumentByKey(`country-best-for:${countrySlug}:${slug}`);
-    if (!countryBestFor || countryBestFor.content_type !== 'country-best-for' || countryBestFor.published === false) return null;
-    return route(path, { type: 'country-best-for', countrySlug, slug, contentKey: countryBestFor.content_key, indexable: countryBestFor.indexable !== false, published: countryBestFor.published, document: countryBestFor });
+    if (countryBestFor && countryBestFor.content_type === 'country-best-for' && countryBestFor.published !== false) {
+      return route(path, { type: 'country-best-for', countrySlug, slug, contentKey: countryBestFor.content_key, indexable: countryBestFor.indexable !== false, published: countryBestFor.published, document: countryBestFor });
+    }
+
+    const legacyGuide = await fetchContentDocumentByKey(`country-guide:${countrySlug}:${slug}`);
+    if (legacyGuide && legacyGuide.content_type === 'country-guide' && legacyGuide.published !== false) {
+      return route(path, {
+        type: 'legacy-country-guide',
+        countrySlug,
+        slug,
+        contentKey: legacyGuide.content_key,
+        indexable: false,
+        published: true,
+        document: legacyGuide,
+        canonicalPath: `/${encode(countrySlug)}/guides/${encode(slug)}`,
+      });
+    }
+    return null;
   }
 
   if (segments.length === 1) {
