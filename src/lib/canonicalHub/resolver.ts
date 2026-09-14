@@ -89,7 +89,7 @@ export async function resolveCanonicalPath(pathname: string): Promise<CanonicalR
   }
   if (segments.length === 4 && segments[2] === 'guides') {
     const [countrySlug, locale, , slug] = segments;
-    const document = await fetchPublicContentDocumentByTypeAndSlug('localized-guide', slug, countrySlug);
+    const document = await fetchPublicContentDocumentByKey(`localized-guide:${countrySlug}:${locale}:${slug}`);
     if (!document || document.content_type !== 'localized-guide' || localeOf(document).toLowerCase() !== locale.toLowerCase() || document.published === false) return null;
     return route(path, { type: 'localized-guide', countrySlug, locale, slug, contentKey: document.content_key, indexable: document.indexable !== false, published: document.published, document });
   }
