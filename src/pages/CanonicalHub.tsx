@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, Navigate } from 'react-router-dom';
 import type { CanonicalRoute } from '../lib/canonicalHub/types';
 import { resolveCanonicalPath } from '../lib/canonicalHub/resolver';
 import { useSEO } from '../hooks/useSEO';
@@ -22,6 +22,7 @@ export default function CanonicalHub() {
   useSEO(state === 'missing' ? { title: 'Page not found | PipRank', description: 'The requested PipRank page does not exist.', path: pathname, type: 'website', noindex: true } : null);
   if (state === 'loading') return <Loading />;
   if (state === 'missing' || !route) return <NotFound />;
+  if (route.type === 'country' && route.path.startsWith('/countries/')) return <Navigate to={`/${route.slug}`} replace />;
   switch (route.type) {
     case 'global-best-for':
     case 'guide':
@@ -33,7 +34,7 @@ export default function CanonicalHub() {
     case 'broker':
       return route.path === '/brokers' ? <Brokers /> : <BrokerDetail />;
     case 'country':
-      return route.path === '/countries' || route.path.startsWith('/countries/') ? <CountryDetail /> : <Countries />;
+      return route.path === '/countries' ? <Countries /> : <CountryDetail />;
     case 'compare':
       return route.path === '/compare' ? <Compare /> : <ComparePair />;
     default:
