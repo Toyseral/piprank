@@ -18,20 +18,56 @@ const PUBLIC_COLUMNS = [
   'settings',
 ].join(',');
 
+const PUBLIC_SETTING_KEYS = [
+  'locale',
+  'languageCode',
+  'icon',
+  'label',
+  'criteria',
+  'sections',
+  'faqs',
+  'ranking_intent_slug',
+  'canonicalIntentSlug',
+  'image',
+];
+
+function sanitizePublicSettings(settings) {
+  if (!settings || typeof settings !== 'object' || Array.isArray(settings)) return {};
+  const output = {};
+  for (const key of PUBLIC_SETTING_KEYS) {
+    const value = settings[key];
+    if (value === undefined || value === null) continue;
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+      output[key] = typeof value === 'string' ? value.slice(0, 500) : value;
+      continue;
+    }
+    if (key === 'criteria' && Array.isArray(value)) {
+      output[key] = value.filter((item) => typeof item === 'string').map((item) => item.slice(0, 300)).slice(0, 100);
+      continue;
+    }
+    if (key === 'sections' && Array.isArray(value)) {
+      output[key] = value.filter((item) => item && typeof item === 'object' && !Array.isArray(item)).slice(0, 100);
+      continue;
+    }
+    if (key === 'faqs' && Array.isArray(value)) {
+      output[key] = value
+        .filter((item) => item && typeof item === 'object' && !Array.isArray(item))
+        .map((item) => ({
+          q: typeof item.q === 'string' ? item.q.slice(0, 500) : '',
+          a: typeof item.a === 'string' ? item.a.slice(0, 2000) : '',
+        }))
+        .filter((item) => item.q && item.a)
+        .slice(0, 100);
+    }
+  }
+  return output;
+}
+
 function sanitizePublicDocument(document) {
   if (!document) return null;
-  const settings = document.settings && typeof document.settings === 'object'
-    ? document.settings
-    : {};
-
   return {
     ...document,
-    // Only expose settings required for public routing/localization.
-    // Internal generator/audit metadata must never cross the public boundary.
-    settings: {
-      ...(typeof settings.locale === 'string' ? { locale: settings.locale } : {}),
-      ...(typeof settings.languageCode === 'string' ? { languageCode: settings.languageCode } : {}),
-    },
+    settings: sanitizePublicSettings(document.settings),
   };
 }
 
