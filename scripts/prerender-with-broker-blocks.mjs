@@ -98,11 +98,12 @@ try {
   // Remove any per-country static files produced by the legacy prerender loop
   // so the vercel.json 301 is always the authoritative owner of that path.
   const legacyCountriesDir = join(here, '..', 'dist', 'countries');
-  if (readdirSync(legacyCountriesDir, { withFileTypes: true }).length) {
-    for (const entry of readdirSync(legacyCountriesDir, { withFileTypes: true })) {
-      if (entry.isDirectory()) rmSync(join(legacyCountriesDir, entry.name), { recursive: true, force: true });
-    }
+  for (const entry of readdirSync(legacyCountriesDir, { withFileTypes: true })) {
+    if (entry.isDirectory()) rmSync(join(legacyCountriesDir, entry.name), { recursive: true, force: true });
   }
+  const countryIndex = join(legacyCountriesDir, 'index.html');
+  const countryIndexHtml = readFileSync(countryIndex, 'utf8');
+  writeFileSync(countryIndex, countryIndexHtml.replaceAll('href="/countries/', 'href="/'), 'utf8');
 } finally {
   try { unlinkSync(runtimePath); } catch {}
 }
