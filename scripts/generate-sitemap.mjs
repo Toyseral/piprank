@@ -1,11 +1,10 @@
-// Generate a sitemap only for production. Every URL listed must be a public,
-// indexable route that the prerender step also generated.
+// Generate a sitemap only for production. Every dynamic URL listed must be owned by a
+// published, indexable canonical content document (or a canonical broker/country record).
 import { createClient } from '@supabase/supabase-js';
 import { writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { requireSiteUrlForProduction } from './seo-config.mjs';
-import { CANONICAL_BEST_FOR_BY_SLUG } from '../src/lib/canonicalHub/registry.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DIST = join(__dirname, '..', 'dist');
@@ -36,79 +35,48 @@ async function main() {
   const staticPaths = ['/', '/brokers', '/countries', '/compare', '/guides', '/methodology', '/quiz', '/tools', '/promotions', '/about', '/authors'];
   const urls = staticPaths.map((loc) => ({ loc }));
 
-  const [brokersResult, countriesResult, documentsResult, intentsResult, languagesResult] = await Promise.all([
+  const [brokersResult, countriesResult, documentsResult] = await Promise.all([
     supabase.from('brokers').select('slug, rating, updated_at'),
     supabase.from('countries').select('id, slug, recommended, updated_at'),
-    supabase.from('content_documents').select('content_type, country_slug, topic_slug, slug, published, indexable, updated_at, content_key, settings').eq('published', true),
-    supabase.from('intents').select('slug, updated_at'),
-    supabase.from('country_languages').select('id, country_id, code, url_prefix, locale, active'),
+    supabase.from('content_documents').select('content_type, country_slug, topic_slug, slug, published, indexable, updated_at, content_key, settings').eq('published', true).eq('indexable', true),
   ]);
-  for (const result of [brokersResult, countriesResult, documentsResult, intentsResult, languagesResult]) {
+  for (const result of [brokersResult, countriesResult, documentsResult]) {
     if (result.error) throw new Error(`[generate-sitemap] Supabase query failed: ${result.error.message}`);
   }
 
   const brokers = brokersResult.data ?? [];
   const countries = countriesResult.data ?? [];
   const documents = documentsResult.data ?? [];
-  const intents = intentsResult.data ?? [];
-  const languages = languagesResult.data ?? [];
 
   for (const broker of brokers) if (broker.slug) urls.push({ loc: `/brokers/${broker.slug}`, lastmod: cleanDate(broker.updated_at) });
   for (const country of countries) if (country.slug) urls.push({ loc: `/${country.slug}`, lastmod: cleanDate(country.updated_at) });
 
   for (const document of documents) {
-    if (document.content_type !== 'guide' || document.country_slug !== null || !document.slug || document.indexable === false) continue;
-    urls.push({ loc: `/guides/${document.slug}`, lastmod: cleanDate(document.updated_at) });
-  }
-
-  for (const [slug, canonicalPath] of Object.entries(CANONICAL_BEST_FOR_BY_SLUG)) {
-    const intent = intents.find((row) => row.slug === slug);
-    urls.push({ loc: `/${canonicalPath}`, lastmod: cleanDate(intent?.updated_at) });
-  }
-
-  // Country Best-For pages are owned exclusively by canonical content_documents.
-  const countryBestForDocs = documents.filter((document) =>
-    document.content_type === 'country-best-for' &&
-    Boolean(document.country_slug) &&
-    Boolean(document.slug) &&
-    document.indexable !== false,
-  );
-  for (const document of countryBestForDocs) {
-    urls.push({ loc: `/${document.country_slug}/${document.slug}`, lastmod: cleanDate(document.updated_at) });
-  }
-
-  const countrySlugById = new Map(countries.map((country) => [Number(country.id), country.slug]));
-  const languageByCountryAndLocale = new Map();
-  for (const language of languages) {
-    if (!language.active || !language.url_prefix) continue;
-    const countrySlug = countrySlugById.get(Number(language.country_id));
-    if (!countrySlug) continue;
-    for (const locale of [language.url_prefix, language.code, language.locale].filter(Boolean)) {
-      languageByCountryAndLocale.set(`${countrySlug}:${String(locale).toLowerCase()}`, language.url_prefix);
+    if (!document.slug) continue;
+    if (document.content_type === 'guide' && !document.country_slug) {
+      urls.push({ loc: `/guides/${document.slug}`, lastmod: cleanDate(document.updated_at) });
+      continue;
     }
-  }
-
-  // Localized pages are owned exclusively by canonical content_documents.
-  const localizedDocs = documents.filter((document) =>
-    (document.content_type === 'localized-guide' || document.content_type === 'localized-best-for') &&
-    Boolean(document.country_slug) &&
-    Boolean(document.slug) &&
-    document.indexable !== false &&
-    Boolean(documentLocale(document)),
-  );
-  for (const document of localizedDocs) {
-    const locale = documentLocale(document);
-    const prefix = languageByCountryAndLocale.get(`${document.country_slug}:${locale.toLowerCase()}`) || locale;
-    const path = document.content_type === 'localized-guide'
-      ? `/${document.country_slug}/${prefix}/guides/${document.slug}`
-      : `/${document.country_slug}/${prefix}/${document.slug}`;
-    urls.push({ loc: path, lastmod: cleanDate(document.updated_at) });
-  }
-
-  // Country guides own the /:country/guides/:slug namespace.
-  for (const document of documents) {
-    if (document.content_type !== 'country-guide' || !document.country_slug || !document.slug || document.indexable === false) continue;
-    urls.push({ loc: `/${document.country_slug}/guides/${document.slug}`, lastmod: cleanDate(document.updated_at) });
+    if (document.content_type === 'global-best-for' && !document.country_slug) {
+      urls.push({ loc: `/${document.slug}`, lastmod: cleanDate(document.updated_at) });
+      continue;
+    }
+    if (document.content_type === 'country-guide' && document.country_slug) {
+      urls.push({ loc: `/${document.country_slug}/guides/${document.slug}`, lastmod: cleanDate(document.updated_at) });
+      continue;
+    }
+    if (document.content_type === 'country-best-for' && document.country_slug) {
+      urls.push({ loc: `/${document.country_slug}/${document.slug}`, lastmod: cleanDate(document.updated_at) });
+      continue;
+    }
+    if ((document.content_type === 'localized-guide' || document.content_type === 'localized-best-for') && document.country_slug) {
+      const locale = documentLocale(document);
+      if (!locale) continue;
+      const path = document.content_type === 'localized-guide'
+        ? `/${document.country_slug}/${locale}/guides/${document.slug}`
+        : `/${document.country_slug}/${locale}/${document.slug}`;
+      urls.push({ loc: path, lastmod: cleanDate(document.updated_at) });
+    }
   }
 
   const topBrokers = [...brokers].filter((broker) => broker.slug).sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0)).slice(0, MAX_BROKERS_FOR_PAIRS);
