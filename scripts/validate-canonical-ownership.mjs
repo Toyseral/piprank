@@ -18,6 +18,10 @@ assert(resolver.includes('country-guide:${countrySlug}:${slug}'), 'country-guide
 assert(resolver.includes('country-best-for:${countrySlug}:${slug}'), 'country-best-for key missing');
 assert(app.includes('LegacyCountryGuideRedirect'), 'legacy country guide redirect component missing');
 assert(app.includes('path="/countries/:countrySlug/guides/:slug"'), 'legacy country guide redirect route missing');
+assert(app.includes('LegacyCountryRedirect'), 'legacy country redirect component missing');
+assert(app.includes('path="/countries/:slug"'), 'legacy /countries/:slug redirect route missing');
+assert(app.includes('path="/:slug"'), 'root country route missing');
+assert(!app.includes('path="/countries/:slug" element={<CanonicalHub />}'), '/countries/:slug must not be a canonical owner');
 assert(!resolver.includes('countryGuide &&'), 'two-segment country URLs must not claim country-guide');
 if (hub) {
   const text = read(hub);
