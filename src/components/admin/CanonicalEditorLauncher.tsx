@@ -5,16 +5,16 @@ import { fetchAdminContentDocument } from '../../lib/api';
 
 const GLOBAL = new Set(['forex-brokers-for-beginners','mt5-forex-brokers','gold-forex-brokers','mt4-forex-brokers','low-spread-forex-brokers','forex-brokers-for-scalping','islamic-forex-brokers','ecn-forex-brokers','copy-trading-forex-brokers','forex-brokers-for-swing-trading','high-leverage-forex-brokers']);
 
-export default function CanonicalEditorLauncher({ token, brokers, countries, kind, countrySlug, topicSlug, onClose, onSaved }: { token: string; brokers: Broker[]; countries: CountryPage[]; kind: 'global'|'country'; countrySlug?: string; topicSlug: string; onClose:()=>void; onSaved:()=>Promise<void>|void }) {
+type Props = { token: string; brokers: Broker[]; countries: CountryPage[]; kind: 'global'|'country'; countrySlug?: string; topicSlug: string; onClose:()=>void; onSaved:()=>Promise<void>|void };
+
+export default function CanonicalEditorLauncher({ token, brokers, countries: _countries, kind, countrySlug, topicSlug, onClose, onSaved }: Props) {
   const [doc,setDoc]=useState<ContentDocument|null>(null);
   const [loading,setLoading]=useState(true);
 
   useEffect(()=>{
     let active=true;
-    const key=kind==='global'
-      ? `best-for:${topicSlug}`
-      : `country-best-for:${countrySlug}:${topicSlug}`;
-    fetchAdminContentDocument(key, token).then((d)=>{if(active)setDoc(d)}).finally(()=>{if(active)setLoading(false)});
+    const key=kind==='global' ? `best-for:${topicSlug}` : `country-best-for:${countrySlug}:${topicSlug}`;
+    fetchAdminContentDocument(key, token).then((d: ContentDocument | null)=>{if(active)setDoc(d)}).finally(()=>{if(active)setLoading(false)});
     return()=>{active=false};
   },[kind,countrySlug,topicSlug,token]);
 
@@ -28,9 +28,7 @@ export default function CanonicalEditorLauncher({ token, brokers, countries, kin
     token={token}
     onClose={onClose}
     onSave={async(d,isNew)=>{
-      const contentKey=kind==='global'
-        ? `best-for:${topicSlug}`
-        : `country-best-for:${countrySlug}:${topicSlug}`;
+      const contentKey=kind==='global' ? `best-for:${topicSlug}` : `country-best-for:${countrySlug}:${topicSlug}`;
       const res=await fetch('/api/content-documents',{
         method:isNew?'POST':'PUT',
         headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},
