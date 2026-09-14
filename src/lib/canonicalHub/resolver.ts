@@ -56,9 +56,6 @@ export function canonicalContentKeyForDocument(document: Pick<ContentDocument, '
 
 export function resolveStaticCanonicalPath(pathname: string): CanonicalRoute | null {
   const path = cleanPath(pathname);
-  const first = path.slice(1);
-  const bestForSlug = CANONICAL_BEST_FOR[first as keyof typeof CANONICAL_BEST_FOR];
-  if (bestForSlug) return route(path, { type: 'global-best-for', slug: bestForSlug, indexable: true, published: true });
   if (path === '/guides') return route(path, { type: 'guide', indexable: true, published: true });
   if (path === '/countries') return route(path, { type: 'country', indexable: true, published: true });
   if (path === '/brokers') return route(path, { type: 'broker', indexable: true, published: true });
