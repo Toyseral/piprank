@@ -51,7 +51,7 @@
     { "source": "/api/country-best-for", "destination": "/api/content?resource=country-best-for" },
     { "source": "/api/country-languages", "destination": "/api/content?resource=country-languages" },
     { "source": "/api/localized-seo-pages", "destination": "/api/content?resource=localized-seo-pages" },
-    { "source": "/api/content-documents", "destination": "/api/content?resource=content-documents" },
+    { "source": "/api/content-documents", "destination": "/api/content-documents" },
     { "source": "/api/content-assets", "destination": "/api/content?resource=content-assets" },
     { "source": "/api/seo-page-generator", "destination": "/api/content?resource=seo-page-generator" },
     { "source": "/api/localization-ui-packs", "destination": "/api/content?resource=localization-ui-packs" },
