@@ -9,7 +9,7 @@ import Brokers from './Brokers';
 import Compare from './Compare';
 import ComparePair from './ComparePair';
 import Countries from './Countries';
-import CountryDetail from './CountryDetail';
+import CountryDetailCanonical from './CountryDetailCanonical';
 import GuideDetail from './GuideDetail';
 import GuideTopic from './GuideTopic';
 import Guides from './Guides';
@@ -21,12 +21,8 @@ function Loading() {
 
 function routeMatchesNamespace(pathname: string, route: CanonicalRoute): boolean {
   const segments = pathname.slice(1).split('/').filter(Boolean);
-  if (segments.length === 3 && segments[1] === 'guides') {
-    return route.type === 'country-guide';
-  }
-  if (segments.length === 2 && segments[0] !== 'guides' && segments[0] !== 'brokers' && segments[0] !== 'compare') {
-    return route.type === 'country-best-for';
-  }
+  if (segments.length === 3 && segments[1] === 'guides') return route.type === 'country-guide';
+  if (segments.length === 2 && segments[0] !== 'guides' && segments[0] !== 'brokers' && segments[0] !== 'compare') return route.type === 'country-best-for';
   return true;
 }
 
@@ -42,11 +38,7 @@ export default function CanonicalHub() {
     resolveCanonicalPath(pathname)
       .then((resolved) => {
         if (!active) return;
-        if (!resolved) {
-          setState('missing');
-          return;
-        }
-        if (!routeMatchesNamespace(pathname, resolved)) {
+        if (!resolved || !routeMatchesNamespace(pathname, resolved)) {
           setState('missing');
           return;
         }
@@ -61,13 +53,7 @@ export default function CanonicalHub() {
 
   useSEO(
     state === 'missing'
-      ? {
-          title: 'Page not found | PipRank',
-          description: 'The requested PipRank page does not exist.',
-          path: pathname,
-          type: 'website',
-          noindex: true,
-        }
+      ? { title: 'Page not found | PipRank', description: 'The requested PipRank page does not exist.', path: pathname, type: 'website', noindex: true }
       : null,
   );
 
@@ -86,7 +72,7 @@ export default function CanonicalHub() {
     case 'broker':
       return route.path === '/brokers' ? <Brokers /> : <BrokerDetail />;
     case 'country':
-      return route.path === '/countries' ? <Countries /> : <CountryDetail />;
+      return route.path === '/countries' ? <Countries /> : <CountryDetailCanonical />;
     case 'compare':
       return route.path === '/compare' ? <Compare /> : <ComparePair />;
     default:
