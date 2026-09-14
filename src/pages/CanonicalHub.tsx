@@ -16,7 +16,7 @@ import Guides from './Guides';
 import NotFound from './NotFound';
 
 function Loading() {
-  return <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6"><div className="h-48 animate-pulse rounded-3xl border border-line bg-white" />
+  return <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6"><div className="h-48 animate-pulse rounded-3xl border border-line bg-white" /></div>;
 }
 
 export default function CanonicalHub() {
