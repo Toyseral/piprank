@@ -10,7 +10,6 @@ import Compare from './Compare';
 import ComparePair from './ComparePair';
 import Countries from './Countries';
 import CountryDetail from './CountryDetail';
-import CountrySeoTopic from './CountrySeoTopic';
 import GuideDetail from './GuideDetail';
 import GuideTopic from './GuideTopic';
 import Guides from './Guides';
@@ -69,8 +68,6 @@ export default function CanonicalHub() {
       // comparison/criteria sections and the existing CRO flow. CanonicalHub
       // decides ownership; it does not replace the page design.
       return <BestFor />;
-    case 'country-topic':
-      return <CountrySeoTopic />;
     case 'guide':
       return route.path === '/guides' ? <Guides /> : <GuideDetail />;
     case 'country-guide':
