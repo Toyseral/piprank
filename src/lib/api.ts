@@ -40,6 +40,21 @@ export const voteHelpful = (id: number) => send<Review>('/api/reviews', 'PUT', {
 export const subscribeNewsletter = (email: string) => send<{ ok: boolean; duplicate?: boolean }>('/api/newsletter', 'POST', { email });
 export const trackClick = (broker_id: number, page: string) => send<{ ok: boolean }>('/api/track?resource=clicks', 'POST', { broker_id, page }).catch(() => ({ ok: false }));
 export const fetchCountryLanguages = (countrySlug?: string) => get<CountryLanguage[]>(`/api/country-languages${countrySlug ? `?country=${encodeURIComponent(countrySlug)}` : ''}`);
+
+// Temporary compatibility wrapper for the country hub. It reads canonical localized
+// Best-For documents only; it does not call the retired localized_seo_pages API.
+export const fetchLocalizedSeoPagesForCountry = async (countrySlug: string) => {
+  const docs = await get<ContentDocument[]>(`/api/content-documents?country=${encodeURIComponent(countrySlug)}`);
+  return docs
+    .filter((doc) => doc.content_type === 'localized-best-for' && doc.published && doc.indexable)
+    .map((doc) => {
+      const parts = String(doc.content_key || '').split(':');
+      const languageCode = parts[2] || '';
+      return { published: doc.published, indexable: doc.indexable, topic_key: 'all', url_prefix: languageCode, slug: doc.slug, locale: languageCode, language_code: languageCode };
+    });
+
+};
+
 export const fetchLocalizationUiPack = (languageCode: string) => get<{ language_code: string; strings: Record<string, string> | null } | null>(`/api/localization-ui-packs?language=${encodeURIComponent(languageCode)}`);
 export const fetchLocalizationGlossary = (languageCode?: string) => get<{ id: number; language_code: string; term_en: string; term_local: string; notes?: string }[]>(`/api/localization-glossary${languageCode ? `?language=${encodeURIComponent(languageCode)}` : ''}`);
 export const fetchLocalizationHealth = (token: string) => get<{ totals: { pages: number; published: number; issues: number }; issues: { id: number; type: string; message: string; slug?: string; country?: string }[] }>('/api/localization-health', token);
