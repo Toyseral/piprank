@@ -19,6 +19,17 @@ function Loading() {
   return <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6"><div className="h-48 animate-pulse rounded-3xl border border-line bg-white" /></div>;
 }
 
+function routeMatchesNamespace(pathname: string, route: CanonicalRoute): boolean {
+  const segments = pathname.slice(1).split('/').filter(Boolean);
+  if (segments.length === 3 && segments[1] === 'guides') {
+    return route.type === 'country-guide';
+  }
+  if (segments.length === 2 && segments[0] !== 'guides' && segments[0] !== 'brokers' && segments[0] !== 'compare') {
+    return route.type === 'country-best-for';
+  }
+  return true;
+}
+
 export default function CanonicalHub() {
   const { pathname } = useLocation();
   const [state, setState] = useState<'loading' | 'resolved' | 'missing'>('loading');
@@ -32,6 +43,10 @@ export default function CanonicalHub() {
       .then((resolved) => {
         if (!active) return;
         if (!resolved) {
+          setState('missing');
+          return;
+        }
+        if (!routeMatchesNamespace(pathname, resolved)) {
           setState('missing');
           return;
         }
@@ -63,9 +78,6 @@ export default function CanonicalHub() {
   switch (route.type) {
     case 'global-best-for':
     case 'country-best-for':
-      // Keep the established Best-For presentation: hero, ranked BrokerCards,
-      // comparison/criteria sections and the existing CRO flow. CanonicalHub
-      // decides ownership; it does not replace the page design.
       return <BestFor />;
     case 'guide':
       return route.path === '/guides' ? <Guides /> : <GuideDetail />;
@@ -74,7 +86,7 @@ export default function CanonicalHub() {
     case 'broker':
       return route.path === '/brokers' ? <Brokers /> : <BrokerDetail />;
     case 'country':
-      return route.path === '/countries' || route.path.startsWith('/countries/') ? <CountryDetail /> : <Countries />;
+      return route.path === '/countries' ? <Countries /> : <CountryDetail />;
     case 'compare':
       return route.path === '/compare' ? <Compare /> : <ComparePair />;
     default:
