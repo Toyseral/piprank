@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, unlinkSync } from 'node:fs';
+import { readFileSync, writeFileSync, unlinkSync, readdirSync, rmSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -94,6 +94,15 @@ const patched = source.slice(0, start) + replacement + source.slice(end);
 writeFileSync(runtimePath, patched, 'utf8');
 try {
   await import(pathToFileURL(runtimePath).href + '?t=' + Date.now());
+  // /countries/:slug is a legacy URL. The canonical country URL is /:slug.
+  // Remove any per-country static files produced by the legacy prerender loop
+  // so the vercel.json 301 is always the authoritative owner of that path.
+  const legacyCountriesDir = join(here, '..', 'dist', 'countries');
+  if (readdirSync(legacyCountriesDir, { withFileTypes: true }).length) {
+    for (const entry of readdirSync(legacyCountriesDir, { withFileTypes: true })) {
+      if (entry.isDirectory()) rmSync(join(legacyCountriesDir, entry.name), { recursive: true, force: true });
+    }
+  }
 } finally {
   try { unlinkSync(runtimePath); } catch {}
 }
