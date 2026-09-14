@@ -18,11 +18,12 @@ export const CANONICAL_BEST_FOR_BY_SLUG = Object.freeze(
 
 export const CANONICAL_TYPES = Object.freeze({
   GLOBAL_BEST_FOR: 'global-best-for',
-  COUNTRY_TOPIC: 'country-topic',
   GUIDE: 'guide',
   COUNTRY_GUIDE: 'country-guide',
+  COUNTRY_BEST_FOR: 'country-best-for',
+  LOCALIZED_GUIDE: 'localized-guide',
+  LOCALIZED_BEST_FOR: 'localized-best-for',
   BROKER: 'broker',
   COUNTRY: 'country',
   COMPARE: 'compare',
-  LOCALIZED_SEO: 'localized-seo',
 });
