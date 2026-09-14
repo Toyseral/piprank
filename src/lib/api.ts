@@ -45,6 +45,7 @@ export const saveLocalizationUiPack = (language_code: string, strings: Record<st
 export const saveGlossaryTerm = (payload: { language_code: string; term_en: string; term_local: string; notes?: string; id?: number }, token: string) => fetch('/api/localization-glossary', { method: payload.id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) }).then(async (res) => { const data = await res.json().catch(() => ({})); if (!res.ok) throw new Error((data as { error?: string }).error || 'Failed to save glossary term'); return data; });
 
 export const fetchContentDocument = (key: string) => get<ContentDocument | null>(`/api/content-documents?key=${encodeURIComponent(key)}`);
+export const fetchAdminContentDocument = (key: string, token: string) => get<ContentDocument | null>(`/api/content-documents?admin=true&key=${encodeURIComponent(key)}`, token);
 export const fetchContentDocuments = (params?: { type?: string; country?: string; topic?: string; slug?: string }) => {
   const query = new URLSearchParams();
   if (params?.type) query.set('type', params.type);
