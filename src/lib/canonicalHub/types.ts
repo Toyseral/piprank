@@ -5,12 +5,14 @@ import type { ContentDocument } from '../types';
  *
  * Country editorial content is deliberately separate from commercial
  * Best-For content: /:country/guides/:slug vs /:country/:slug.
+ * legacy-country-guide is compatibility-only and is never indexable.
  */
 export type CanonicalContentType =
   | 'global-best-for'
   | 'country-best-for'
   | 'guide'
   | 'country-guide'
+  | 'legacy-country-guide'
   | 'broker'
   | 'country'
   | 'compare'
