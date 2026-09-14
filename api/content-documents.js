@@ -55,6 +55,15 @@ function cleanBlocks(blocks) {
     if (typeof next.html === 'string') next.html = cleanHtml(next.html);
     if (typeof next.src === 'string') next.src = safeUrl(next.src, { image: true });
     if (typeof next.href === 'string') next.href = safeUrl(next.href);
+    if (Array.isArray(next.links)) {
+      next.links = next.links
+        .filter((link) => link && typeof link === 'object')
+        .map((link) => ({
+          ...link,
+          label: String(link.label ?? '').slice(0, 180),
+          href: safeUrl(link.href) || '#',
+        }));
+    }
     return next;
   });
 }
