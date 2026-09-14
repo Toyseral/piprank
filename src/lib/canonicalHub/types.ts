@@ -2,7 +2,7 @@ import type { ContentDocument } from '../types';
 
 export type CanonicalContentType =
   | 'global-best-for'
-  | 'country-topic'
+  | 'country-best-for'
   | 'guide'
   | 'country-guide'
   | 'localized-guide'
