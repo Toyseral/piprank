@@ -1,4 +1,4 @@
-import type { Broker, BrokerContent, BrokerCountryAvailability, BrokerCountryVerification, CountryBestFor, CountryPage, Intent, Review, ContentDocument, CountryLanguage, LocalizedSeoPage, CountryIntentBrokerRanking } from './types';
+import type { Broker, BrokerContent, BrokerCountryAvailability, BrokerCountryVerification, CountryBestFor, CountryPage, Intent, Review, ContentDocument, CountryLanguage, CountryIntentBrokerRanking } from './types';
 
 async function get<T>(url: string, token?: string): Promise<T> {
   const res = await fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : undefined });
@@ -40,14 +40,8 @@ export const voteHelpful = (id: number) => send<Review>('/api/reviews', 'PUT', {
 export const subscribeNewsletter = (email: string) => send<{ ok: boolean; duplicate?: boolean }>('/api/newsletter', 'POST', { email });
 export const trackClick = (broker_id: number, page: string) => send<{ ok: boolean }>('/api/track?resource=clicks', 'POST', { broker_id, page }).catch(() => ({ ok: false }));
 export const fetchCountryLanguages = (countrySlug?: string) => get<CountryLanguage[]>(`/api/country-languages${countrySlug ? `?country=${encodeURIComponent(countrySlug)}` : ''}`);
-export const fetchLocalizedSeoPage = (countrySlug: string, languageCode: string, slug: string) => get<LocalizedSeoPage | null>(`/api/localized-seo-pages?country=${encodeURIComponent(countrySlug)}&language=${encodeURIComponent(languageCode)}&slug=${encodeURIComponent(slug)}`);
-export const fetchLocalizedSeoPagesForCountry = (countrySlug: string) => get<LocalizedSeoPage[]>(`/api/localized-seo-pages?country=${encodeURIComponent(countrySlug)}`);
 export const fetchLocalizationUiPack = (languageCode: string) => get<{ language_code: string; strings: Record<string, string> | null } | null>(`/api/localization-ui-packs?language=${encodeURIComponent(languageCode)}`);
 export const fetchLocalizationGlossary = (languageCode?: string) => get<{ id: number; language_code: string; term_en: string; term_local: string; notes?: string }[]>(`/api/localization-glossary${languageCode ? `?language=${encodeURIComponent(languageCode)}` : ''}`);
-export const fetchLocalizedSeoPagePreview = (countrySlug: string, languageCode: string, slug: string, token: string) => get<LocalizedSeoPage | null>(`/api/localized-seo-pages?country=${encodeURIComponent(countrySlug)}&language=${encodeURIComponent(languageCode)}&slug=${encodeURIComponent(slug)}&preview=1`, token);
 export const fetchLocalizationHealth = (token: string) => get<{ totals: { pages: number; published: number; issues: number }; issues: { id: number; type: string; message: string; slug?: string; country?: string }[] }>('/api/localization-health', token);
 export const saveLocalizationUiPack = (language_code: string, strings: Record<string, string>, token: string) => fetch('/api/localization-ui-packs', { method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ language_code, strings }) }).then(async (res) => { const data = await res.json().catch(() => ({})); if (!res.ok) throw new Error((data as { error?: string }).error || 'Failed to save UI pack'); return data; });
 export const saveGlossaryTerm = (payload: { language_code: string; term_en: string; term_local: string; notes?: string; id?: number }, token: string) => fetch('/api/localization-glossary', { method: payload.id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) }).then(async (res) => { const data = await res.json().catch(() => ({})); if (!res.ok) throw new Error((data as { error?: string }).error || 'Failed to save glossary term'); return data; });
-
-export const fetchAdminContentDocument = (key: string, token: string) =>
-  get<ContentDocument | null>(`/api/content-documents?key=${encodeURIComponent(key)}`, token);
