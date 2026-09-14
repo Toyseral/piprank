@@ -1,18 +1,11 @@
 import type { ContentDocument } from '../types';
 
-/**
- * Canonical page owners. Each type owns exactly one URL namespace.
- *
- * Country editorial content is deliberately separate from commercial
- * Best-For content: /:country/guides/:slug vs /:country/:slug.
- * legacy-country-guide is compatibility-only and is never indexable.
- */
+/** Canonical page owners. Each type owns exactly one URL namespace. */
 export type CanonicalContentType =
   | 'global-best-for'
   | 'country-best-for'
   | 'guide'
   | 'country-guide'
-  | 'legacy-country-guide'
   | 'broker'
   | 'country'
   | 'compare'
