@@ -16,7 +16,6 @@ function encode(value: string): string { return encodeURIComponent(value); }
 
 export function canonicalPathForDocument(document: Pick<ContentDocument, 'content_type' | 'country_slug' | 'topic_slug' | 'slug' | 'settings'>): string | null {
   const country = document.country_slug ? encode(document.country_slug) : null;
-  const topic = document.topic_slug ? encode(document.topic_slug) : null;
   const slug = document.slug ? encode(document.slug) : null;
   switch (document.content_type) {
     case 'global-best-for': return slug ? `/${slug}` : null;
@@ -121,7 +120,7 @@ export async function resolveCanonicalPath(pathname: string): Promise<CanonicalR
     const [countrySlug, slug] = segments;
     const countryBestFor = await fetchPublicContentDocumentByKey(`country-best-for:${countrySlug}:${slug}`);
     if (countryBestFor && countryBestFor.content_type === 'country-best-for') {
-      return route(path, { type: 'country-best-for', countrySlug, slug, contentKey: countryBestFor.content_key, indexable: countryBestFor.indexable !== false, published: countryBestFor.published, document: countryBestFor });
+      return route(path, { type: 'country-guide', countrySlug, slug, contentKey: countryBestFor.content_key, indexable: countryBestFor.indexable !== false, published: countryBestFor.published, document: countryBestFor });
     }
 
     const countryGuide = await fetchPublicContentDocumentByKey(`country-guide:${countrySlug}:${slug}`);
