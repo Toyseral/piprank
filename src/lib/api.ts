@@ -48,21 +48,3 @@ export const fetchLocalizedSeoPagePreview = (countrySlug: string, languageCode: 
 export const fetchLocalizationHealth = (token: string) => get<{ totals: { pages: number; published: number; issues: number }; issues: { id: number; type: string; message: string; slug?: string; country?: string }[] }>('/api/localization-health', token);
 export const saveLocalizationUiPack = (language_code: string, strings: Record<string, string>, token: string) => fetch('/api/localization-ui-packs', { method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ language_code, strings }) }).then(async (res) => { const data = await res.json().catch(() => ({})); if (!res.ok) throw new Error((data as { error?: string }).error || 'Failed to save UI pack'); return data; });
 export const saveGlossaryTerm = (payload: { language_code: string; term_en: string; term_local: string; notes?: string; id?: number }, token: string) => fetch('/api/localization-glossary', { method: payload.id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) }).then(async (res) => { const data = await res.json().catch(() => ({})); if (!res.ok) throw new Error((data as { error?: string }).error || 'Failed to save glossary term'); return data; });
-
-// Transitional aliases for consumers not yet migrated. They use the canonical published-only endpoint; no public read uses /api/content-documents.
-export const fetchGuides = async (): Promise<ContentDocument[]> => {
-  const { fetchPublishedContentDocuments } = await import('./canonicalContent');
-  return fetchPublishedContentDocuments({ type: 'guide' });
-};
-export const fetchGuide = async (slug: string): Promise<ContentDocument | null> => {
-  const { fetchPublishedContentDocument } = await import('./canonicalContent');
-  return fetchPublishedContentDocument(`guide:${slug}`);
-};
-export const fetchContentDocument = async (key: string): Promise<ContentDocument | null> => {
-  const { fetchPublishedContentDocument } = await import('./canonicalContent');
-  return fetchPublishedContentDocument(key);
-};
-export const fetchContentDocumentById = async (id: number): Promise<ContentDocument | null> => {
-  const { fetchPublishedContentDocumentById } = await import('./canonicalContent');
-  return fetchPublishedContentDocumentById(id);
-};
