@@ -79,10 +79,7 @@ export function LocalizationManager({ countries, languages, contentDocs, mutate 
 
   return <div className="space-y-6">
     <div className="rounded-3xl border border-line bg-white p-6">
-      <div className="flex items-start justify-between gap-4">
-        <div><p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Country × Language</p><h2 className="mt-1 font-display text-xl font-bold text-ink-950">Localization Studio</h2><p className="mt-2 text-sm leading-6 text-slate-500">Localized guides and Best-For pages are canonical Content Studio documents. Best-For pages are created and edited here; legacy localized-seo pages are not used.</p></div>
-        <Globe2 className="text-emerald-600" size={22} />
-      </div>
+      <div className="flex items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Country × Language</p><h2 className="mt-1 font-display text-xl font-bold text-ink-950">Localization Studio</h2><p className="mt-2 text-sm leading-6 text-slate-500">Localized guides and Best-For pages are canonical Content Studio documents. Best-For pages are created and edited here; legacy localized-seo pages are not used.</p></div><Globe2 className="text-emerald-600" size={22} /></div>
       <form onSubmit={addLanguage} className="mt-6 grid gap-3 md:grid-cols-3">
         <select value={countryId} onChange={(e) => setCountryId(Number(e.target.value))} className="h-11 rounded-xl border border-line bg-paper px-3 text-sm">{countries.map((c) => <option key={c.id} value={c.id}>{c.flag} {c.name}</option>)}</select>
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Language name" className="h-11 rounded-xl border border-line bg-paper px-3 text-sm" />
@@ -101,11 +98,7 @@ export function LocalizationManager({ countries, languages, contentDocs, mutate 
         const languageBestFors = languageDocs.filter((doc) => doc.content_type === 'localized-best-for');
         const open = selectedLanguage === language.id;
         return <div key={language.id} className={`rounded-2xl border bg-white p-5 ${open ? 'border-emerald-300' : 'border-line'}`}>
-          <div className="flex items-center gap-3">
-            <div className="min-w-0 flex-1"><p className="font-bold text-ink-950">{language.native_name} <span className="font-normal text-slate-400">({language.name})</span></p><p className="mt-1 text-xs text-slate-500">{language.country_name} · {language.locale} · /{language.url_prefix}/ · {language.active ? 'Active' : 'Inactive'}</p><p className="mt-1 text-xs font-semibold text-emerald-700">{languageBestFors.length} localized Best-For · {languageDocs.length} localized documents</p></div>
-            <button onClick={() => { setCountryId(language.country_id); setSelectedLanguage(open ? null : language.id); }} className="rounded-xl border border-line px-3 py-2 text-xs font-bold">{open ? 'Hide pages' : 'Manage pages'}</button>
-            <button onClick={() => mutate('/api/country-languages', 'PUT', { id: language.id, active: !language.active }, language.active ? 'Language disabled' : 'Language enabled')} className="rounded-xl border border-line px-3 py-2 text-xs font-bold">{language.active ? 'Disable' : 'Enable'}</button>
-          </div>
+          <div className="flex items-center gap-3"><div className="min-w-0 flex-1"><p className="font-bold text-ink-950">{language.native_name} <span className="font-normal text-slate-400">({language.name})</span></p><p className="mt-1 text-xs text-slate-500">{language.country_name} · {language.locale} · /{language.url_prefix}/ · {language.active ? 'Active' : 'Inactive'}</p><p className="mt-1 text-xs font-semibold text-emerald-700">{languageBestFors.length} localized Best-For · {languageDocs.length} localized documents</p></div><button onClick={() => { setCountryId(language.country_id); setSelectedLanguage(open ? null : language.id); }} className="rounded-xl border border-line px-3 py-2 text-xs font-bold">{open ? 'Hide pages' : 'Manage pages'}</button><button onClick={() => mutate('/api/country-languages', 'PUT', { id: language.id, active: !language.active }, language.active ? 'Language disabled' : 'Language enabled')} className="rounded-xl border border-line px-3 py-2 text-xs font-bold">{language.active ? 'Disable' : 'Enable'}</button></div>
           {open && <div className="mt-5 space-y-4 border-t border-line pt-4">
             <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-4"><div className="flex flex-wrap items-center justify-between gap-2"><div><p className="text-sm font-bold text-ink-950">Localized Best-For pages</p><p className="text-xs text-slate-500">{localizedBestFors.length} existing pages for {language.native_name}.</p></div><span className="rounded-full bg-white px-2.5 py-1 text-xs font-bold text-emerald-700">Canonical content_documents</span></div></div>
             {selectedDocs.filter((doc) => doc.content_type === 'localized-best-for').map((doc) => <LocalizedDocumentRow key={doc.id} doc={doc} mutate={mutate} />)}
@@ -122,7 +115,10 @@ function LocalizedDocumentRow({ doc, mutate }: { doc: ContentDocument; mutate: M
   const [title, setTitle] = useState(doc.title || '');
   const [seoTitle, setSeoTitle] = useState(doc.seo_title || '');
   const [seoDescription, setSeoDescription] = useState(doc.seo_description || '');
-  const [blocks, setBlocks] = useState<PageBlock[]>(Array.isArray(doc.blocks) ? doc.blocks as PageBlock[] : []);
+  const [blocks, setBlocks] = useState<PageBlock[]>(() => {
+    if (Array.isArray(doc.blocks) && doc.blocks.length) return doc.blocks as PageBlock[];
+    return doc.html ? [{ type: 'richtext', html: doc.html } as PageBlock] : [];
+  });
   const [published, setPublished] = useState(Boolean(doc.published));
   const [indexable, setIndexable] = useState(Boolean(doc.indexable));
   const [expanded, setExpanded] = useState(false);
