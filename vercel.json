@@ -49,7 +49,7 @@
     { "source": "/api/intents", "destination": "/api/content?resource=intents" },
     { "source": "/api/countries", "destination": "/api/content?resource=countries" },
     { "source": "/api/country-best-for", "destination": "/api/content?resource=country-best-for" },
-    { "source": "/api/country-languages", "destination": "/api/content?resource=country-languages" },
+    { "source": "/api/country-languages", "destination": "/api/canonical-country-languages" },
     { "source": "/api/content-documents", "destination": "/api/content-documents" },
     { "source": "/api/content-assets", "destination": "/api/content?resource=content-assets" },
     { "source": "/api/seo-page-generator", "destination": "/api/seo-page-generator" },
