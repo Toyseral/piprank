@@ -1,0 +1,25 @@
+name: Quality Gate
+
+on:
+  push:
+    branches:
+      - 'fix/piprank-batch-1-to-8'
+  pull_request:
+    branches:
+      - 'develop'
+      - 'production'
+
+jobs:
+  build-and-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run check:canonical-ownership
+      - run: npm run check:function-count
+      - run: npm run check:seo-matrix
+      - run: npm run build
