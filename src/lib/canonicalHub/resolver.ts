@@ -14,7 +14,7 @@ function route(path: string, input: Omit<CanonicalRoute, 'path' | 'canonicalPath
 
 function encode(value: string): string { return encodeURIComponent(value); }
 
-export function canonicalPathForDocument(document: Pick<ContentDocument, 'content_type' | 'country_slug' | 'topic_slug' | 'slug'>): string | null {
+export function canonicalPathForDocument(document: Pick<ContentDocument, 'content_type' | 'country_slug' | 'topic_slug' | 'slug' | 'settings'>): string | null {
   const country = document.country_slug ? encode(document.country_slug) : null;
   const topic = document.topic_slug ? encode(document.topic_slug) : null;
   const slug = document.slug ? encode(document.slug) : null;
