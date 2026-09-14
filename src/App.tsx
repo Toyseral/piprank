@@ -16,6 +16,7 @@ const Authors = lazy(() => import('./pages/Authors'));
 const CanonicalHub = lazy(() => import('./pages/CanonicalHub'));
 const LegacyBestForRedirect = lazy(() => import('./pages/LegacyBestForRedirect'));
 const LegacyCountryBestForRedirect = lazy(() => import('./pages/LegacyCountryBestForRedirect'));
+const LegacyCountryGuideRedirect = lazy(() => import('./pages/LegacyCountryGuideRedirect'));
 const LocalizedGuide = lazy(() => import('./pages/LocalizedGuide'));
 const Methodology = lazy(() => import('./pages/Methodology'));
 const Promotions = lazy(() => import('./pages/Promotions'));
@@ -48,6 +49,7 @@ export function Shell() {
           <Route path="/best/:slug" element={<LegacyBestForRedirect />} />
           <Route path="/best-:slug" element={<LegacyBestForRedirect />} />
           <Route path="/countries/:countrySlug/best/:slug" element={<LegacyCountryBestForRedirect />} />
+          <Route path="/countries/:countrySlug/guides/:slug" element={<LegacyCountryGuideRedirect />} />
           <Route path="/:countrySlug/best-:slug" element={<LegacyCountryBestForRedirect />} />
           <Route path="/:countrySlug/best-low-spread-forex-brokers" element={<LegacyCountryBestForRedirect />} />
           <Route path="/:countrySlug/best-forex-brokers-for-beginners" element={<LegacyCountryBestForRedirect />} />
