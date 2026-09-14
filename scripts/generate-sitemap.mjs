@@ -65,7 +65,6 @@ async function main() {
   }
 
   // Country Best-For pages are owned exclusively by canonical content_documents.
-  // country-topic and the legacy country_best_for table must never create URLs.
   const countryBestForDocs = documents.filter((document) =>
     document.content_type === 'country-best-for' &&
     Boolean(document.country_slug) &&
