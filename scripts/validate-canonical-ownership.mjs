@@ -1,5 +1,57 @@
 import { createClient } from '@supabase/supabase-js';
 
+const CANONICAL_TYPES = new Set([
+  'guide',
+  'global-best-for',
+  'country-guide',
+  'country-best-for',
+  'localized-guide',
+  'localized-best-for',
+  'broker',
+  'country',
+  'compare',
+]);
+
+function localeOf(doc) {
+  return String(doc?.settings?.locale || doc?.settings?.languageCode || '').trim().toLowerCase();
+}
+
+function canonicalKey(doc) {
+  const country = String(doc.country_slug || '').trim();
+  const slug = String(doc.slug || '').trim();
+  const locale = localeOf(doc);
+  switch (doc.content_type) {
+    case 'guide': return slug && !country ? `guide:${slug}` : null;
+    case 'global-best-for': return slug && !country ? `best-for:${slug}` : null;
+    case 'country-guide': return country && slug ? `country-guide:${country}:${slug}` : null;
+    case 'country-best-for': return country && slug ? `country-best-for:${country}:${slug}` : null;
+    case 'localized-guide': return country && locale && slug ? `localized-guide:${country}:${locale}:${slug}` : null;
+    case 'localized-best-for': return country && locale && slug ? `localized-best-for:${country}:${locale}:${slug}` : null;
+    case 'broker': return slug ? `broker:${slug}:main` : null;
+    case 'country': return country || slug ? `country:${country || slug}:hub` : null;
+    case 'compare': return slug ? `compare:${slug}` : null;
+    default: return null;
+  }
+}
+
+function canonicalPath(doc) {
+  const country = encodeURIComponent(String(doc.country_slug || '').trim());
+  const slug = encodeURIComponent(String(doc.slug || '').trim());
+  const locale = encodeURIComponent(localeOf(doc));
+  switch (doc.content_type) {
+    case 'guide': return slug && !doc.country_slug ? `/guides/${slug}` : null;
+    case 'global-best-for': return slug && !doc.country_slug ? `/${slug}` : null;
+    case 'country-guide': return country && slug ? `/${country}/guides/${slug}` : null;
+    case 'country-best-for': return country && slug ? `/${country}/${slug}` : null;
+    case 'localized-guide': return country && locale && slug ? `/${country}/${locale}/guides/${slug}` : null;
+    case 'localized-best-for': return country && locale && slug ? `/${country}/${locale}/${slug}` : null;
+    case 'broker': return slug ? `/brokers/${slug}` : null;
+    case 'country': return country ? `/${country}` : slug ? `/${slug}` : null;
+    case 'compare': return slug ? `/compare/${slug}` : null;
+    default: return null;
+  }
+}
+
 async function main() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -13,39 +65,51 @@ async function main() {
   if (error) throw new Error(`Canonical ownership query failed: ${error.message}`);
   const rows = docs ?? [];
   const errors = [];
+  const seenKeys = new Map();
+  const seenPaths = new Map();
+
   for (const doc of rows) {
-    if (doc.content_type === 'country-topic' || String(doc.content_key || '').startsWith('country-topic:')) errors.push(`Retired country-topic document still exists: ${doc.content_key || doc.id}`);
-    if (doc.content_type === 'country-guide') {
-      const expected = doc.country_slug && doc.slug ? `country-guide:${doc.country_slug}:${doc.slug}` : null;
-      if (!expected) errors.push(`Country guide is missing country_slug or slug: ${doc.id}`);
-      else if (doc.content_key !== expected) errors.push(`Country guide has non-canonical content_key: ${doc.content_key} (expected ${expected})`);
+    const type = String(doc.content_type || '');
+    const keyValue = String(doc.content_key || '');
+
+    if (type === 'country-topic' || keyValue.startsWith('country-topic:')) {
+      errors.push(`Retired country-topic document still exists: ${keyValue || doc.id}`);
+      continue;
     }
-    if (doc.content_type === 'country-best-for') {
-      const expected = doc.country_slug && doc.slug ? `country-best-for:${doc.country_slug}:${doc.slug}` : null;
-      if (!expected) errors.push(`Country Best-For is missing country_slug or slug: ${doc.id}`);
-      else if (doc.content_key !== expected) errors.push(`Country Best-For has non-canonical content_key: ${doc.content_key} (expected ${expected})`);
+    if (type === 'localized-seo' || keyValue.startsWith('localized-seo:')) {
+      errors.push(`Retired localized-seo document still exists: ${keyValue || doc.id}`);
+      continue;
     }
-    if (doc.content_type === 'localized-guide' || doc.content_type === 'localized-best-for') {
-      const locale = String(doc.settings?.locale || doc.settings?.languageCode || '').trim().toLowerCase();
-      const prefix = doc.content_type === 'localized-guide' ? 'localized-guide' : 'localized-best-for';
-      const expected = doc.country_slug && locale && doc.slug ? `${prefix}:${doc.country_slug}:${locale}:${doc.slug}` : null;
-      if (!expected) errors.push(`Localized document is missing country_slug, locale or slug: ${doc.id}`);
-      else if (doc.content_key !== expected) errors.push(`Localized document has non-canonical content_key: ${doc.content_key} (expected ${expected})`);
+    if (!CANONICAL_TYPES.has(type)) continue;
+
+    const expectedKey = canonicalKey(doc);
+    if (!expectedKey) errors.push(`${type} document has insufficient canonical identity: ${doc.id}`);
+    else if (keyValue !== expectedKey) errors.push(`${type} has non-canonical content_key: ${keyValue} (expected ${expectedKey})`);
+
+    if (doc.published) {
+      const path = canonicalPath(doc);
+      if (!path) errors.push(`Published ${type} document cannot resolve a canonical URL: ${doc.id}`);
+      else {
+        if (seenPaths.has(path)) errors.push(`Duplicate canonical URL: ${path} (${seenPaths.get(path)} and ${doc.id})`);
+        seenPaths.set(path, doc.id);
+      }
     }
+
+    if (doc.published && expectedKey) {
+      if (seenKeys.has(expectedKey)) errors.push(`Duplicate canonical ownership key: ${expectedKey} (${seenKeys.get(expectedKey)} and ${doc.id})`);
+      seenKeys.set(expectedKey, doc.id);
+    }
+
+    if (type.startsWith('localized-') && !localeOf(doc)) errors.push(`Localized document is missing locale: ${doc.id}`);
+    if (type.startsWith('localized-') && !doc.country_slug) errors.push(`Localized document is missing country_slug: ${doc.id}`);
+    if ((type === 'guide' || type === 'global-best-for') && doc.country_slug) errors.push(`${type} must not have country_slug: ${doc.id}`);
   }
-  const ownershipTypes = ['country-best-for', 'country-guide', 'localized-best-for', 'localized-guide'];
-  const seen = new Map();
-  for (const doc of rows.filter((d) => ownershipTypes.includes(d.content_type) && d.published)) {
-    const locale = String(doc.settings?.locale || doc.settings?.languageCode || '').trim().toLowerCase();
-    const ownership = doc.content_type.startsWith('localized-') ? `${doc.content_type}:${doc.country_slug}:${locale}:${doc.slug}` : `${doc.content_type}:${doc.country_slug}:${doc.slug}`;
-    if (seen.has(ownership)) errors.push(`Duplicate canonical ownership: ${ownership}`);
-    seen.set(ownership, doc);
-  }
+
   if (errors.length) {
     console.error('[validate-canonical-ownership] FAILED');
     errors.forEach((error) => console.error(` - ${error}`));
     process.exit(1);
   }
-  console.log(`[validate-canonical-ownership] OK — checked ${rows.length} content documents.`);
+  console.log(`[validate-canonical-ownership] OK — checked ${rows.length} content documents and ${seenPaths.size} published canonical URLs.`);
 }
 main().catch((error) => { console.error('[validate-canonical-ownership] ERROR:', error); process.exit(1); });
