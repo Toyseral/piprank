@@ -31,20 +31,11 @@ export const fetchIntent = async (slug: string) => {
 };
 export const fetchGuides = async (): Promise<ContentDocument[]> => {
   const docs = await get<ContentDocument[]>('/api/content-documents?type=guide');
-
-  return Array.isArray(docs)
-    ? docs.filter((doc) => doc.country_slug === null)
-    : [];
+  return Array.isArray(docs) ? docs.filter((doc) => doc.country_slug === null) : [];
 };
-
 export const fetchGuide = async (slug: string): Promise<ContentDocument | null> => {
-  const docs = await get<ContentDocument[]>(
-    `/api/content-documents?type=guide&slug=${encodeURIComponent(slug)}`
-  );
-
-  return Array.isArray(docs)
-    ? docs.find((doc) => doc.country_slug === null) ?? null
-    : null;
+  const docs = await get<ContentDocument[]>(`/api/content-documents?type=guide&slug=${encodeURIComponent(slug)}`);
+  return Array.isArray(docs) ? docs.find((doc) => doc.country_slug === null) ?? null : null;
 };
 export const fetchReviews = (brokerId: number) => get<Review[]>(`/api/reviews?broker_id=${brokerId}`);
 export const fetchBrokerContent = (brokerId: number) => get<BrokerContent | null>(`/api/broker-assets?resource=content&broker_id=${brokerId}`);
@@ -57,12 +48,8 @@ export const fetchCountryIntentRankings = (countrySlug: string, intentSlug: stri
 export const fetchCountryBestFors = (countrySlug: string) => get<CountryBestFor[]>(`/api/country-best-for?country=${encodeURIComponent(countrySlug)}`);
 export const fetchCountryBestFor = async (countrySlug: string, slug: string) => {
   const mapped = publicIntentSlug(slug);
-  try {
-    return await get<CountryBestFor>(`/api/country-best-for?country=${encodeURIComponent(countrySlug)}&slug=${encodeURIComponent(mapped)}`);
-  } catch (e) {
-    if (mapped === slug) throw e;
-    return get<CountryBestFor>(`/api/country-best-for?country=${encodeURIComponent(countrySlug)}&slug=${encodeURIComponent(slug)}`);
-  }
+  try { return await get<CountryBestFor>(`/api/country-best-for?country=${encodeURIComponent(countrySlug)}&slug=${encodeURIComponent(mapped)}`); }
+  catch (e) { if (mapped === slug) throw e; return get<CountryBestFor>(`/api/country-best-for?country=${encodeURIComponent(countrySlug)}&slug=${encodeURIComponent(slug)}`); }
 };
 export const createReview = async (payload: { broker_id: number; author: string; country: string; rating: number; title: string; body: string }, authToken?: string): Promise<Review> => { const res = await fetch('/api/reviews', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}) }, body: JSON.stringify(payload) }); const data = await res.json().catch(() => ({})); if (!res.ok) throw new Error((data as { error?: string }).error || `Request failed (${res.status})`); return data as Review; };
 export const voteHelpful = (id: number) => send<Review>('/api/reviews', 'PUT', { id });
@@ -73,20 +60,13 @@ export const fetchContentDocument = async (key: string): Promise<ContentDocument
   const direct = await get<ContentDocument | null>(`/api/content-documents?key=${encodeURIComponent(key)}`);
   if (direct) return direct;
   const parts = key.split(':');
-  if (parts.length === 3 && (parts[0] === 'country-topic' || parts[0] === 'country-guide')) {
+  if (parts.length === 3 && parts[0] === 'country-guide') {
     const [, countrySlug, slug] = parts;
     try {
-      if (parts[0] === 'country-topic') {
-        const legacy = await fetchCountryBestFor(countrySlug, slug);
-        if (legacy) {
-          const paragraphs = Array.isArray(legacy.intro) ? legacy.intro : [];
-          const sections = Array.isArray(legacy.sections) ? legacy.sections : [];
-          const html = [...paragraphs.map((p) => `<p>${String(p)}</p>`), ...sections.map((s) => `<section><h2>${String(s.heading ?? '')}</h2>${(Array.isArray(s.body) ? s.body : []).map((p) => `<p>${String(p)}</p>`).join('')}${(Array.isArray(s.bullets) ? s.bullets : []).length ? `<ul>${(Array.isArray(s.bullets) ? s.bullets : []).map((b) => `<li>${String(b)}</li>`).join('')}</ul>` : ''}</section>`)].join('');
-          return { id: Number(legacy.id), content_key: key, content_type: 'country-topic', country_slug: countrySlug, topic_slug: slug, slug, title: legacy.title, excerpt: paragraphs[0] ?? '', html, blocks: [], seo_title: legacy.meta_title ?? null, seo_description: legacy.meta_description ?? null, indexable: legacy.indexable !== false, published: true, updated_by: null, created_at: '', updated_at: '', settings: { faqs: legacy.faqs ?? [], internalLinks: [] } };
-        }
-      }
       const docs = await get<ContentDocument[]>(`/api/content-documents?country=${encodeURIComponent(countrySlug)}&slug=${encodeURIComponent(slug)}`);
-      const candidate = Array.isArray(docs) ? docs.find((doc) => doc.content_type === 'country-guide' || doc.content_type === 'guide') : null;
+      const candidate = Array.isArray(docs)
+        ? docs.find((doc) => doc.content_type === 'country-guide' && doc.country_slug === countrySlug && doc.slug === slug)
+        : null;
       if (candidate) return candidate;
     } catch { /* preserve not-found behavior */ }
   }
@@ -98,7 +78,6 @@ export const fetchLocalizedGuide = async (countrySlug: string, languageCode: str
   const lang = languageCode.toLowerCase();
   return Array.isArray(docs) ? docs.find((doc) => String(doc.settings?.languageCode || '').toLowerCase() === lang) ?? null : null;
 };
-
 export const fetchContentDocumentById = (id: number) => get<ContentDocument | null>(`/api/content-documents?id=${id}`);
 export const fetchCountryLanguages = (countrySlug?: string) => get<CountryLanguage[]>(`/api/country-languages${countrySlug ? `?country=${encodeURIComponent(countrySlug)}` : ''}`);
 export const fetchLocalizedSeoPage = (countrySlug: string, languageCode: string, slug: string) => get<LocalizedSeoPage | null>(`/api/localized-seo-pages?country=${encodeURIComponent(countrySlug)}&language=${encodeURIComponent(languageCode)}&slug=${encodeURIComponent(slug)}`);
@@ -108,4 +87,4 @@ export const fetchLocalizationGlossary = (languageCode?: string) => get<{ id: nu
 export const fetchLocalizedSeoPagePreview = (countrySlug: string, languageCode: string, slug: string, token: string) => get<LocalizedSeoPage | null>(`/api/localized-seo-pages?country=${encodeURIComponent(countrySlug)}&language=${encodeURIComponent(languageCode)}&slug=${encodeURIComponent(slug)}&preview=1`, token);
 export const fetchLocalizationHealth = (token: string) => get<{ totals: { pages: number; published: number; issues: number }; issues: { id: number; type: string; message: string; slug?: string; country?: string }[] }>('/api/localization-health', token);
 export const saveLocalizationUiPack = (language_code: string, strings: Record<string, string>, token: string) => fetch('/api/localization-ui-packs', { method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ language_code, strings }) }).then(async (res) => { const data = await res.json().catch(() => ({})); if (!res.ok) throw new Error((data as { error?: string }).error || 'Failed to save UI pack'); return data; });
-export const saveGlossaryTerm = (payload: { language_code: string; term_en: string; term_local: string; notes?: string; id?: number }, token: string) => fetch('/api/localization-glossary', { method: payload.id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) }).then(async (res) => { const data = await res.json().catch(() => ({})); if (!res.ok) throw new Error((data as { error?: string }).error || 'Failed to save glossary term'); return data; });
+export const saveGlossaryTerm = (payload: { language_code: string; term_en: string; term_local: string; notes?: string; id?: number }, token: string) => fetch('/api/localization-glossary', { method: payload.id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ ...payload }) }).then(async (res) => { const data = await res.json().catch(() => ({})); if (!res.ok) throw new Error((data as { error?: string }).error || 'Failed to save glossary term'); return data; });
