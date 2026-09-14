@@ -74,14 +74,14 @@ export async function resolveCanonicalPath(pathname: string): Promise<CanonicalR
   if (segments.length === 2 && segments[0] === 'guides') {
     const slug = segments[1];
     const document = await fetchPublicContentDocumentByTypeAndSlug('guide', slug);
-    if (!document || document.content_type !== 'guide') return null;
+    if (!document || document.content_type !== 'guide' || document.published === false) return null;
     return route(path, { type: 'guide', slug, contentKey: document.content_key, indexable: document.indexable !== false, published: document.published, document });
   }
 
   if (segments.length === 3 && segments[1] === 'guides') {
     const [countrySlug, , slug] = segments;
     const document = await fetchPublicContentDocumentByTypeAndSlug('country-guide', slug, countrySlug);
-    if (!document || document.content_type !== 'country-guide') return null;
+    if (!document || document.content_type !== 'country-guide' || document.published === false) return null;
     return route(path, { type: 'country-guide', countrySlug, slug, contentKey: document.content_key, indexable: document.indexable !== false, published: document.published, document });
   }
 
@@ -89,7 +89,7 @@ export async function resolveCanonicalPath(pathname: string): Promise<CanonicalR
     const [countrySlug, locale, , slug] = segments;
     const document = await fetchPublicContentDocumentByTypeAndSlug('localized-guide', slug, countrySlug);
     const languageMatches = document && String((document.settings as any)?.languageCode || (document.settings as any)?.locale || '').toLowerCase() === locale.toLowerCase();
-    if (!document || document.content_type !== 'localized-guide' || !languageMatches) return null;
+    if (!document || document.content_type !== 'localized-guide' || !languageMatches || document.published === false) return null;
     return route(path, { type: 'localized-guide', countrySlug, locale, slug, contentKey: document.content_key, indexable: document.indexable !== false, published: document.published, document });
   }
 
@@ -119,21 +119,25 @@ export async function resolveCanonicalPath(pathname: string): Promise<CanonicalR
   if (segments.length === 2) {
     const [countrySlug, slug] = segments;
     const countryBestFor = await fetchPublicContentDocumentByKey(`country-best-for:${countrySlug}:${slug}`);
-    if (countryBestFor && countryBestFor.content_type === 'country-best-for') {
-      return route(path, { type: 'country-guide', countrySlug, slug, contentKey: countryBestFor.content_key, indexable: countryBestFor.indexable !== false, published: countryBestFor.published, document: countryBestFor });
+    if (countryBestFor && countryBestFor.content_type === 'country-best-for' && countryBestFor.published !== false) {
+      return route(path, { type: 'country-best-for', countrySlug, slug, contentKey: countryBestFor.content_key, indexable: countryBestFor.indexable !== false, published: countryBestFor.published, document: countryBestFor });
     }
 
     const countryGuide = await fetchPublicContentDocumentByKey(`country-guide:${countrySlug}:${slug}`);
-    if (countryGuide && countryGuide.content_type === 'country-guide') {
+    if (countryGuide && countryGuide.content_type === 'country-guide' && countryGuide.published !== false) {
       return route(path, { type: 'country-guide', countrySlug, slug, contentKey: countryGuide.content_key, indexable: countryGuide.indexable !== false, published: countryGuide.published, document: countryGuide, canonicalPath: `/${encode(countrySlug)}/guides/${encode(slug)}` });
     }
 
-    // country-topic is retired and must never own a public URL.
     return null;
   }
 
   if (segments.length === 1) {
     const slug = segments[0];
+    const bestForDocument = await fetchPublicContentDocumentByKey(`best-for:${slug}`);
+    if (bestForDocument && bestForDocument.content_type === 'global-best-for' && bestForDocument.published !== false) {
+      return route(path, { type: 'global-best-for', slug, contentKey: bestForDocument.content_key, indexable: bestForDocument.indexable !== false, published: bestForDocument.published, document: bestForDocument });
+    }
+
     const country = await fetchCountry(slug).catch(() => null);
     if (!country) return null;
     return route(path, { type: 'country', slug, indexable: true, published: country.publishing_state !== 'closed' });
