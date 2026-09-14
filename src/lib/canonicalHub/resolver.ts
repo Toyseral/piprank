@@ -116,18 +116,15 @@ export async function resolveCanonicalPath(pathname: string): Promise<CanonicalR
     return route(path, { type: 'localized-seo', countrySlug, slug: topicSlug, topicSlug, locale, indexable: localized.indexable !== false, published: true });
   }
 
+  // Two-segment country URLs are exclusively commercial country Best-For pages.
+  // Country guides own /:country/guides/:slug and are never resolved here.
+  // Retired country-topic documents therefore cannot create public URLs.
   if (segments.length === 2) {
     const [countrySlug, slug] = segments;
     const countryBestFor = await fetchPublicContentDocumentByKey(`country-best-for:${countrySlug}:${slug}`);
     if (countryBestFor && countryBestFor.content_type === 'country-best-for' && countryBestFor.published !== false) {
       return route(path, { type: 'country-best-for', countrySlug, slug, contentKey: countryBestFor.content_key, indexable: countryBestFor.indexable !== false, published: countryBestFor.published, document: countryBestFor });
     }
-
-    const countryGuide = await fetchPublicContentDocumentByKey(`country-guide:${countrySlug}:${slug}`);
-    if (countryGuide && countryGuide.content_type === 'country-guide' && countryGuide.published !== false) {
-      return route(path, { type: 'country-guide', countrySlug, slug, contentKey: countryGuide.content_key, indexable: countryGuide.indexable !== false, published: countryGuide.published, document: countryGuide, canonicalPath: `/${encode(countrySlug)}/guides/${encode(slug)}` });
-    }
-
     return null;
   }
 
