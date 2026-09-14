@@ -10,8 +10,6 @@ import Compare from './Compare';
 import ComparePair from './ComparePair';
 import Countries from './Countries';
 import CountryDetail from './CountryDetail';
-import CountryGuideView from './CountryGuideView';
-import CountryBestForView from './CountryBestForView';
 import NotFound from './NotFound';
 
 function Loading() { return <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6"><div className="h-48 animate-pulse rounded-3xl border border-line bg-white" /></div>; }
@@ -52,13 +50,11 @@ export default function CanonicalHub() {
   switch (route.type) {
     case 'global-best-for':
     case 'guide':
+    case 'country-guide':
+    case 'country-best-for':
     case 'localized-guide':
     case 'localized-seo':
       return <ContentRenderer route={route} />;
-    case 'country-guide':
-      return <CountryGuideView countrySlug={route.countrySlug!} slug={route.slug!} contentKey={route.contentKey} document={route.document} />;
-    case 'country-best-for':
-      return <CountryBestForView countrySlug={route.countrySlug!} slug={route.slug!} contentKey={route.contentKey} document={route.document} />;
     case 'broker':
       return route.path === '/brokers' ? <Brokers /> : <BrokerDetail />;
     case 'country':
