@@ -46,10 +46,16 @@ export function Shell() {
 
           {/* Legacy URLs remain redirects and never own canonical content. */}
           <Route path="/best/:slug" element={<LegacyBestForRedirect />} />
+          <Route path="/best-:slug" element={<LegacyBestForRedirect />} />
           <Route path="/countries/:countrySlug/best/:slug" element={<LegacyCountryBestForRedirect />} />
+          <Route path="/:countrySlug/best-:slug" element={<LegacyCountryBestForRedirect />} />
           <Route path="/:countrySlug/best-low-spread-forex-brokers" element={<LegacyCountryBestForRedirect />} />
           <Route path="/:countrySlug/best-forex-brokers-for-beginners" element={<LegacyCountryBestForRedirect />} />
+          <Route path="/:countrySlug/best-mt4-brokers" element={<LegacyCountryBestForRedirect />} />
+          <Route path="/:countrySlug/best-mt4-forex-brokers" element={<LegacyCountryBestForRedirect />} />
+          <Route path="/:countrySlug/best-mt5-brokers" element={<LegacyCountryBestForRedirect />} />
           <Route path="/:countrySlug/best-mt5-forex-brokers" element={<LegacyCountryBestForRedirect />} />
+          <Route path="/:countrySlug/best-gold-brokers" element={<LegacyCountryBestForRedirect />} />
           <Route path="/:countrySlug/best-gold-forex-brokers" element={<LegacyCountryBestForRedirect />} />
           <Route path="/:countrySlug/best-forex-brokers-for-scalping" element={<LegacyCountryBestForRedirect />} />
           <Route path="/:countrySlug/best-islamic-forex-brokers" element={<LegacyCountryBestForRedirect />} />
