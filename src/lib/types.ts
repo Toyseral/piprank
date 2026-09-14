@@ -25,4 +25,31 @@ export interface CountryRec { slug: string; note: string; }
 export interface CountryPage { id: number; slug: string; name: string; flag: string; subtitle: string; intro: string[]; facts: CountryFact[]; recommended: CountryRec[]; unavailable: string[]; seo_title?: string | null; seo_description?: string | null; seo_intro?: string[]; seo_sections?: { heading: string; body: string[]; bullets?: string[] }[]; seo_faqs?: FAQ[]; publishing_state?: 'draft' | 'published' | 'closed'; }
 export interface ContentDocument { id: number; content_key: string; content_type: string; country_slug: string | null; topic_slug: string | null; slug: string | null; title: string; excerpt: string; html: string; blocks: unknown[]; seo_title: string | null; seo_description: string | null; indexable: boolean; published: boolean; updated_by: string | null; created_at: string; updated_at: string; settings?: Record<string, unknown>; }
 export interface CountryLanguage { id: number; country_id: number; country_slug?: string; country_name?: string; name: string; native_name: string; code: string; locale: string; url_prefix: string; is_default: boolean; active: boolean; updated_at?: string; }
+/** @deprecated Legacy localized SEO row. Canonical localized content is ContentDocument. */
+export interface LocalizedSeoPage {
+  id: number;
+  country_id: number;
+  language_id: number;
+  country_slug?: string;
+  country_name?: string;
+  language_code?: string;
+  language_name?: string;
+  language_native_name?: string;
+  locale?: string;
+  url_prefix?: string;
+  topic_key: string;
+  slug: string;
+  title: string;
+  meta_title?: string | null;
+  meta_description?: string | null;
+  h1?: string | null;
+  content: string;
+  content_document_id?: number | null;
+  faqs: FAQ[];
+  indexable: boolean;
+  published: boolean;
+  workflow_status?: string | null;
+  updated_by?: string | null;
+  updated_at?: string;
+}
 export interface CountryIntentBrokerRanking { country_id:number; intent_id:number; broker_id:number; final_rank:number; final_score:number; featured:boolean; force_include?:boolean; force_exclude?:boolean; manual_rank?:number|null; score_adjustment?:number; featured_override?:boolean|null; editorial_note?:string|null; broker?:Broker; }
