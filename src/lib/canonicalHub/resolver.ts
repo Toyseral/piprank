@@ -1,28 +1,31 @@
 import type { ContentDocument } from '../types';
 import type { CanonicalRoute } from './types';
 import { CANONICAL_BEST_FOR, CANONICAL_BEST_FOR_BY_SLUG } from './registry';
-import { fetchBroker, fetchCountry, fetchLocalizedSeoPage } from '../api';
+import { fetchBroker, fetchCountry } from '../api';
 
 function cleanPath(path: string): string {
   const normalized = `/${path.replace(/^\/+|\/+$/g, '')}`;
   return normalized === '/' ? '/' : normalized;
 }
-
 function route(path: string, input: Omit<CanonicalRoute, 'path' | 'canonicalPath'> & { canonicalPath?: string }): CanonicalRoute {
   return { ...input, path, canonicalPath: input.canonicalPath ?? path };
 }
-
 function encode(value: string): string { return encodeURIComponent(value); }
+function localeOf(document: Pick<ContentDocument, 'settings'>): string {
+  return String((document.settings as any)?.locale || (document.settings as any)?.languageCode || '').trim();
+}
 
 export function canonicalPathForDocument(document: Pick<ContentDocument, 'content_type' | 'country_slug' | 'topic_slug' | 'slug' | 'settings'>): string | null {
   const country = document.country_slug ? encode(document.country_slug) : null;
   const slug = document.slug ? encode(document.slug) : null;
+  const locale = localeOf(document);
   switch (document.content_type) {
     case 'global-best-for': return slug ? `/${slug}` : null;
     case 'country-best-for': return country && slug ? `/${country}/${slug}` : null;
     case 'guide': return slug && !country ? `/guides/${slug}` : null;
     case 'country-guide': return country && slug ? `/${country}/guides/${slug}` : null;
-    case 'localized-guide': return country && slug ? `/${country}/${encode(String((document.settings as any)?.locale || (document.settings as any)?.languageCode || ''))}/guides/${slug}` : null;
+    case 'localized-guide': return country && slug && locale ? `/${country}/${encode(locale)}/guides/${slug}` : null;
+    case 'localized-best-for': return country && slug && locale ? `/${country}/${encode(locale)}/${slug}` : null;
     case 'broker': return slug ? `/brokers/${slug}` : null;
     case 'country': return country ? `/${country}` : slug ? `/${slug}` : null;
     case 'compare': return slug ? `/compare/${slug}` : null;
@@ -30,15 +33,17 @@ export function canonicalPathForDocument(document: Pick<ContentDocument, 'conten
   }
 }
 
-export function canonicalContentKeyForDocument(document: Pick<ContentDocument, 'content_type' | 'country_slug' | 'topic_slug' | 'slug'>): string | null {
+export function canonicalContentKeyForDocument(document: Pick<ContentDocument, 'content_type' | 'country_slug' | 'topic_slug' | 'slug' | 'settings'>): string | null {
   const country = document.country_slug || '';
   const slug = document.slug || '';
+  const locale = localeOf(document);
   switch (document.content_type) {
     case 'global-best-for': return slug ? `best-for:${slug}` : null;
     case 'country-best-for': return country && slug ? `country-best-for:${country}:${slug}` : null;
     case 'guide': return slug ? `guide:${slug}` : null;
     case 'country-guide': return country && slug ? `country-guide:${country}:${slug}` : null;
-    case 'localized-guide': return country && slug ? `localized-guide:${country}:${slug}` : null;
+    case 'localized-guide': return country && locale && slug ? `localized-guide:${country}:${locale}:${slug}` : null;
+    case 'localized-best-for': return country && locale && slug ? `localized-best-for:${country}:${locale}:${slug}` : null;
     case 'broker': return slug ? `broker:${slug}:main` : null;
     case 'country': return country || slug ? `country:${country || slug}:hub` : null;
     case 'compare': return slug ? `compare:${slug}` : null;
@@ -70,55 +75,44 @@ export async function resolveCanonicalPath(pathname: string): Promise<CanonicalR
     if (!country) return null;
     return route(path, { type: 'country', slug, indexable: true, published: country.publishing_state !== 'closed', canonicalPath: `/${encode(slug)}` });
   }
-
   if (segments.length === 2 && segments[0] === 'guides') {
     const slug = segments[1];
     const document = await fetchPublicContentDocumentByTypeAndSlug('guide', slug);
     if (!document || document.content_type !== 'guide' || document.published === false) return null;
     return route(path, { type: 'guide', slug, contentKey: document.content_key, indexable: document.indexable !== false, published: document.published, document });
   }
-
   if (segments.length === 3 && segments[1] === 'guides') {
     const [countrySlug, , slug] = segments;
     const document = await fetchPublicContentDocumentByTypeAndSlug('country-guide', slug, countrySlug);
     if (!document || document.content_type !== 'country-guide' || document.published === false) return null;
     return route(path, { type: 'country-guide', countrySlug, slug, contentKey: document.content_key, indexable: document.indexable !== false, published: document.published, document });
   }
-
   if (segments.length === 4 && segments[2] === 'guides') {
     const [countrySlug, locale, , slug] = segments;
     const document = await fetchPublicContentDocumentByTypeAndSlug('localized-guide', slug, countrySlug);
-    const languageMatches = document && String((document.settings as any)?.languageCode || (document.settings as any)?.locale || '').toLowerCase() === locale.toLowerCase();
-    if (!document || document.content_type !== 'localized-guide' || !languageMatches || document.published === false) return null;
+    if (!document || document.content_type !== 'localized-guide' || localeOf(document).toLowerCase() !== locale.toLowerCase() || document.published === false) return null;
     return route(path, { type: 'localized-guide', countrySlug, locale, slug, contentKey: document.content_key, indexable: document.indexable !== false, published: document.published, document });
   }
-
+  if (segments.length === 3) {
+    const [countrySlug, locale, slug] = segments;
+    const document = await fetchPublicContentDocumentByKey(`localized-best-for:${countrySlug}:${locale}:${slug}`);
+    if (!document || document.content_type !== 'localized-best-for' || localeOf(document).toLowerCase() !== locale.toLowerCase() || document.published === false) return null;
+    return route(path, { type: 'localized-best-for', countrySlug, locale, slug, topicSlug: document.topic_slug || slug, contentKey: document.content_key, indexable: document.indexable !== false, published: document.published, document });
+  }
   if (segments.length === 2 && segments[0] === 'brokers') {
     const slug = segments[1];
     const broker = await fetchBroker(slug).catch(() => null);
     if (!broker) return null;
     return route(path, { type: 'broker', slug, indexable: true, published: true });
   }
-
   if (segments.length === 3 && segments[1] === 'brokers') {
     const [countrySlug, , slug] = segments;
     const [country, broker] = await Promise.all([fetchCountry(countrySlug).catch(() => null), fetchBroker(slug).catch(() => null)]);
     if (!country || !broker) return null;
     return route(path, { type: 'broker', countrySlug, slug, indexable: true, published: country.publishing_state !== 'closed' });
   }
-
   if (segments.length === 2 && segments[0] === 'compare') return route(path, { type: 'compare', slug: segments[1], indexable: true, published: true });
 
-  if (segments.length === 3) {
-    const [countrySlug, locale, topicSlug] = segments;
-    const localized = await fetchLocalizedSeoPage(countrySlug, locale, topicSlug).catch(() => null);
-    if (!localized || localized.published === false) return null;
-    return route(path, { type: 'localized-seo', countrySlug, slug: topicSlug, topicSlug, locale, indexable: localized.indexable !== false, published: true });
-  }
-
-  // Two-segment country URLs are exclusively commercial country Best-For pages.
-  // Country guides own /:country/guides/:slug and are never resolved here.
-  // Retired country-topic documents therefore cannot create public URLs.
   if (segments.length === 2) {
     const [countrySlug, slug] = segments;
     const countryBestFor = await fetchPublicContentDocumentByKey(`country-best-for:${countrySlug}:${slug}`);
@@ -127,14 +121,12 @@ export async function resolveCanonicalPath(pathname: string): Promise<CanonicalR
     }
     return null;
   }
-
   if (segments.length === 1) {
     const slug = segments[0];
     const bestForDocument = await fetchPublicContentDocumentByKey(`best-for:${slug}`);
     if (bestForDocument && bestForDocument.content_type === 'global-best-for' && bestForDocument.published !== false) {
       return route(path, { type: 'global-best-for', slug, contentKey: bestForDocument.content_key, indexable: bestForDocument.indexable !== false, published: bestForDocument.published, document: bestForDocument });
     }
-
     const country = await fetchCountry(slug).catch(() => null);
     if (!country) return null;
     return route(path, { type: 'country', slug, indexable: true, published: country.publishing_state !== 'closed' });
@@ -143,13 +135,11 @@ export async function resolveCanonicalPath(pathname: string): Promise<CanonicalR
 }
 
 async function fetchPublicContentDocumentByKey(key: string): Promise<ContentDocument | null> {
-  const params = new URLSearchParams({ key });
-  const res = await fetch(`/api/public-content?${params.toString()}`);
+  const res = await fetch(`/api/public-content?${new URLSearchParams({ key }).toString()}`);
   const data = await res.json().catch(() => null);
   if (!res.ok || !data || Array.isArray(data)) return null;
   return data as ContentDocument;
 }
-
 async function fetchPublicContentDocumentByTypeAndSlug(type: string, slug: string, countrySlug?: string): Promise<ContentDocument | null> {
   const params = new URLSearchParams({ type, slug });
   if (countrySlug) params.set('country', countrySlug);
@@ -158,7 +148,6 @@ async function fetchPublicContentDocumentByTypeAndSlug(type: string, slug: strin
   if (!res.ok || !data) return null;
   return (Array.isArray(data) ? data[0] : data) as ContentDocument | null;
 }
-
 export function globalBestForPath(slug: string): string | null { return CANONICAL_BEST_FOR_BY_SLUG[slug] ?? null; }
 export function globalBestForSlugs(): string[] { return Object.values(CANONICAL_BEST_FOR); }
 export function canonicalCountryGuidePath(countrySlug: string, slug: string): string { return `/${encode(countrySlug)}/guides/${encode(slug)}`; }
