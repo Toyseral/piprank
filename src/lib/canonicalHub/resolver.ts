@@ -1,7 +1,7 @@
 import type { ContentDocument } from '../types';
 import type { CanonicalRoute } from './types';
 import { CANONICAL_BEST_FOR, CANONICAL_BEST_FOR_BY_SLUG } from './registry';
-import { fetchBroker, fetchContentDocument, fetchCountry, fetchLocalizedSeoPage } from '../api';
+import { fetchBroker, fetchCountry, fetchLocalizedSeoPage } from '../api';
 
 function cleanPath(path: string): string {
   const normalized = `/${path.replace(/^\/+|\/+$/g, '')}`;
@@ -107,8 +107,8 @@ export async function resolveCanonicalPath(pathname: string): Promise<CanonicalR
 
   if (segments.length === 2 && segments[0] === 'guides') {
     const slug = segments[1];
-    const document = await fetchContentDocumentByTypeAndSlug('guide', slug);
-    if (!document || document.content_type !== 'guide' || document.published === false) return null;
+    const document = await fetchPublicContentDocumentByTypeAndSlug('guide', slug);
+    if (!document || document.content_type !== 'guide') return null;
     return route(path, {
       type: 'guide',
       slug,
@@ -121,8 +121,8 @@ export async function resolveCanonicalPath(pathname: string): Promise<CanonicalR
 
   if (segments.length === 3 && segments[1] === 'guides') {
     const [countrySlug, , slug] = segments;
-    const document = await fetchContentDocumentByTypeAndSlug('country-guide', slug, countrySlug);
-    if (!document || document.content_type !== 'country-guide' || document.published === false) return null;
+    const document = await fetchPublicContentDocumentByTypeAndSlug('country-guide', slug, countrySlug);
+    if (!document || document.content_type !== 'country-guide') return null;
     return route(path, {
       type: 'country-guide',
       countrySlug,
@@ -188,8 +188,8 @@ export async function resolveCanonicalPath(pathname: string): Promise<CanonicalR
 
   if (segments.length === 2) {
     const [countrySlug, topicSlug] = segments;
-    const document = await fetchContentDocumentByKey(`country-topic:${countrySlug}:${topicSlug}`);
-    if (!document || document.content_type !== 'country-topic' || document.published === false) return null;
+    const document = await fetchPublicContentDocumentByKey(`country-topic:${countrySlug}:${topicSlug}`);
+    if (!document || document.content_type !== 'country-topic') return null;
     return route(path, {
       type: 'country-topic',
       countrySlug,
@@ -217,17 +217,21 @@ export async function resolveCanonicalPath(pathname: string): Promise<CanonicalR
   return null;
 }
 
-async function fetchContentDocumentByKey(key: string) {
-  return fetchContentDocument(key).catch(() => null);
+async function fetchPublicContentDocumentByKey(key: string): Promise<ContentDocument | null> {
+  const params = new URLSearchParams({ key });
+  const res = await fetch(`/api/public-content?${params.toString()}`);
+  const data = await res.json().catch(() => null);
+  if (!res.ok || !data || Array.isArray(data)) return null;
+  return data as ContentDocument;
 }
 
-async function fetchContentDocumentByTypeAndSlug(type: string, slug: string, countrySlug?: string) {
+async function fetchPublicContentDocumentByTypeAndSlug(type: string, slug: string, countrySlug?: string): Promise<ContentDocument | null> {
   const params = new URLSearchParams({ type, slug });
   if (countrySlug) params.set('country', countrySlug);
-  const res = await fetch(`/api/content-documents?${params.toString()}`);
+  const res = await fetch(`/api/public-content?${params.toString()}`);
   const data = await res.json().catch(() => null);
   if (!res.ok || !data) return null;
-  return Array.isArray(data) ? data[0] ?? null : data;
+  return (Array.isArray(data) ? data[0] : data) as ContentDocument | null;
 }
 
 export function globalBestForPath(slug: string): string | null {
