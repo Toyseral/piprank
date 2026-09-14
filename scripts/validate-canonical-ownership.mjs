@@ -86,16 +86,14 @@ async function main() {
     if (!expectedKey) errors.push(`${type} document has insufficient canonical identity: ${doc.id}`);
     else if (keyValue !== expectedKey) errors.push(`${type} has non-canonical content_key: ${keyValue} (expected ${expectedKey})`);
 
-    if (doc.published) {
-      const path = canonicalPath(doc);
-      if (!path) errors.push(`Published ${type} document cannot resolve a canonical URL: ${doc.id}`);
-      else {
-        if (seenPaths.has(path)) errors.push(`Duplicate canonical URL: ${path} (${seenPaths.get(path)} and ${doc.id})`);
-        seenPaths.set(path, doc.id);
-      }
+    const path = canonicalPath(doc);
+    if (!path && expectedKey) errors.push(`${type} document cannot resolve a canonical URL: ${doc.id}`);
+    if (path) {
+      if (seenPaths.has(path)) errors.push(`Duplicate canonical URL ownership: ${path} (${seenPaths.get(path)} and ${doc.id})`);
+      seenPaths.set(path, doc.id);
     }
 
-    if (doc.published && expectedKey) {
+    if (expectedKey) {
       if (seenKeys.has(expectedKey)) errors.push(`Duplicate canonical ownership key: ${expectedKey} (${seenKeys.get(expectedKey)} and ${doc.id})`);
       seenKeys.set(expectedKey, doc.id);
     }
@@ -110,6 +108,6 @@ async function main() {
     errors.forEach((error) => console.error(` - ${error}`));
     process.exit(1);
   }
-  console.log(`[validate-canonical-ownership] OK — checked ${rows.length} content documents and ${seenPaths.size} published canonical URLs.`);
+  console.log(`[validate-canonical-ownership] OK — checked ${rows.length} content documents and ${seenPaths.size} canonical URLs.`);
 }
 main().catch((error) => { console.error('[validate-canonical-ownership] ERROR:', error); process.exit(1); });
