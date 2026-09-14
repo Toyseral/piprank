@@ -4,6 +4,7 @@ import type { CanonicalRoute } from '../lib/canonicalHub/types';
 import { resolveCanonicalPath } from '../lib/canonicalHub/resolver';
 import { useSEO } from '../hooks/useSEO';
 import ContentRenderer from '../components/ContentRenderer';
+import CanonicalGlobalBestFor from '../components/CanonicalGlobalBestFor';
 import BrokerDetail from './BrokerDetail';
 import Brokers from './Brokers';
 import Compare from './Compare';
@@ -40,7 +41,7 @@ export default function CanonicalHub() {
   if (state === 'missing' || !route) return <NotFound />;
   if (route.type === 'country' && route.path.startsWith('/countries/')) return <Navigate to={`/${route.slug}`} replace />;
   switch (route.type) {
-    case 'global-best-for':
+    case 'global-best-for': return <CanonicalGlobalBestFor route={route} />;
     case 'guide':
     case 'country-guide':
     case 'country-best-for':
