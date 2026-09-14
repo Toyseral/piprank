@@ -9,6 +9,7 @@ type Mutate = (path: string, method: string, body: unknown, msg: string) => Prom
 type Props = {
   countries: CountryPage[];
   languages: CountryLanguage[];
+  pages?: unknown[];
   contentDocs: ContentDocument[];
   mutate: Mutate;
   accessToken: string;
@@ -31,36 +32,11 @@ export default function LocalizationWorkspace({ countries, languages, contentDoc
           <Languages className="hidden text-emerald-600 sm:block" size={28} />
         </div>
         <div className="mt-5 grid grid-cols-2 gap-2 rounded-2xl bg-paper p-1.5">
-          <button
-            onClick={() => setSection('guides')}
-            className={`flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold transition ${section === 'guides' ? 'bg-white text-ink-950 shadow-sm' : 'text-slate-500 hover:text-ink-950'}`}
-          >
-            <BookOpen size={15} /> Local Guides
-          </button>
-          <button
-            onClick={() => setSection('best-for')}
-            className={`flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold transition ${section === 'best-for' ? 'bg-white text-ink-950 shadow-sm' : 'text-slate-500 hover:text-ink-950'}`}
-          >
-            <ListChecks size={15} /> Local Best-For
-          </button>
+          <button onClick={() => setSection('guides')} className={`flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold transition ${section === 'guides' ? 'bg-white text-ink-950 shadow-sm' : 'text-slate-500 hover:text-ink-950'}`}><BookOpen size={15} /> Local Guides</button>
+          <button onClick={() => setSection('best-for')} className={`flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold transition ${section === 'best-for' ? 'bg-white text-ink-950 shadow-sm' : 'text-slate-500 hover:text-ink-950'}`}><ListChecks size={15} /> Local Best-For</button>
         </div>
       </div>
-      {section === 'guides' ? (
-        <LocalizedGuidesManager
-          countries={countries}
-          languages={languages}
-          contentDocs={contentDocs}
-          mutate={mutate}
-          accessToken={accessToken}
-        />
-      ) : (
-        <LocalizationManager
-          countries={countries}
-          languages={languages}
-          contentDocs={contentDocs}
-          mutate={mutate}
-        />
-      )}
+      {section === 'guides' ? <LocalizedGuidesManager countries={countries} languages={languages} contentDocs={contentDocs} mutate={mutate} accessToken={accessToken} /> : <LocalizationManager countries={countries} languages={languages} contentDocs={contentDocs} mutate={mutate} />}
     </div>
   );
 }
