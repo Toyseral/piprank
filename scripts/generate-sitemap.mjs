@@ -1,12 +1,10 @@
-// Generate a sitemap only for production. Every URL listed must be a public,
-// indexable route that the prerender step also generated.
+// Generate a sitemap only for production. Every dynamic URL listed must be owned by a
+// published, indexable canonical content document (or a canonical broker/country record).
 import { createClient } from '@supabase/supabase-js';
 import { writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { requireSiteUrlForProduction } from './seo-config.mjs';
-import { vietnameseCommercialTopics } from './vietnamese-localization.mjs';
-import { CANONICAL_BEST_FOR_BY_SLUG } from '../src/lib/canonicalHub/registry.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DIST = join(__dirname, '..', 'dist');
@@ -19,6 +17,9 @@ function cleanDate(value) {
   if (!value) return undefined;
   const d = new Date(value);
   return Number.isNaN(d.getTime()) ? undefined : d.toISOString().slice(0, 10);
+}
+function documentLocale(document) {
+  return String(document?.settings?.locale || document?.settings?.languageCode || '').trim();
 }
 
 async function main() {
@@ -34,85 +35,48 @@ async function main() {
   const staticPaths = ['/', '/brokers', '/countries', '/compare', '/guides', '/methodology', '/quiz', '/tools', '/promotions', '/about', '/authors'];
   const urls = staticPaths.map((loc) => ({ loc }));
 
-  const [brokersResult, countriesResult, documentsResult, localizedResult, intentsResult] = await Promise.all([
+  const [brokersResult, countriesResult, documentsResult] = await Promise.all([
     supabase.from('brokers').select('slug, rating, updated_at'),
     supabase.from('countries').select('id, slug, recommended, updated_at'),
-    supabase.from('content_documents').select('content_type, country_slug, topic_slug, slug, published, indexable, updated_at, content_key').eq('published', true),
-    supabase.from('localized_seo_pages').select('country_id, language_id, slug, published, indexable, updated_at'),
-    supabase.from('intents').select('slug, updated_at'),
+    supabase.from('content_documents').select('content_type, country_slug, topic_slug, slug, published, indexable, updated_at, content_key, settings').eq('published', true).eq('indexable', true),
   ]);
-  for (const result of [brokersResult, countriesResult, documentsResult, localizedResult, intentsResult]) {
+  for (const result of [brokersResult, countriesResult, documentsResult]) {
     if (result.error) throw new Error(`[generate-sitemap] Supabase query failed: ${result.error.message}`);
   }
 
   const brokers = brokersResult.data ?? [];
   const countries = countriesResult.data ?? [];
   const documents = documentsResult.data ?? [];
-  const localizedSeoPages = localizedResult.data ?? [];
-  const intents = intentsResult.data ?? [];
 
   for (const broker of brokers) if (broker.slug) urls.push({ loc: `/brokers/${broker.slug}`, lastmod: cleanDate(broker.updated_at) });
   for (const country of countries) if (country.slug) urls.push({ loc: `/${country.slug}`, lastmod: cleanDate(country.updated_at) });
 
-  // Global guides are owned by published global content_documents.
   for (const document of documents) {
-    if (document.content_type !== 'guide' || document.country_slug !== null || !document.slug || document.indexable === false) continue;
-    urls.push({ loc: `/guides/${document.slug}`, lastmod: cleanDate(document.updated_at) });
-  }
-
-  // CanonicalHub owns the global Best-For path mapping. The legacy intent
-  // table is used only for current last-modified timestamps. The registry,
-  // not the intent table, determines which canonical URLs exist.
-  for (const [slug, canonicalPath] of Object.entries(CANONICAL_BEST_FOR_BY_SLUG)) {
-    const intent = intents.find((row) => row.slug === slug);
-    urls.push({ loc: `/${canonicalPath}`, lastmod: cleanDate(intent?.updated_at) });
-  }
-
-  // Country Best-For URLs are owned only by published country-topic documents.
-  // No static topic registry or legacy country_best_for row can create a URL.
-  const countryTopicDocs = documents.filter((document) =>
-    document.content_type === 'country-topic' &&
-    Boolean(document.country_slug) &&
-    Boolean(document.topic_slug || document.slug) &&
-    document.indexable !== false,
-  );
-  for (const document of countryTopicDocs) {
-    const topicSlug = document.topic_slug || document.slug;
-    urls.push({ loc: `/${document.country_slug}/${topicSlug}`, lastmod: cleanDate(document.updated_at) });
-  }
-
-  const countrySlugById = new Map(countries.map((country) => [Number(country.id), country.slug]));
-  const { data: languageRows, error: languageError } = await supabase.from('country_languages').select('id, country_id, url_prefix, locale, active');
-  if (languageError) throw new Error(`[generate-sitemap] Failed to query country_languages: ${languageError.message}`);
-  const languageById = new Map((languageRows ?? []).map((language) => [Number(language.id), language]));
-  const localizedLocs = new Set();
-
-  for (const page of localizedSeoPages) {
-    if (!page.slug || !page.published || !page.indexable) continue;
-    const countrySlug = countrySlugById.get(Number(page.country_id));
-    const language = languageById.get(Number(page.language_id));
-    if (!countrySlug || !language?.active || !language.url_prefix) continue;
-    const loc = `/${countrySlug}/${language.url_prefix}/${page.slug}`;
-    localizedLocs.add(loc);
-    urls.push({ loc, lastmod: cleanDate(page.updated_at) });
-  }
-
-  // Preserve the existing Vietnam localization fallback where the localized
-  // CMS row has not yet been created, without affecting canonical English URLs.
-  const vietnam = countries.find((country) => country.slug === 'vietnam');
-  if (vietnam) {
-    const recommended = new Set((vietnam.recommended ?? []).map((item) => item?.slug));
-    for (const localized of vietnameseCommercialTopics) {
-      const loc = `/vietnam/vi/${localized.slug}`;
-      if (localizedLocs.has(loc)) continue;
-      if (recommended.size > 0) urls.push({ loc, lastmod: cleanDate(vietnam.updated_at) });
+    if (!document.slug) continue;
+    if (document.content_type === 'guide' && !document.country_slug) {
+      urls.push({ loc: `/guides/${document.slug}`, lastmod: cleanDate(document.updated_at) });
+      continue;
     }
-  }
-
-  // Country guides are also canonical content_documents.
-  for (const document of documents) {
-    if (document.content_type !== 'country-guide' || !document.country_slug || !document.slug || document.indexable === false) continue;
-    urls.push({ loc: `/${document.country_slug}/guides/${document.slug}`, lastmod: cleanDate(document.updated_at) });
+    if (document.content_type === 'global-best-for' && !document.country_slug) {
+      urls.push({ loc: `/${document.slug}`, lastmod: cleanDate(document.updated_at) });
+      continue;
+    }
+    if (document.content_type === 'country-guide' && document.country_slug) {
+      urls.push({ loc: `/${document.country_slug}/guides/${document.slug}`, lastmod: cleanDate(document.updated_at) });
+      continue;
+    }
+    if (document.content_type === 'country-best-for' && document.country_slug) {
+      urls.push({ loc: `/${document.country_slug}/${document.slug}`, lastmod: cleanDate(document.updated_at) });
+      continue;
+    }
+    if ((document.content_type === 'localized-guide' || document.content_type === 'localized-best-for') && document.country_slug) {
+      const locale = documentLocale(document);
+      if (!locale) continue;
+      const path = document.content_type === 'localized-guide'
+        ? `/${document.country_slug}/${locale}/guides/${document.slug}`
+        : `/${document.country_slug}/${locale}/${document.slug}`;
+      urls.push({ loc: path, lastmod: cleanDate(document.updated_at) });
+    }
   }
 
   const topBrokers = [...brokers].filter((broker) => broker.slug).sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0)).slice(0, MAX_BROKERS_FOR_PAIRS);

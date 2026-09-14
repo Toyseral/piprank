@@ -2,13 +2,14 @@ import type { ContentDocument } from '../types';
 
 export type CanonicalContentType =
   | 'global-best-for'
-  | 'country-topic'
+  | 'country-best-for'
   | 'guide'
   | 'country-guide'
+  | 'localized-guide'
+  | 'localized-best-for'
   | 'broker'
   | 'country'
-  | 'compare'
-  | 'localized-seo';
+  | 'compare';
 
 export interface CanonicalRoute {
   type: CanonicalContentType;
@@ -18,6 +19,7 @@ export interface CanonicalRoute {
   countrySlug?: string;
   topicSlug?: string;
   slug?: string;
+  locale?: string;
   indexable: boolean;
   published: boolean;
   document?: ContentDocument | null;

@@ -23,7 +23,8 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import type { Broker, CountryPage, ContentDocument, Intent } from '../lib/types';
-import { fetchBrokers, fetchCountries, fetchGuides, fetchIntents } from '../lib/api';
+import { fetchBrokers, fetchCountries, fetchIntents } from '../lib/api';
+import { fetchPublishedContentDocuments } from '../lib/canonicalContent';
 import { useGeo } from '../lib/GeoContext';
 import BrokerCard from '../components/BrokerCard';
 import { ButtonLink } from '../components/Button';
@@ -79,11 +80,11 @@ export default function Home() {
   }, [location.hash, loading]);
 
   useEffect(() => {
-    Promise.all([fetchBrokers(), fetchIntents(), fetchGuides(), fetchCountries()])
+    Promise.all([fetchBrokers(), fetchIntents(), fetchPublishedContentDocuments({ type: 'guide' }), fetchCountries()])
       .then(([b, i, g, c]) => {
         setBrokers(b);
         setIntents(i);
-        setGuides(g);
+        setGuides(g.filter((doc) => !doc.country_slug));
         setCountries(c);
       })
       .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load data'))

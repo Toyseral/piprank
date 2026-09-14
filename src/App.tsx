@@ -11,12 +11,10 @@ import { GeoProvider } from './lib/GeoContext';
 const SmartCTA = lazy(() => import('./components/SmartCTA'));
 const About = lazy(() => import('./pages/About'));
 const Admin = lazy(() => import('./pages/Admin'));
-const AdminLocalization = lazy(() => import('./pages/AdminLocalization'));
 const Authors = lazy(() => import('./pages/Authors'));
 const CanonicalHub = lazy(() => import('./pages/CanonicalHub'));
 const LegacyBestForRedirect = lazy(() => import('./pages/LegacyBestForRedirect'));
 const LegacyCountryBestForRedirect = lazy(() => import('./pages/LegacyCountryBestForRedirect'));
-const LocalizedGuide = lazy(() => import('./pages/LocalizedGuide'));
 const Methodology = lazy(() => import('./pages/Methodology'));
 const Promotions = lazy(() => import('./pages/Promotions'));
 const Quiz = lazy(() => import('./pages/Quiz'));
@@ -33,18 +31,13 @@ export function Shell() {
       <Suspense fallback={<RouteLoader />}>
         <Routes>
           <Route path="/" element={<Home />} />
-
-          {/* Non-canonical application/tools/admin surfaces remain explicit. */}
           <Route path="/quiz" element={<Quiz />} />
           <Route path="/tools" element={<Tools />} />
           <Route path="/methodology" element={<Methodology />} />
           <Route path="/about" element={<About />} />
           <Route path="/authors" element={<Authors />} />
           <Route path="/promotions" element={<Promotions />} />
-          <Route path="/archypage/localization" element={<AdminLocalization />} />
           <Route path="/archypage" element={<Admin />} />
-
-          {/* Legacy URLs remain redirects and never own canonical content. */}
           <Route path="/best/:slug" element={<LegacyBestForRedirect />} />
           <Route path="/countries/:countrySlug/best/:slug" element={<LegacyCountryBestForRedirect />} />
           <Route path="/:countrySlug/best-low-spread-forex-brokers" element={<LegacyCountryBestForRedirect />} />
@@ -57,8 +50,6 @@ export function Shell() {
           <Route path="/:countrySlug/best-copy-trading-forex-brokers" element={<LegacyCountryBestForRedirect />} />
           <Route path="/:countrySlug/best-forex-brokers-for-swing-trading" element={<LegacyCountryBestForRedirect />} />
           <Route path="/:countrySlug/best-high-leverage-forex-brokers" element={<LegacyCountryBestForRedirect />} />
-
-          {/* Canonical route ownership is resolved centrally by CanonicalHub. */}
           <Route path="/brokers" element={<CanonicalHub />} />
           <Route path="/brokers/:slug" element={<CanonicalHub />} />
           <Route path="/:countrySlug/brokers/:slug" element={<CanonicalHub />} />
@@ -66,18 +57,12 @@ export function Shell() {
           <Route path="/compare/:pair" element={<CanonicalHub />} />
           <Route path="/guides" element={<CanonicalHub />} />
           <Route path="/guides/:slug" element={<CanonicalHub />} />
-
-          {/* Country informational hub remains an explicit surface; canonical child pages are Hub-driven. */}
           <Route path="/countries" element={<CanonicalHub />} />
           <Route path="/countries/:slug" element={<CanonicalHub />} />
-
-          {/* Country guides and Best-For pages are canonical-content owned. */}
           <Route path="/:countrySlug/guides/:slug" element={<CanonicalHub />} />
-          <Route path="/:countrySlug/:locale/guides/:slug" element={<LocalizedGuide />} />
+          <Route path="/:countrySlug/:locale/guides/:slug" element={<CanonicalHub />} />
           <Route path="/:countrySlug/:locale/:topicSlug" element={<CanonicalHub />} />
           <Route path="/:countrySlug/:topicSlug" element={<CanonicalHub />} />
-
-          {/* Root-level global Best-For URLs are all resolved through CanonicalHub. */}
           <Route path="/forex-brokers-for-beginners" element={<CanonicalHub />} />
           <Route path="/low-spread-forex-brokers" element={<CanonicalHub />} />
           <Route path="/mt4-forex-brokers" element={<CanonicalHub />} />
@@ -89,8 +74,6 @@ export function Shell() {
           <Route path="/copy-trading-forex-brokers" element={<CanonicalHub />} />
           <Route path="/forex-brokers-for-swing-trading" element={<CanonicalHub />} />
           <Route path="/high-leverage-forex-brokers" element={<CanonicalHub />} />
-
-          {/* Any remaining root-level slug is resolved as a canonical country route. */}
           <Route path="/:slug" element={<CanonicalHub />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
