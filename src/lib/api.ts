@@ -24,11 +24,7 @@ export const fetchBrokers = () => get<Broker[]>('/api/brokers');
 export const fetchGeo = () => get<{ slug: string | null; iso2: string | null; source: string }>('/api/site?resource=geo');
 export const fetchBroker = (slug: string) => get<Broker>(`/api/brokers?slug=${encodeURIComponent(slug)}`);
 export const fetchIntents = () => get<Intent[]>('/api/intents');
-export const fetchIntent = async (slug: string) => {
-  const mapped = publicIntentSlug(slug);
-  try { return await get<Intent>(`/api/intents?slug=${encodeURIComponent(mapped)}`); }
-  catch (e) { if (mapped === slug) throw e; return get<Intent>(`/api/intents?slug=${encodeURIComponent(slug)}`); }
-};
+export const fetchIntent = async (slug: string) => { const mapped = publicIntentSlug(slug); try { return await get<Intent>(`/api/intents?slug=${encodeURIComponent(mapped)}`); } catch (e) { if (mapped === slug) throw e; return get<Intent>(`/api/intents?slug=${encodeURIComponent(slug)}`); } };
 export const fetchReviews = (brokerId: number) => get<Review[]>(`/api/reviews?broker_id=${brokerId}`);
 export const fetchBrokerContent = (brokerId: number) => get<BrokerContent | null>(`/api/broker-assets?resource=content&broker_id=${brokerId}`);
 export const fetchBrokerAvailability = (brokerId: number) => get<BrokerCountryAvailability[]>(`/api/broker-assets?resource=availability&broker_id=${brokerId}`);
@@ -38,11 +34,7 @@ export const fetchCountries = () => get<CountryPage[]>('/api/countries');
 export const fetchCountry = (slug: string) => get<CountryPage>(`/api/countries?slug=${encodeURIComponent(slug)}`);
 export const fetchCountryIntentRankings = (countrySlug: string, intentSlug: string) => get<CountryIntentBrokerRanking[]>(`/api/country-intent-rankings?country=${encodeURIComponent(countrySlug)}&intent=${encodeURIComponent(publicIntentSlug(intentSlug))}`);
 export const fetchCountryBestFors = (countrySlug: string) => get<CountryBestFor[]>(`/api/country-best-for?country=${encodeURIComponent(countrySlug)}`);
-export const fetchCountryBestFor = async (countrySlug: string, slug: string) => {
-  const mapped = publicIntentSlug(slug);
-  try { return await get<CountryBestFor>(`/api/country-best-for?country=${encodeURIComponent(countrySlug)}&slug=${encodeURIComponent(mapped)}`); }
-  catch (e) { if (mapped === slug) throw e; return get<CountryBestFor>(`/api/country-best-for?country=${encodeURIComponent(countrySlug)}&slug=${encodeURIComponent(slug)}`); }
-};
+export const fetchCountryBestFor = async (countrySlug: string, slug: string) => { const mapped = publicIntentSlug(slug); try { return await get<CountryBestFor>(`/api/country-best-for?country=${encodeURIComponent(countrySlug)}&slug=${encodeURIComponent(mapped)}`); } catch (e) { if (mapped === slug) throw e; return get<CountryBestFor>(`/api/country-best-for?country=${encodeURIComponent(countrySlug)}&slug=${encodeURIComponent(slug)}`); } };
 export const createReview = async (payload: { broker_id: number; author: string; country: string; rating: number; title: string; body: string }, authToken?: string): Promise<Review> => { const res = await fetch('/api/reviews', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}) }, body: JSON.stringify(payload) }); const data = await res.json().catch(() => ({})); if (!res.ok) throw new Error((data as { error?: string }).error || `Request failed (${res.status})`); return data as Review; };
 export const voteHelpful = (id: number) => send<Review>('/api/reviews', 'PUT', { id });
 export const subscribeNewsletter = (email: string) => send<{ ok: boolean; duplicate?: boolean }>('/api/newsletter', 'POST', { email });
@@ -56,3 +48,21 @@ export const fetchLocalizedSeoPagePreview = (countrySlug: string, languageCode: 
 export const fetchLocalizationHealth = (token: string) => get<{ totals: { pages: number; published: number; issues: number }; issues: { id: number; type: string; message: string; slug?: string; country?: string }[] }>('/api/localization-health', token);
 export const saveLocalizationUiPack = (language_code: string, strings: Record<string, string>, token: string) => fetch('/api/localization-ui-packs', { method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ language_code, strings }) }).then(async (res) => { const data = await res.json().catch(() => ({})); if (!res.ok) throw new Error((data as { error?: string }).error || 'Failed to save UI pack'); return data; });
 export const saveGlossaryTerm = (payload: { language_code: string; term_en: string; term_local: string; notes?: string; id?: number }, token: string) => fetch('/api/localization-glossary', { method: payload.id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) }).then(async (res) => { const data = await res.json().catch(() => ({})); if (!res.ok) throw new Error((data as { error?: string }).error || 'Failed to save glossary term'); return data; });
+
+// Transitional aliases for consumers not yet migrated. They use the canonical published-only endpoint; no public read uses /api/content-documents.
+export const fetchGuides = async (): Promise<ContentDocument[]> => {
+  const { fetchPublishedContentDocuments } = await import('./canonicalContent');
+  return fetchPublishedContentDocuments({ type: 'guide' });
+};
+export const fetchGuide = async (slug: string): Promise<ContentDocument | null> => {
+  const { fetchPublishedContentDocument } = await import('./canonicalContent');
+  return fetchPublishedContentDocument(`guide:${slug}`);
+};
+export const fetchContentDocument = async (key: string): Promise<ContentDocument | null> => {
+  const { fetchPublishedContentDocument } = await import('./canonicalContent');
+  return fetchPublishedContentDocument(key);
+};
+export const fetchContentDocumentById = async (id: number): Promise<ContentDocument | null> => {
+  const { fetchPublishedContentDocumentById } = await import('./canonicalContent');
+  return fetchPublishedContentDocumentById(id);
+};
