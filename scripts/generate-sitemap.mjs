@@ -54,31 +54,26 @@ async function main() {
   for (const broker of brokers) if (broker.slug) urls.push({ loc: `/brokers/${broker.slug}`, lastmod: cleanDate(broker.updated_at) });
   for (const country of countries) if (country.slug) urls.push({ loc: `/${country.slug}`, lastmod: cleanDate(country.updated_at) });
 
-  // Global guides are owned by published global content_documents.
   for (const document of documents) {
     if (document.content_type !== 'guide' || document.country_slug !== null || !document.slug || document.indexable === false) continue;
     urls.push({ loc: `/guides/${document.slug}`, lastmod: cleanDate(document.updated_at) });
   }
 
-  // CanonicalHub owns the global Best-For path mapping. The legacy intent
-  // table is used only for current last-modified timestamps. The registry,
-  // not the intent table, determines which canonical URLs exist.
   for (const [slug, canonicalPath] of Object.entries(CANONICAL_BEST_FOR_BY_SLUG)) {
     const intent = intents.find((row) => row.slug === slug);
     urls.push({ loc: `/${canonicalPath}`, lastmod: cleanDate(intent?.updated_at) });
   }
 
-  // Country Best-For URLs are owned only by published country-topic documents.
-  // No static topic registry or legacy country_best_for row can create a URL.
-  const countryTopicDocs = documents.filter((document) =>
-    document.content_type === 'country-topic' &&
+  // Country Best-For pages are owned exclusively by canonical content_documents.
+  // country-topic and the legacy country_best_for table must never create URLs.
+  const countryBestForDocs = documents.filter((document) =>
+    document.content_type === 'country-best-for' &&
     Boolean(document.country_slug) &&
-    Boolean(document.topic_slug || document.slug) &&
+    Boolean(document.slug) &&
     document.indexable !== false,
   );
-  for (const document of countryTopicDocs) {
-    const topicSlug = document.topic_slug || document.slug;
-    urls.push({ loc: `/${document.country_slug}/${topicSlug}`, lastmod: cleanDate(document.updated_at) });
+  for (const document of countryBestForDocs) {
+    urls.push({ loc: `/${document.country_slug}/${document.slug}`, lastmod: cleanDate(document.updated_at) });
   }
 
   const countrySlugById = new Map(countries.map((country) => [Number(country.id), country.slug]));
@@ -97,8 +92,6 @@ async function main() {
     urls.push({ loc, lastmod: cleanDate(page.updated_at) });
   }
 
-  // Preserve the existing Vietnam localization fallback where the localized
-  // CMS row has not yet been created, without affecting canonical English URLs.
   const vietnam = countries.find((country) => country.slug === 'vietnam');
   if (vietnam) {
     const recommended = new Set((vietnam.recommended ?? []).map((item) => item?.slug));
@@ -109,7 +102,7 @@ async function main() {
     }
   }
 
-  // Country guides are also canonical content_documents.
+  // Country guides own the /:country/guides/:slug namespace.
   for (const document of documents) {
     if (document.content_type !== 'country-guide' || !document.country_slug || !document.slug || document.indexable === false) continue;
     urls.push({ loc: `/${document.country_slug}/guides/${document.slug}`, lastmod: cleanDate(document.updated_at) });
