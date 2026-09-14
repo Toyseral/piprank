@@ -17,6 +17,7 @@ const CanonicalHub = lazy(() => import('./pages/CanonicalHub'));
 const LegacyBestForRedirect = lazy(() => import('./pages/LegacyBestForRedirect'));
 const LegacyCountryBestForRedirect = lazy(() => import('./pages/LegacyCountryBestForRedirect'));
 const LegacyCountryGuideRedirect = lazy(() => import('./pages/LegacyCountryGuideRedirect'));
+const LegacyCountryRedirect = lazy(() => import('./pages/LegacyCountryRedirect'));
 const LocalizedGuide = lazy(() => import('./pages/LocalizedGuide'));
 const Methodology = lazy(() => import('./pages/Methodology'));
 const Promotions = lazy(() => import('./pages/Promotions'));
@@ -75,9 +76,9 @@ export function Shell() {
           <Route path="/guides" element={<CanonicalHub />} />
           <Route path="/guides/:slug" element={<CanonicalHub />} />
 
-          {/* Country informational hub remains an explicit surface; canonical child pages are Hub-driven. */}
+          {/* /countries is the country directory only. Individual country pages are root-level. */}
           <Route path="/countries" element={<CanonicalHub />} />
-          <Route path="/countries/:slug" element={<CanonicalHub />} />
+          <Route path="/countries/:slug" element={<LegacyCountryRedirect />} />
 
           {/* Country guides and Best-For pages are canonical-content owned. */}
           <Route path="/:countrySlug/guides/:slug" element={<CanonicalHub />} />
