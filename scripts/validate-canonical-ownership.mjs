@@ -6,6 +6,7 @@ const read = (p) => fs.readFileSync(path.join(root, p), 'utf8');
 const assert = (ok, msg) => { if (!ok) failures.push(msg); };
 const types = read('src/lib/canonicalHub/types.ts');
 const resolver = read('src/lib/canonicalHub/resolver.ts');
+const app = read('src/App.tsx');
 const hubCandidates = ['src/pages/CanonicalHub.tsx','src/lib/canonicalHub/CanonicalHub.tsx','src/components/CanonicalHub.tsx','src/CanonicalHub.tsx'];
 const hub = hubCandidates.find((p) => fs.existsSync(path.join(root, p)));
 assert(types.includes("'country-guide'"), 'country-guide must remain a canonical type');
@@ -15,7 +16,8 @@ assert(!resolver.includes('country-topic:'), 'resolver must not resolve country-
 assert(!resolver.includes("type: 'country-topic'"), 'resolver must not emit country-topic routes');
 assert(resolver.includes('country-guide:${countrySlug}:${slug}'), 'country-guide key missing');
 assert(resolver.includes('country-best-for:${countrySlug}:${slug}'), 'country-best-for key missing');
-assert(resolver.includes("type: 'legacy-country-guide'"), 'legacy guide redirect route missing');
+assert(app.includes('LegacyCountryGuideRedirect'), 'legacy country guide redirect component missing');
+assert(app.includes('path="/countries/:countrySlug/guides/:slug"'), 'legacy country guide redirect route missing');
 assert(!resolver.includes('countryGuide &&'), 'two-segment country URLs must not claim country-guide');
 if (hub) {
   const text = read(hub);
