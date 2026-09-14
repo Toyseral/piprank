@@ -6,10 +6,10 @@ export type CanonicalContentType =
   | 'guide'
   | 'country-guide'
   | 'localized-guide'
+  | 'localized-best-for'
   | 'broker'
   | 'country'
-  | 'compare'
-  | 'localized-seo';
+  | 'compare';
 
 export interface CanonicalRoute {
   type: CanonicalContentType;
