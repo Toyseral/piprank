@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { BadgeCheck, Building2, CircleDollarSign, Globe2, Monitor, ShieldCheck } from 'lucide-react';
+import { BadgeCheck } from 'lucide-react';
 import type { Broker, BrokerContent, ContentDocument, Review } from '../lib/types';
 import type { PageBlock } from '../components/PageBuilder';
 import { fetchBroker, fetchBrokerContent, fetchContentDocument, fetchReviews } from '../lib/api';
@@ -9,23 +9,36 @@ import { pipRankScore } from '../lib/score';
 import BrokerCard from '../components/BrokerCard';
 import PageBlocksRenderer from '../components/PageBlocksRenderer';
 import PipRankVerdictCard from '../components/PipRankVerdictCard';
+import StructuredBrokerDataCard from '../components/StructuredBrokerDataCard';
 import VisitButton from '../components/VisitButton';
 import MatchCTA from '../components/piprank/MatchCTA';
+import { reviewerFor } from '../lib/team';
 import { useSEO } from '../hooks/useSEO';
 
-function FixedDataCard({ title, icon, children }: { title: string; icon: ReactNode; children: ReactNode }) {
-  return <section className="rounded-3xl border border-line bg-white p-5 shadow-soft sm:p-6"><div className="flex items-center gap-3 border-b border-line pb-4"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">{icon}</span><h2 className="font-display text-xl font-bold text-ink-950">{title}</h2></div><div className="pt-5">{children}</div></section>;
-}
+const anchors = [
+  ['overview', 'Overview'],
+  ['verdict', 'PipRank Verdict'],
+  ['what-we-like', 'What we like'],
+  ['fees', 'Fees & Spreads'],
+  ['trust', 'Regulation & Trust'],
+  ['accounts', 'Account Types'],
+  ['platforms', 'Trading Platforms'],
+  ['funding', 'Deposit & Withdraw'],
+  ['reviews', 'Reviews'],
+  ['faq', 'FAQ'],
+] as const;
 
-function TextList({ items }: { items?: string[] }) {
+function Copy({ items }: { items?: string[] }) {
   const values = (items ?? []).filter(Boolean);
-  if (!values.length) return <p className="text-sm text-slate-500">No editorial information has been published for this section yet.</p>;
-  return <div className="space-y-3">{values.map((text, i) => <p key={`${i}-${text.slice(0, 20)}`} className="text-[15px] leading-7 text-slate-700">{text}</p>)}</div>;
+  return values.length ? <div className="space-y-3">{values.map((x, i) => <p key={`${i}-${x.slice(0, 20)}`} className="text-[15px] leading-7 text-slate-700">{x}</p>)}</div> : null;
 }
 
-function SystemFacts({ broker }: { broker: Broker }) {
-  const facts = [['Rating', `${broker.rating.toFixed(1)} / 5`], ['Trust score', `${broker.trust_score}/100`], ['Minimum deposit', fmtMoney(broker.min_deposit)], ['EUR/USD spread', `${broker.spread_eurusd} pips`], ['Maximum leverage', broker.max_leverage], ['Founded', String(broker.founded)]];
-  return <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{facts.map(([label, value]) => <div key={label} className="rounded-2xl bg-paper px-4 py-3"><p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</p><p className="mt-1 font-semibold text-ink-900">{value}</p></div>)}</div>;
+function Anchors({ mobile = false }: { mobile?: boolean }) {
+  return <nav aria-label="On this page" className={mobile ? 'overflow-x-auto border-y border-line bg-paper py-3' : 'rounded-3xl border border-line bg-white p-5 shadow-soft'}><div className={mobile ? 'flex min-w-max gap-2' : 'space-y-1'}>{anchors.map(([id, label]) => <a key={id} href={`#${id}`} className={mobile ? 'rounded-full border border-line bg-white px-3 py-1.5 text-xs font-bold text-slate-600' : 'block rounded-xl px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-paper hover:text-emerald-700'}>{label}</a>)}</div></nav>;
+}
+
+function FinalCta({ broker }: { broker: Broker }) {
+  return <section className="rounded-3xl bg-ink-950 p-6 text-white sm:p-8"><p className="text-xs font-bold uppercase tracking-[0.16em] text-emerald-300">Ready to trade?</p><h2 className="mt-2 font-display text-2xl font-bold">Open a {broker.name} account</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">Review the broker's current trading conditions and open an account through PipRank.</p><div className="mt-5"><VisitButton broker={broker} /></div></section>;
 }
 
 export default function BrokerDetailRedesign() {
@@ -54,48 +67,61 @@ export default function BrokerDetailRedesign() {
   }, [slug]);
 
   const blocks = useMemo(() => Array.isArray(document?.blocks) ? document!.blocks as PageBlock[] : [], [document]);
+  const reviewer = useMemo(() => reviewerFor(broker?.slug ?? slug), [broker?.slug, slug]);
+  const faqs = content?.faqs?.length ? content.faqs : broker?.faqs ?? [];
+  const score = broker ? pipRankScore(broker) : 0;
   useSEO(broker ? { title: `${broker.name} Review | PipRank`, description: broker.tagline || `Read the PipRank review of ${broker.name}.`, path: `/brokers/${broker.slug}`, type: 'article' } : null);
 
-  if (loading) return <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6"><div className="h-72 animate-pulse rounded-3xl border border-line bg-white" /></div>;
+  if (loading) return <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6"><div className="h-80 animate-pulse rounded-3xl border border-line bg-white" /></div>;
   if (!broker) return <div className="mx-auto max-w-5xl px-4 py-16 text-center"><h1 className="font-display text-3xl font-bold">Broker not found</h1><Link className="mt-4 inline-flex font-bold text-emerald-700" to="/brokers">Back to brokers</Link></div>;
 
-  const faqs = content?.faqs?.length ? content.faqs : broker.faqs;
-  const editorial = blocks.filter((b: any) => !b.zone || b.zone === 'editorial');
-  const score = pipRankScore(broker);
+  const editorialBlocks = blocks.filter((block: any) => !block.zone || block.zone === 'editorial');
+  const accountIntro = <Copy items={content?.accounts_intro} />;
+  const platformIntro = <Copy items={content?.platform_intro} />;
+  const fundingIntro = <Copy items={content?.funding_intro} />;
 
   return <main className="bg-paper">
-    <section className="border-b border-line bg-ink-950 text-white"><div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
-      <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-400"><Link to="/brokers" className="hover:text-white">Broker Reviews</Link><span>/</span><span>{broker.name}</span></div>
-      <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_auto] lg:items-end"><div>
-        <div className="flex flex-wrap items-center gap-3"><div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl bg-white p-2">{broker.logo_url ? <img src={broker.logo_url} alt={`${broker.name} logo`} className="h-full w-full object-contain" /> : <span className="font-display text-xl font-bold text-ink-950">{broker.name.slice(0, 2).toUpperCase()}</span>}</div><div><p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-300">Broker review</p><h1 className="mt-1 font-display text-4xl font-bold tracking-tight sm:text-5xl">{broker.name}</h1></div></div>
-        <p className="mt-5 max-w-3xl text-base leading-7 text-slate-300 sm:text-lg">{broker.tagline}</p>
-        <div className="mt-5 flex flex-wrap gap-2">{broker.regulations.slice(0, 4).map((r) => <span key={`${r.body}-${r.country}`} className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-slate-200"><BadgeCheck size={13} className="text-emerald-300" />{r.body}</span>)}</div>
-      </div><div className="rounded-3xl border border-white/10 bg-white/5 p-5 lg:min-w-[260px]"><p className="text-xs font-bold uppercase tracking-wider text-slate-400">PipRank score</p><p className="mt-1 font-display text-4xl font-bold text-emerald-300">{score}<span className="text-sm text-slate-400">/100</span></p><div className="mt-4"><VisitButton broker={broker} className="w-full justify-center" /></div></div></div>
-    </div></section>
+    <section className="border-b border-line bg-ink-950 text-white">
+      <div className="mx-auto max-w-7xl px-4 py-9 sm:px-6 sm:py-12">
+        <div className="flex items-center gap-2 text-xs font-semibold text-slate-400"><Link to="/brokers" className="hover:text-white">Broker Reviews</Link><span>/</span><span>{broker.name}</span></div>
+        <div className="mt-7">
+          <div className="flex flex-wrap items-start gap-5">
+            <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl bg-white p-2">{broker.logo_url ? <img src={broker.logo_url} alt={`${broker.name} logo`} className="h-full w-full object-contain" /> : <span className="font-display font-bold text-ink-950">{broker.name.slice(0, 2).toUpperCase()}</span>}</div>
+            <div className="min-w-0 flex-1"><p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-300">Broker review</p><h1 className="font-display text-4xl font-bold sm:text-5xl">{broker.name}</h1><p className="mt-2 max-w-3xl text-base leading-7 text-slate-300 sm:text-lg">{broker.tagline}</p><div className="mt-4 flex flex-wrap gap-2">{broker.regulations.slice(0, 4).map((r) => <span key={`${r.body}-${r.country}`} className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-slate-200"><BadgeCheck size={13} className="text-emerald-300" />{r.body}</span>)}</div></div>
+          </div>
+          <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-4">{[['Platform', broker.platforms.slice(0, 2).join(' · ') || '—'], ['Min deposit', fmtMoney(broker.min_deposit)], ['PipRank Score', `${score}/100`], ['EUR/USD spread', `${broker.spread_eurusd} pips`]].map(([label, value]) => <div key={label} className="rounded-2xl border border-white/10 bg-white/[0.07] px-3 py-3"><p className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400">{label}</p><p className="mt-1 text-sm font-bold text-emerald-300">{value}</p></div>)}</div>
+          <div className="mt-5 sm:max-w-xs"><VisitButton broker={broker} className="w-full justify-center" /></div>
+        </div>
+      </div>
+    </section>
 
-    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12"><div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_300px]"><div className="min-w-0 space-y-8">
-      <section id="overview" className="rounded-3xl border border-line bg-white p-5 shadow-soft sm:p-7"><div className="flex items-center justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-wider text-emerald-700">Overview</p><h2 className="mt-1 font-display text-2xl font-bold text-ink-950">{broker.name} at a glance</h2></div><Globe2 className="text-slate-300" /></div><div className="mt-6"><SystemFacts broker={broker} /></div><div className="mt-6"><TextList items={content?.overview ?? broker.review} /></div></section>
+    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-10">
+      <div className="lg:hidden"><Anchors mobile /></div>
+      <div className="mt-7 grid gap-8 lg:grid-cols-[minmax(0,1fr)_300px]">
+        <div className="min-w-0 space-y-8">
+          <section id="overview" className="scroll-mt-28"><StructuredBrokerDataCard broker={broker} content={content} section="overview" editorial={<Copy items={content?.overview ?? broker.review} />} /></section>
+          <section id="verdict" className="scroll-mt-28"><PipRankVerdictCard broker={broker} text={content?.verdict?.join(' ')} /></section>
+          <section id="what-we-like" className="scroll-mt-28"><StructuredBrokerDataCard broker={broker} content={content} section="editorial" /></section>
+          <section id="fees" className="scroll-mt-28"><StructuredBrokerDataCard broker={broker} content={content} section="pricing" editorial={<Copy items={content?.fees_detail} />} /></section>
+          <section id="trust" className="scroll-mt-28"><StructuredBrokerDataCard broker={broker} content={content} section="trust" editorial={<Copy items={content?.regulation_detail} />} /></section>
+          <section id="accounts" className="scroll-mt-28"><StructuredBrokerDataCard broker={broker} content={content} section="accounts" editorial={accountIntro} /></section>
+          <section id="platforms" className="scroll-mt-28"><StructuredBrokerDataCard broker={broker} content={content} section="platforms" editorial={platformIntro} /></section>
+          <section id="funding" className="scroll-mt-28"><StructuredBrokerDataCard broker={broker} content={content} section="funding" editorial={fundingIntro} /></section>
 
-      <PipRankVerdictCard broker={broker} text={content?.verdict?.join(' ')} />
-      {editorial.length > 0 && <PageBlocksRenderer blocks={editorial} brokers={[broker]} className="space-y-6" />}
+          {editorialBlocks.length > 0 && <PageBlocksRenderer blocks={editorialBlocks} brokers={[broker]} className="space-y-6" />}
 
-      <section id="pricing"><FixedDataCard title="Pricing & trading costs" icon={<CircleDollarSign size={19} />}><div className="grid gap-3 sm:grid-cols-2"><div><span className="text-xs text-slate-500">Minimum deposit</span><strong className="mt-1 block text-lg">{fmtMoney(broker.min_deposit)}</strong></div><div><span className="text-xs text-slate-500">EUR/USD spread</span><strong className="mt-1 block text-lg">{broker.spread_eurusd} pips</strong></div><div><span className="text-xs text-slate-500">Commission</span><strong className="mt-1 block text-lg">{broker.commission || '—'}</strong></div><div><span className="text-xs text-slate-500">Inactivity fee</span><strong className="mt-1 block text-lg">{broker.inactivity_fee || '—'}</strong></div></div><div className="mt-5"><TextList items={content?.fees_detail} /></div><PageBlocksRenderer blocks={blocks.filter((b: any) => b.zone === 'pricing-content')} brokers={[broker]} className="mt-5 space-y-5" /></FixedDataCard></section>
+          <section className="rounded-3xl border border-line bg-white p-5 shadow-soft sm:p-7"><div className="flex items-start gap-4"><div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-emerald-100 font-display font-bold text-emerald-800">{reviewer.penName.slice(0, 1)}</div><div><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-700">Reviewed by</p><h2 className="mt-1 font-display text-lg font-bold text-ink-950">{reviewer.penName}</h2><p className="text-xs font-semibold text-slate-500">{reviewer.role} · {reviewer.focus}</p><p className="mt-3 text-sm leading-6 text-slate-600">{reviewer.bio}</p><Link to={`/authors#${reviewer.slug}`} className="mt-3 inline-flex text-xs font-bold text-emerald-700">View editorial profile →</Link></div></div></section>
 
-      <section id="platforms"><FixedDataCard title="Trading platforms" icon={<Monitor size={19} />}><div className="flex flex-wrap gap-2">{broker.platforms.map((platform) => <span key={platform} className="rounded-full border border-line bg-paper px-3 py-2 text-sm font-bold">{platform}</span>)}</div><div className="mt-5"><TextList items={content?.platform_intro} /></div><PageBlocksRenderer blocks={blocks.filter((b: any) => b.zone === 'platform-content')} brokers={[broker]} className="mt-5 space-y-5" /></FixedDataCard></section>
+          <section id="reviews" className="scroll-mt-28 rounded-3xl border border-line bg-white p-5 shadow-soft sm:p-7"><p className="text-xs font-bold uppercase tracking-wider text-emerald-700">Trader reviews</p><h2 className="mt-1 font-display text-2xl font-bold">What traders say about {broker.name}</h2>{reviews.length ? <div className="mt-6 space-y-4">{reviews.slice(0, 6).map((review) => <article key={review.id} className="rounded-2xl bg-paper p-4"><div className="flex items-center justify-between gap-3"><strong>{review.title || `${review.rating}/5 review`}</strong><span className="font-bold">{review.rating}/5</span></div><p className="mt-2 text-sm leading-6 text-slate-600">{review.body}</p><p className="mt-3 text-xs font-semibold text-slate-400">{review.author} · {review.country}</p></article>)}</div> : <p className="mt-4 text-sm text-slate-500">No trader reviews have been published yet.</p>}</section>
 
-      <section id="trust"><FixedDataCard title="Trust & regulation" icon={<ShieldCheck size={19} />}><div className="grid gap-3 sm:grid-cols-2">{broker.regulations.map((r) => <div key={`${r.body}-${r.country}`} className="rounded-2xl bg-paper p-4"><p className="font-bold text-ink-950">{r.body}</p><p className="mt-1 text-xs text-slate-500">{r.country} · Tier {r.tier}</p></div>)}</div><div className="mt-5"><TextList items={content?.regulation_detail} /></div><PageBlocksRenderer blocks={blocks.filter((b: any) => b.zone === 'trust-content')} brokers={[broker]} className="mt-5 space-y-5" /></FixedDataCard></section>
+          <section id="faq" className="scroll-mt-28 rounded-3xl border border-line bg-white p-5 shadow-soft sm:p-7"><p className="text-xs font-bold uppercase tracking-wider text-emerald-700">FAQ</p><h2 className="mt-1 font-display text-2xl font-bold">{broker.name} frequently asked questions</h2>{faqs.length ? <div className="mt-6 space-y-3">{faqs.map((faq, i) => <details key={`${i}-${faq.q}`} className="rounded-2xl border border-line bg-paper p-4"><summary className="cursor-pointer font-bold">{faq.q}</summary><p className="mt-3 text-sm leading-6 text-slate-600">{faq.a}</p></details>)}</div> : <p className="mt-4 text-sm text-slate-500">No FAQs have been published yet.</p>}</section>
 
-      <FixedDataCard title="Account types & funding" icon={<Building2 size={19} />}><div className="grid gap-3 sm:grid-cols-2">{broker.account_types.map((account) => <div key={account} className="rounded-2xl border border-line p-4 text-sm font-semibold">{account}</div>)}</div><div className="mt-5"><TextList items={content?.accounts_intro} /></div><TextList items={content?.funding_intro} /></FixedDataCard>
+          <FinalCta broker={broker} />
+          <MatchCTA />
+        </div>
 
-      <PipRankVerdictCard broker={broker} headline={`Why consider ${broker.name}?`} text={content?.why_recommend?.join(' ')} showCta={false} />
-
-      {reviews.length > 0 && <section className="rounded-3xl border border-line bg-white p-5 shadow-soft sm:p-7"><p className="text-xs font-bold uppercase tracking-wider text-emerald-700">Trader reviews</p><h2 className="mt-1 font-display text-2xl font-bold">What traders say about {broker.name}</h2><div className="mt-6 space-y-4">{reviews.slice(0, 6).map((review) => <article key={review.id} className="rounded-2xl bg-paper p-4"><div className="flex items-center justify-between gap-3"><strong>{review.title || `${review.rating}/5 review`}</strong><span className="text-sm font-bold">{review.rating}/5</span></div><p className="mt-2 text-sm leading-6 text-slate-600">{review.body}</p><p className="mt-3 text-xs font-semibold text-slate-400">{review.author} · {review.country}</p></article>)}</div></section>}
-
-      {faqs.length > 0 && <section className="rounded-3xl border border-line bg-white p-5 shadow-soft sm:p-7"><p className="text-xs font-bold uppercase tracking-wider text-emerald-700">FAQ</p><h2 className="mt-1 font-display text-2xl font-bold">{broker.name} frequently asked questions</h2><div className="mt-6 space-y-3">{faqs.map((faq, i) => <details key={`${i}-${faq.q}`} className="rounded-2xl border border-line bg-paper p-4"><summary className="cursor-pointer font-bold text-ink-950">{faq.q}</summary><p className="mt-3 text-sm leading-6 text-slate-600">{faq.a}</p></details>)}</div></section>}
-      <MatchCTA />
+        <aside className="hidden lg:block"><div className="sticky top-24 space-y-4"><Anchors /><BrokerCard broker={broker} /></div></aside>
+      </div>
     </div>
-
-    <aside className="hidden lg:block"><div className="sticky top-24 space-y-4"><div className="rounded-3xl border border-line bg-white p-5 shadow-soft"><p className="text-xs font-bold uppercase tracking-wider text-slate-400">On this page</p><nav className="mt-4 space-y-2 text-sm font-semibold text-slate-600"><a href="#overview" className="block hover:text-emerald-700">Overview</a><a href="#pricing" className="block hover:text-emerald-700">Pricing</a><a href="#platforms" className="block hover:text-emerald-700">Platforms</a><a href="#trust" className="block hover:text-emerald-700">Trust & regulation</a></nav></div><BrokerCard broker={broker} /></div></aside>
-    </div></div>
   </main>;
 }
