@@ -81,6 +81,19 @@ export default async function handler(req, res) {
 
   try {
     if (req.method === 'GET') {
+      const requestedSlug = String(req.query?.slug ?? '').trim().toLowerCase();
+
+      if (requestedSlug) {
+        const { data, error } = await supabase
+          .from('brokers')
+          .select(PUBLIC_BROKER_FIELDS)
+          .eq('slug', requestedSlug)
+          .maybeSingle();
+        if (error) throw error;
+        if (!data) return res.status(404).json({ error: 'Broker not found' });
+        return res.status(200).json(data);
+      }
+
       const { data, error } = await supabase
         .from('brokers')
         .select(PUBLIC_BROKER_FIELDS)
@@ -89,7 +102,6 @@ export default async function handler(req, res) {
       return res.status(200).json(data ?? []);
     }
 
-    if (req.method === 'GET') return res.status(405).json({ error: 'Method not allowed' });
     if (!(await requireRole(req, res, BROKER_WRITE))) return;
 
     if (req.method === 'POST') {
