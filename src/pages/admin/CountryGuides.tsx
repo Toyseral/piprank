@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { Broker, ContentDocument, CountryPage, Intent } from '../../lib/types';
 import UnifiedGuideEditor from '../../components/admin/UnifiedGuideEditor';
 import RankingWorkspace from './RankingWorkspace';
-import { Eye, Loader2, Pencil, Plus } from 'lucide-react';
+import { Eye, Loader2, Pencil, Plus, Trash2 } from 'lucide-react';
 
 type Props = {
   country: CountryPage;
@@ -55,13 +55,25 @@ export default function CountryGuides({ country, countries, brokers, token, noti
     await load();
   };
 
+  const remove = async (doc: ContentDocument) => {
+    if (!window.confirm(`Delete “${doc.title || doc.slug || doc.content_key}”? This permanently removes the canonical page.`)) return;
+    const res = await fetch('/api/content-documents', { method: 'DELETE', headers, body: JSON.stringify({ id: doc.id }) });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      notify(data.error || 'Could not delete country guide');
+      return;
+    }
+    notify('Country guide deleted');
+    await load();
+  };
+
   return (
     <>
       <div className="rounded-2xl border border-line bg-white p-5">
         <div className="flex flex-wrap items-center justify-between gap-2"><div><h3 className="font-display text-lg font-bold text-ink-900">Country Guides</h3><p className="mt-0.5 text-xs text-slate-500">Canonical editorial guides for {country.name}. Localized guides and Country Best-For pages are managed separately.</p></div><button onClick={() => setEditing('new')} className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3.5 py-1.5 text-xs font-bold text-white"><Plus size={13} /> Add new guide</button></div>
         <div className="mt-3 divide-y divide-line rounded-xl border border-line">
           {loading ? <div className="flex items-center justify-center gap-2 p-8 text-sm text-slate-400"><Loader2 size={15} className="animate-spin" /> Loading country guides…</div> : documents.length ? documents.map((doc) => (
-            <div key={doc.id} className="flex items-center justify-between px-4 py-3"><button onClick={() => setEditing(doc)} className="min-w-0 flex-1 text-left"><span className="block truncate text-sm font-bold text-ink-900">{doc.title || doc.slug || doc.content_key}</span><span className="text-xs text-slate-400">/{country.slug}/guides/{doc.slug} · {doc.published ? 'Published' : 'Draft'} · {doc.indexable ? 'Indexable' : 'Noindex'}</span></button><div className="flex shrink-0 items-center gap-1">{doc.slug && <a href={`/${country.slug}/guides/${doc.slug}`} target="_blank" rel="noreferrer" className="rounded-lg p-2 text-slate-400 hover:bg-paper" title="Preview live guide"><Eye size={14} /></a>}<button onClick={() => setEditing(doc)} className="rounded-lg p-2 text-slate-400 hover:bg-paper" title="Edit guide"><Pencil size={14} /></button></div></div>
+            <div key={doc.id} className="flex items-center justify-between px-4 py-3"><button onClick={() => setEditing(doc)} className="min-w-0 flex-1 text-left"><span className="block truncate text-sm font-bold text-ink-900">{doc.title || doc.slug || doc.content_key}</span><span className="text-xs text-slate-400">/{country.slug}/guides/{doc.slug} · {doc.published ? 'Published' : 'Draft'} · {doc.indexable ? 'Indexable' : 'Noindex'}</span></button><div className="flex shrink-0 items-center gap-1">{doc.slug && <a href={`/${country.slug}/guides/${doc.slug}`} target="_blank" rel="noreferrer" className="rounded-lg p-2 text-slate-400 hover:bg-paper" title="Preview live guide"><Eye size={14} /></a>}<button onClick={() => setEditing(doc)} className="rounded-lg p-2 text-slate-400 hover:bg-paper" title="Edit guide"><Pencil size={14} /></button><button onClick={() => void remove(doc)} className="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600" title="Delete guide"><Trash2 size={14} /></button></div></div>
           )) : <p className="p-5 text-sm text-slate-400">No country guides yet. Create the first guide with the unified guide editor.</p>}
         </div>
       </div>

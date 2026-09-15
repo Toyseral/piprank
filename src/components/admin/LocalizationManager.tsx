@@ -1,6 +1,6 @@
 import { FormEvent, useMemo, useState } from 'react';
 import PageBuilder, { blocksToHtml, type PageBlock } from '../PageBuilder';
-import { Globe2, Loader2, Plus, Save, Trash2 } from 'lucide-react';
+import { Eye, Globe2, Loader2, Plus, Save, Trash2 } from 'lucide-react';
 import type { ContentDocument, CountryLanguage, CountryPage } from '../../lib/types';
 import { countrySeoTopics } from '../../data/countrySeoMatrix.js';
 import { getLanguageTopicTemplate } from '../../lib/localization';
@@ -101,7 +101,7 @@ export function LocalizationManager({ countries, languages, contentDocs, mutate 
           <div className="flex items-center gap-3"><div className="min-w-0 flex-1"><p className="font-bold text-ink-950">{language.native_name} <span className="font-normal text-slate-400">({language.name})</span></p><p className="mt-1 text-xs text-slate-500">{language.country_name} · {language.locale} · /{language.url_prefix}/ · {language.active ? 'Active' : 'Inactive'}</p><p className="mt-1 text-xs font-semibold text-emerald-700">{languageBestFors.length} localized Best-For · {languageDocs.length} localized documents</p></div><button onClick={() => { setCountryId(language.country_id); setSelectedLanguage(open ? null : language.id); }} className="rounded-xl border border-line px-3 py-2 text-xs font-bold">{open ? 'Hide pages' : 'Manage pages'}</button><button onClick={() => mutate('/api/country-languages', 'PUT', { id: language.id, active: !language.active }, language.active ? 'Language disabled' : 'Language enabled')} className="rounded-xl border border-line px-3 py-2 text-xs font-bold">{language.active ? 'Disable' : 'Enable'}</button></div>
           {open && <div className="mt-5 space-y-4 border-t border-line pt-4">
             <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-4"><div className="flex flex-wrap items-center justify-between gap-2"><div><p className="text-sm font-bold text-ink-950">Localized Best-For pages</p><p className="text-xs text-slate-500">{localizedBestFors.length} existing pages for {language.native_name}.</p></div><span className="rounded-full bg-white px-2.5 py-1 text-xs font-bold text-emerald-700">Canonical content_documents</span></div></div>
-            {selectedDocs.filter((doc) => doc.content_type === 'localized-best-for').map((doc) => <LocalizedDocumentRow key={doc.id} doc={doc} mutate={mutate} />)}
+            {selectedDocs.filter((doc) => doc.content_type === 'localized-best-for').map((doc) => <LocalizedDocumentRow key={doc.id} doc={doc} mutate={mutate} countrySlug={languageCountrySlug || ''} languagePrefix={language.url_prefix || language.code} />)}
             {localizedBestFors.length === 0 && <p className="rounded-xl border border-dashed border-line bg-paper p-4 text-sm text-slate-500">No localized Best-For pages exist for this language yet. Add one below.</p>}
             {addableTopics.length > 0 && <div className="rounded-xl border border-dashed border-line bg-paper p-4"><p className="text-xs font-bold uppercase tracking-widest text-slate-500">Add localized Best-For</p><p className="mt-1 text-xs text-slate-500">Each button creates an unpublished canonical page. Open Edit to add PageBuilder blocks, broker cards, comparison tables and CTAs.</p><div className="mt-3 flex flex-wrap gap-2">{addableTopics.map((topic) => <button key={topic.key} type="button" onClick={() => addTopic(topic.key)} className="rounded-lg border border-line bg-white px-2.5 py-1.5 text-xs font-semibold hover:border-emerald-400">+ {(topic as { shortTitle?: string; title: string }).shortTitle || topic.title}</button>)}</div></div>}
           </div>}
@@ -111,7 +111,7 @@ export function LocalizationManager({ countries, languages, contentDocs, mutate 
   </div>;
 }
 
-function LocalizedDocumentRow({ doc, mutate }: { doc: ContentDocument; mutate: Mutate }) {
+function LocalizedDocumentRow({ doc, mutate, countrySlug, languagePrefix }: { doc: ContentDocument; mutate: Mutate; countrySlug: string; languagePrefix: string }) {
   const [title, setTitle] = useState(doc.title || '');
   const [seoTitle, setSeoTitle] = useState(doc.seo_title || '');
   const [seoDescription, setSeoDescription] = useState(doc.seo_description || '');
@@ -136,8 +136,10 @@ function LocalizedDocumentRow({ doc, mutate }: { doc: ContentDocument; mutate: M
     await mutate('/api/content-documents', 'DELETE', { id: doc.id }, `${doc.title || doc.slug} deleted`);
   };
 
+  const previewPath = `/${countrySlug}/${languagePrefix}/${doc.slug}?preview=1`;
+
   return <div className="rounded-xl border border-line bg-paper p-4">
-    <div className="flex items-center gap-3"><div className="min-w-0 flex-1"><p className="font-semibold text-ink-950">{doc.title || doc.slug}</p><p className="text-xs text-slate-500">{doc.slug} · /{doc.country_slug}/{String(doc.settings?.locale || doc.settings?.languageCode || '')}/{doc.slug} · {doc.published ? 'Published' : 'Draft'}{doc.indexable ? ' · Indexable' : ' · Noindex'}</p></div><button type="button" onClick={() => setExpanded(!expanded)} className="rounded-lg border border-line bg-white px-3 py-2 text-xs font-bold">{expanded ? 'Close' : 'Edit'}</button></div>
+    <div className="flex items-center gap-3"><div className="min-w-0 flex-1"><p className="font-semibold text-ink-950">{doc.title || doc.slug}</p><p className="text-xs text-slate-500">{doc.slug} · {previewPath} · {doc.published ? 'Published' : 'Draft'}{doc.indexable ? ' · Indexable' : ' · Noindex'}</p></div><a href={previewPath} target="_blank" rel="noreferrer" className="rounded-lg border border-line bg-white p-2 text-slate-500 hover:bg-paper" title="Preview localized Best-For"><Eye size={14} /></a><button type="button" onClick={() => setExpanded(!expanded)} className="rounded-lg border border-line bg-white px-3 py-2 text-xs font-bold">{expanded ? 'Close' : 'Edit'}</button><button type="button" onClick={remove} className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs font-bold text-rose-700 hover:bg-rose-50"><Trash2 size={14} /> Delete</button></div>
     {expanded && <div className="mt-4 space-y-3"><input value={title} onChange={(e) => setTitle(e.target.value)} className="h-10 w-full rounded-lg border border-line bg-white px-3 text-sm" placeholder="Title" /><input value={seoTitle} onChange={(e) => setSeoTitle(e.target.value)} className="h-10 w-full rounded-lg border border-line bg-white px-3 text-sm" placeholder="SEO title" /><textarea value={seoDescription} onChange={(e) => setSeoDescription(e.target.value)} className="min-h-20 w-full rounded-lg border border-line bg-white p-3 text-sm" placeholder="SEO description" /><PageBuilder value={blocks} onChange={setBlocks} /><div className="flex flex-wrap items-center gap-4 text-sm"><label className="flex items-center gap-2"><input type="checkbox" checked={published} onChange={(e) => setPublished(e.target.checked)} /> Published</label><label className="flex items-center gap-2"><input type="checkbox" checked={indexable} onChange={(e) => setIndexable(e.target.checked)} /> Indexable</label></div><div className="flex gap-2"><button type="button" disabled={saving} onClick={save} className="inline-flex items-center gap-2 rounded-lg bg-ink-950 px-4 py-2 text-xs font-bold text-white"><Save size={14} /> {saving ? 'Saving…' : 'Save'}</button><button type="button" onClick={remove} className="inline-flex items-center gap-2 rounded-lg border border-rose-200 px-4 py-2 text-xs font-bold text-rose-700"><Trash2 size={14} /> Delete</button></div></div>}
   </div>;
 }
