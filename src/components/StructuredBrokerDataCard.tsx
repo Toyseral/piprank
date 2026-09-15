@@ -2,7 +2,6 @@ import type { ReactNode } from 'react';
 import type { Broker } from '../lib/types';
 import type { StructuredBrokerSection } from './PageBuilder';
 import { fmtHours, fmtMoney } from '../lib/format';
-import { INTENT_LABELS } from '../lib/score';
 
 type Props = {
   broker: Broker;
