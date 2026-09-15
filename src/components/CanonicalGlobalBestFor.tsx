@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Check, Copy, Gauge, GraduationCap, MonitorSmartphone, Percent, Sparkles, Timer, Waves, Zap, type LucideIcon } from 'lucide-react';
 import type { Broker, ContentDocument, FAQ, Intent } from '../lib/types';
 import type { CanonicalRoute } from '../lib/canonicalHub/types';
-import { fetchBrokers, fetchIntent } from '../lib/api';
+import { fetchBrokers, fetchIntents } from '../lib/api';
 import { fetchPublishedContentDocument } from '../lib/canonicalContent';
 import PageBlocksRenderer from './PageBlocksRenderer';
 import BrokerCard from './BrokerCard';
@@ -17,14 +17,23 @@ import NotFound from '../pages/NotFound';
 import { track } from '../lib/track';
 import { useGeo } from '../lib/GeoContext';
 
-const ICONS: Record<string, LucideIcon> = { beginners: GraduationCap, 'low-spread': Percent, mt5: MonitorSmartphone, ecn: Zap, 'copy-trading': Copy, scalping: Timer, 'swing-trading': Waves, 'high-leverage': Gauge, gold: Sparkles, islamic: Sparkles };
+const ICONS: Record<string, LucideIcon> = { beginners: GraduationCap, 'low-spread': Percent, mt4: MonitorSmartphone, mt5: MonitorSmartphone, ecn: Zap, 'copy-trading': Copy, scalping: Timer, 'swing-trading': Waves, 'high-leverage': Gauge, gold: Sparkles, islamic: Sparkles };
 
 type Props = { route: CanonicalRoute };
 
 function settingsOf(doc: ContentDocument | null) { return (doc?.settings ?? {}) as Record<string, any>; }
 function faqsOf(doc: ContentDocument | null): FAQ[] { const value = settingsOf(doc).faqs; return Array.isArray(value) ? value.filter((x: any) => x?.q && x?.a) : []; }
 function criteriaOf(doc: ContentDocument | null): string[] { const value = settingsOf(doc).criteria; return Array.isArray(value) ? value.map(String).filter(Boolean) : []; }
-function intentForRanking(intent: string, b: Broker) { switch (intent) { case 'low-spread': return `${b.spread_eurusd}p EUR/USD · ${allInCost(b)} pips all-in per lot`; case 'scalping': return `Scalping allowed · ${b.execution_ms}ms execution · ${b.spread_eurusd}p spread`; case 'copy-trading': return b.copy_trading ? 'Native copy-trading platform' : 'Copy via third-party signal marketplaces'; case 'mt5': return `Full MT5 suite · ${b.assets.forex} forex pairs · ${b.uptime}% uptime`; case 'ecn': return b.commission_value === 0 ? 'ECN-style pricing folded into the spread' : `Raw ECN pricing · $${b.commission_value.toFixed(2)}/lot commission`; case 'beginners': return `${fmtMoney(b.min_deposit)} minimum · free demo · ${b.support_channels.length} support channels`; case 'swing-trading': return `Built for multi-day holds · ${b.max_leverage} leverage`; case 'high-leverage': return `Up to ${b.max_leverage} leverage · ${fmtMoney(b.min_deposit)} minimum deposit`; default: return b.tagline; } }
+function rankingIntentSlug(pageSlug: string, doc: ContentDocument | null): string {
+  const explicit = settingsOf(doc).ranking_intent_slug;
+  if (typeof explicit === 'string' && explicit.trim()) return explicit.trim().toLowerCase();
+  return pageSlug
+    .replace(/^forex-brokers-for-/, '')
+    .replace(/-forex-brokers$/, '')
+    .replace(/-brokers$/, '')
+    .replace(/-forex$/, '');
+}
+function intentForRanking(intent: string, b: Broker) { switch (intent) { case 'low-spread': return `${b.spread_eurusd}p EUR/USD · ${allInCost(b)} pips all-in per lot`; case 'scalping': return `Scalping allowed · ${b.execution_ms}ms execution · ${b.spread_eurusd}p spread`; case 'copy-trading': return b.copy_trading ? 'Native copy-trading platform' : 'Copy via third-party signal marketplaces'; case 'mt4': return `MT4 platform · ${b.assets.forex} forex pairs · ${b.uptime}% uptime`; case 'mt5': return `Full MT5 suite · ${b.assets.forex} forex pairs · ${b.uptime}% uptime`; case 'ecn': return b.commission_value === 0 ? 'ECN-style pricing folded into the spread' : `Raw ECN pricing · $${b.commission_value.toFixed(2)}/lot commission`; case 'beginners': return `${fmtMoney(b.min_deposit)} minimum · free demo · ${b.support_channels.length} support channels`; case 'swing-trading': return `Built for multi-day holds · ${b.max_leverage} leverage`; case 'high-leverage': return `Up to ${b.max_leverage} leverage · ${fmtMoney(b.min_deposit)} minimum deposit`; case 'gold': return `${b.assets.commodities} commodities · gold trading availability`; case 'islamic': return b.islamic_account ? 'Islamic account available' : 'Islamic account not available'; default: return b.tagline; } }
 
 export default function CanonicalGlobalBestFor({ route }: Props) {
   const slug = route.slug ?? '';
@@ -37,15 +46,18 @@ export default function CanonicalGlobalBestFor({ route }: Props) {
   useEffect(() => {
     Promise.all([
       route.document ? Promise.resolve(route.document) : fetchPublishedContentDocument(`best-for:${slug}`),
-      fetchIntent(slug).catch(() => null),
+      fetchIntents().catch(() => [] as Intent[]),
       fetchBrokers(),
-    ]).then(([d, i, b]) => {
-      setDoc(d); setIntent(i); setBrokers(b);
-      if (i) track('intent_view', { intent: i.slug, country: geoCountry?.slug ?? 'global' });
+    ]).then(([d, allIntents, b]) => {
+      const resolvedDoc = d as ContentDocument | null;
+      const rankingSlug = rankingIntentSlug(slug, resolvedDoc);
+      const resolvedIntent = (allIntents as Intent[]).find((candidate) => candidate.slug === rankingSlug) ?? null;
+      setDoc(resolvedDoc); setIntent(resolvedIntent); setBrokers(b);
+      if (resolvedIntent) track('intent_view', { intent: resolvedIntent.slug, country: geoCountry?.slug ?? 'global' });
     }).finally(() => setLoading(false));
   }, [route.document, slug, geoCountry?.slug]);
 
-  const rankingSlug = intent?.slug ?? String(settingsOf(doc).ranking_intent_slug ?? slug);
+  const rankingSlug = rankingIntentSlug(slug, doc);
   const ranked = useMemo(() => intent ? brokers.filter((b) => b.best_for.includes(intent.slug)).sort((a, b) => b.rating - a.rating || b.trust_score - a.trust_score) : [], [brokers, intent]);
   const faqs = faqsOf(doc);
   const criteria = criteriaOf(doc);
