@@ -5,7 +5,7 @@ ALTER TABLE public.intents
 
 UPDATE public.content_documents
 SET content_type = 'global-best-for',
-    content_key = 'best-for:islamic',
+    content_key = 'best-for:islamic-forex-brokers',
     country_slug = NULL,
     topic_slug = 'islamic',
     slug = 'islamic-forex-brokers',
