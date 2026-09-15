@@ -45,7 +45,11 @@ export default function VisitButton({ broker, compact = false, className = '', c
     track('cta_click', { broker: broker.slug, context: 'broker_cta', page: window.location.pathname });
   };
 
-  const label = compact ? 'Open Account' : ctaVariant === 'comparison' ? `Open ${broker.name} Accounts` : `Open ${broker.name} Account`;
+  const label = ctaVariant === 'comparison'
+    ? `Open ${broker.name} Accounts`
+    : compact
+      ? 'Open Account'
+      : `Open ${broker.name} Account`;
 
   const button = (
     <a href={href} target="_blank" rel="nofollow sponsored noopener noreferrer" onClick={onClick} className={btnCls('primary', compact ? 'sm' : 'md', className)}>
