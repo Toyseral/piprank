@@ -151,6 +151,18 @@ export default function AdminSidebar({
         </div>
       </aside>
 
+      {canManageRankings && (
+        <button
+          type="button"
+          onClick={() => setRankingOpen(true)}
+          className="fixed bottom-4 right-4 z-[100] inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-600 px-4 py-3 text-sm font-bold text-white shadow-lg transition hover:bg-emerald-700 lg:hidden"
+          aria-label="Open Manual Ranking"
+        >
+          <SlidersHorizontal size={16} />
+          Manual Ranking
+        </button>
+      )}
+
       {rankingOpen && (
         <div className="fixed inset-0 z-[120] bg-ink-950/60 p-3 backdrop-blur-sm sm:p-6">
           <div className="mx-auto flex h-full max-w-7xl flex-col overflow-hidden rounded-3xl bg-paper shadow-soft-lg">
