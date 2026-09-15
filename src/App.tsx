@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { Navigate, BrowserRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { Analytics } from '@vercel/analytics/react';
 import Footer from './components/Footer';
 import Navbar from './components/Navbar';
@@ -13,8 +13,6 @@ const About = lazy(() => import('./pages/About'));
 const Admin = lazy(() => import('./pages/Admin'));
 const Authors = lazy(() => import('./pages/Authors'));
 const CanonicalHub = lazy(() => import('./pages/CanonicalHub'));
-const LegacyBestForRedirect = lazy(() => import('./pages/LegacyBestForRedirect'));
-const LegacyCountryBestForRedirect = lazy(() => import('./pages/LegacyCountryBestForRedirect'));
 const Methodology = lazy(() => import('./pages/Methodology'));
 const Promotions = lazy(() => import('./pages/Promotions'));
 const Quiz = lazy(() => import('./pages/Quiz'));
@@ -39,18 +37,6 @@ export function Shell() {
           <Route path="/promotions" element={<Promotions />} />
           <Route path="/archypage" element={<Admin />} />
           <Route path="/archypage/rankings" element={<Navigate to="/archypage#tab=countries" replace />} />
-          <Route path="/best/:slug" element={<LegacyBestForRedirect />} />
-          <Route path="/countries/:countrySlug/best/:slug" element={<LegacyCountryBestForRedirect />} />
-          <Route path="/:countrySlug/best-low-spread-forex-brokers" element={<LegacyCountryBestForRedirect />} />
-          <Route path="/:countrySlug/best-forex-brokers-for-beginners" element={<LegacyCountryBestForRedirect />} />
-          <Route path="/:countrySlug/best-mt5-forex-brokers" element={<LegacyCountryBestForRedirect />} />
-          <Route path="/:countrySlug/best-gold-forex-brokers" element={<LegacyCountryBestForRedirect />} />
-          <Route path="/:countrySlug/best-forex-brokers-for-scalping" element={<LegacyCountryBestForRedirect />} />
-          <Route path="/:countrySlug/best-islamic-forex-brokers" element={<LegacyCountryBestForRedirect />} />
-          <Route path="/:countrySlug/best-ecn-forex-brokers" element={<LegacyCountryBestForRedirect />} />
-          <Route path="/:countrySlug/best-copy-trading-forex-brokers" element={<LegacyCountryBestForRedirect />} />
-          <Route path="/:countrySlug/best-forex-brokers-for-swing-trading" element={<LegacyCountryBestForRedirect />} />
-          <Route path="/:countrySlug/best-high-leverage-forex-brokers" element={<LegacyCountryBestForRedirect />} />
           <Route path="/brokers" element={<CanonicalHub />} />
           <Route path="/brokers/:slug" element={<CanonicalHub />} />
           <Route path="/:countrySlug/brokers/:slug" element={<CanonicalHub />} />
