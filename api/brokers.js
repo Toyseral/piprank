@@ -13,7 +13,6 @@ const BROKER_DEFAULTS = {
   founded: new Date().getFullYear(),
   headquarters: '—',
   website: 'https://example.com',
-  affiliate_url: null,
   min_deposit: 100,
   spread_eurusd: 0.8,
   commission: 'None (spread-only)',
@@ -104,6 +103,7 @@ export default async function handler(req, res) {
         bonus: body.bonus || null,
       };
       delete payload.id;
+      delete payload.affiliate_url;
       const { data, error } = await supabase.from('brokers').insert(payload).select().single();
       if (error) throw error;
       return res.status(201).json(data);
@@ -112,6 +112,7 @@ export default async function handler(req, res) {
     if (req.method === 'PUT') {
       const { id, ...fields } = req.body ?? {};
       if (!id) return res.status(400).json({ error: 'id is required' });
+      delete fields.affiliate_url;
       if (fields.name && !fields.slug) fields.slug = slugify(fields.name);
       if ('bonus' in fields && !fields.bonus) fields.bonus = null;
       const { data, error } = await supabase
