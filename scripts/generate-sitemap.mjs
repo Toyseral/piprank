@@ -1,513 +1,106 @@
-// Generate a sitemap only for production. Every URL listed must be a public,
-// indexable route that the prerender step also generated.
-
+// Generate a sitemap only for production. Every dynamic URL listed must be owned by a
+// published, indexable canonical content document (or a canonical broker/country record).
 import { createClient } from '@supabase/supabase-js';
 import { writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { requireSiteUrlForProduction } from './seo-config.mjs';
-import {
-  countrySeoTopics,
-  rankCountryTopicBrokers,
-} from './country-seo-topics.mjs';
-import { vietnameseCommercialTopics } from './vietnamese-localization.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DIST = join(__dirname, '..', 'dist');
 const MAX_BROKERS_FOR_PAIRS = 12;
+const CANONICAL_CONTENT_TYPES = ['guide', 'global-best-for', 'country-guide', 'country-best-for', 'localized-guide', 'localized-best-for'];
 
 function escXml(value) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
+  return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;').replace(/'/g, '&apos;');
 }
-
 function cleanDate(value) {
   if (!value) return undefined;
-
   const d = new Date(value);
-
-  return Number.isNaN(d.getTime())
-    ? undefined
-    : d.toISOString().slice(0, 10);
+  return Number.isNaN(d.getTime()) ? undefined : d.toISOString().slice(0, 10);
+}
+function documentLocale(document) {
+  return String(document?.settings?.locale || document?.settings?.languageCode || '').trim();
 }
 
 async function main() {
-  const isProduction = process.env.VERCEL_ENV === 'production';
-
-  if (!isProduction) {
-    console.log(
-      '[generate-sitemap] Non-production build — skipping sitemap generation.'
-    );
+  if (process.env.VERCEL_ENV !== 'production') {
+    console.log('[generate-sitemap] Non-production build — skipping sitemap generation.');
     return;
   }
-
   const siteUrl = requireSiteUrlForProduction();
-
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!url || !key) {
-    throw new Error(
-      'NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required for the production sitemap.'
-    );
-  }
-
+  if (!url || !key) throw new Error('NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required for the production sitemap.');
   const supabase = createClient(url, key);
+  const staticPaths = ['/', '/brokers', '/countries', '/compare', '/guides', '/methodology', '/quiz', '/tools', '/promotions', '/about', '/authors'];
+  const urls = staticPaths.map((loc) => ({ loc }));
 
-  const staticPaths = [
-    '/',
-    '/brokers',
-    '/countries',
-    '/compare',
-    '/guides',
-    '/methodology',
-    '/quiz',
-    '/tools',
-    '/promotions',
-    '/about',
-    '/authors',
-  ];
-
-  const urls = staticPaths.map((loc) => ({
-    loc,
-    lastmod: undefined,
-  }));
-
-  async function fetchRows(table, selectWithDate, selectBasic) {
-    const first = await supabase
-      .from(table)
-      .select(selectWithDate);
-
-    if (!first.error) {
-      return first.data ?? [];
-    }
-
-    console.warn(
-      `[generate-sitemap] "${table}" query with updated_at failed. Falling back.`,
-      first.error
-    );
-
-    const fallback = await supabase
-      .from(table)
-      .select(selectBasic);
-
-    if (fallback.error) {
-      throw new Error(
-        `[generate-sitemap] Failed to query "${table}": ${fallback.error.message || JSON.stringify(fallback.error)}`
-      );
-    }
-
-    return fallback.data ?? [];
-  }
-
-  const [
-    brokers,
-    countries,
-    guides,
-    intents,
-    countryBestFors,
-    countryGuides,
-    localizedSeoPages,
-  ] = await Promise.all([
-    fetchRows(
-      'brokers',
-      'slug, rating, updated_at, spread_eurusd, assets, platforms, demo_account, min_deposit, best_for, scalping, islamic_account',
-      'slug, rating, spread_eurusd, assets, platforms, demo_account, min_deposit, best_for, scalping, islamic_account'
-    ),
-
-    fetchRows(
-      'countries',
-      'id, slug, recommended, updated_at',
-      'id, slug, recommended'
-    ),
-
-    fetchRows(
-      'guides',
-      'slug, updated_at',
-      'slug'
-    ),
-
-    fetchRows(
-      'intents',
-      'slug, updated_at',
-      'slug'
-    ),
-
-    fetchRows(
-      'country_best_for',
-      'slug, country_id, indexable, updated_at',
-      'slug, country_id, indexable'
-    ),
-
-    fetchRows(
-      'content_documents',
-      'content_type, country_slug, slug, published, indexable, updated_at',
-      'content_type, country_slug, slug, published, indexable'
-    ).catch((err) => {
-      console.warn(
-        '[generate-sitemap] Could not load content_documents:',
-        err
-      );
-      return [];
-    }),
-
-    fetchRows(
-      'localized_seo_pages',
-      'country_id, language_id, slug, published, indexable, updated_at',
-      'country_id, language_id, slug, published, indexable'
-    ).catch((err) => {
-      console.warn(
-        '[generate-sitemap] Could not load localized_seo_pages:',
-        err
-      );
-      return [];
-    }),
+  const [brokersResult, countriesResult, documentsResult] = await Promise.all([
+    supabase.from('brokers').select('slug, rating, updated_at'),
+    supabase.from('countries').select('id, slug, recommended, updated_at, publishing_state'),
+    supabase.from('content_documents').select('content_type, country_slug, topic_slug, slug, published, indexable, updated_at, content_key, settings').in('content_type', CANONICAL_CONTENT_TYPES).eq('published', true).eq('indexable', true),
   ]);
-
-  // Broker pages
-  for (const broker of brokers ?? []) {
-    if (!broker.slug) continue;
-
-    urls.push({
-      loc: `/brokers/${broker.slug}`,
-      lastmod: cleanDate(broker.updated_at),
-    });
+  for (const result of [brokersResult, countriesResult, documentsResult]) {
+    if (result.error) throw new Error(`[generate-sitemap] Supabase query failed: ${result.error.message}`);
   }
 
-  // Country pages
-  for (const country of countries ?? []) {
-    if (!country.slug) continue;
+  const brokers = brokersResult.data ?? [];
+  const countries = countriesResult.data ?? [];
+  const documents = documentsResult.data ?? [];
 
-    urls.push({
-      loc: `/${country.slug}`,
-      lastmod: cleanDate(country.updated_at),
-    });
-  }
+  for (const broker of brokers) if (broker.slug) urls.push({ loc: `/brokers/${broker.slug}`, lastmod: cleanDate(broker.updated_at) });
+  for (const country of countries) if (country.slug && country.publishing_state === 'published') urls.push({ loc: `/${country.slug}`, lastmod: cleanDate(country.updated_at) });
 
-  // Guide pages
-  for (const guide of guides ?? []) {
-    if (!guide.slug) continue;
-
-    urls.push({
-      loc: `/guides/${guide.slug}`,
-      lastmod: cleanDate(guide.updated_at),
-    });
-  }
-
-  // Global intent pages
-  for (const intent of intents ?? []) {
-    if (!intent.slug) continue;
-
-    urls.push({
-      loc: `/best/${intent.slug}`,
-      lastmod: cleanDate(intent.updated_at),
-    });
-  }
-
-  // Country-first commercial SEO pages
-  for (const country of countries ?? []) {
-    if (!country.slug) continue;
-
-    for (const topic of countrySeoTopics) {
-      if (topic.indexable === false) continue;
-
-      const eligible = rankCountryTopicBrokers(
-        brokers ?? [],
-        country,
-        topic
-      );
-
-      if (eligible.length >= (topic.minBrokers ?? 1)) {
-        urls.push({
-          loc: `/${country.slug}/${topic.slug}`,
-          lastmod: cleanDate(country.updated_at),
-        });
-      }
-    }
-  }
-
-  // Country slug lookup
-  const countrySlugById = new Map(
-    (countries ?? []).map((country) => [
-      Number(country.id),
-      country.slug,
-    ])
-  );
-
-  // Country languages
-  const {
-    data: languageRows,
-    error: languageError,
-  } = await supabase
-    .from('country_languages')
-    .select('id, country_id, url_prefix, locale, active');
-
-  if (languageError) {
-    throw new Error(
-      `[generate-sitemap] Failed to query country_languages: ${
-        languageError.message || JSON.stringify(languageError)
-      }`
-    );
-  }
-
-  const languageById = new Map(
-    (languageRows ?? []).map((language) => [
-      Number(language.id),
-      language,
-    ])
-  );
-
-  // Admin-managed localized SEO pages
-  const localizedLocs = new Set();
-
-  for (const page of localizedSeoPages ?? []) {
-    if (!page.slug) continue;
-    if (!page.published) continue;
-    if (!page.indexable) continue;
-
-    const countrySlug = countrySlugById.get(
-      Number(page.country_id)
-    );
-
-    const language = languageById.get(
-      Number(page.language_id)
-    );
-
-    if (
-      !countrySlug ||
-      !language?.active ||
-      !language.url_prefix
-    ) {
+  for (const document of documents) {
+    if (!document.slug) continue;
+    if (document.content_type === 'guide' && !document.country_slug) {
+      urls.push({ loc: `/guides/${document.slug}`, lastmod: cleanDate(document.updated_at) });
       continue;
     }
-
-    const loc = `/${countrySlug}/${language.url_prefix}/${page.slug}`;
-
-    localizedLocs.add(loc);
-
-    urls.push({
-      loc,
-      lastmod: cleanDate(page.updated_at),
-    });
-  }
-
-  // Vietnamese localized pages
-  const vietnam = (countries ?? []).find(
-    (country) => country.slug === 'vietnam'
-  );
-
-  if (vietnam) {
-    const recommended = new Set(
-      (vietnam.recommended ?? []).map(
-        (item) => item?.slug
-      )
-    );
-
-    for (const localized of vietnameseCommercialTopics) {
-      const loc = `/vietnam/vi/${localized.slug}`;
-
-      if (localizedLocs.has(loc)) {
-        continue;
-      }
-
-      let eligible = (brokers ?? []).filter(
-        (broker) => recommended.has(broker.slug)
-      );
-
-      if (localized.englishTopicSlug) {
-        const topic = countrySeoTopics.find(
-          (item) =>
-            item.slug === localized.englishTopicSlug
-        );
-
-        if (!topic) continue;
-
-        eligible = rankCountryTopicBrokers(
-          brokers ?? [],
-          vietnam,
-          topic
-        );
-      }
-
-      if (eligible.length >= 1) {
-        urls.push({
-          loc,
-          lastmod: cleanDate(vietnam.updated_at),
-        });
-      }
+    if (document.content_type === 'global-best-for' && !document.country_slug) {
+      urls.push({ loc: `/${document.slug}`, lastmod: cleanDate(document.updated_at) });
+      continue;
+    }
+    if (document.content_type === 'country-guide' && document.country_slug) {
+      urls.push({ loc: `/${document.country_slug}/guides/${document.slug}`, lastmod: cleanDate(document.updated_at) });
+      continue;
+    }
+    if (document.content_type === 'country-best-for' && document.country_slug) {
+      urls.push({ loc: `/${document.country_slug}/${document.slug}`, lastmod: cleanDate(document.updated_at) });
+      continue;
+    }
+    if ((document.content_type === 'localized-guide' || document.content_type === 'localized-best-for') && document.country_slug) {
+      const locale = documentLocale(document);
+      if (!locale) continue;
+      const path = document.content_type === 'localized-guide'
+        ? `/${document.country_slug}/${encodeURIComponent(locale)}/guides/${document.slug}`
+        : `/${document.country_slug}/${encodeURIComponent(locale)}/${document.slug}`;
+      urls.push({ loc: path, lastmod: cleanDate(document.updated_at) });
     }
   }
 
-  // Country guide pages
-  for (const document of countryGuides ?? []) {
-    if (document.content_type !== 'country-guide') {
-      continue;
-    }
-
-    if (!document.country_slug || !document.slug) {
-      continue;
-    }
-
-    if (
-      document.published === false ||
-      document.indexable === false
-    ) {
-      continue;
-    }
-
-    urls.push({
-      loc: `/${document.country_slug}/guides/${document.slug}`,
-      lastmod: cleanDate(document.updated_at),
-    });
-  }
-
-  // Country Best For pages not superseded by the new matrix
-  const countryById = new Map(
-    (countries ?? []).map((country) => [
-      Number(country.id),
-      country.slug,
-    ])
-  );
-
-  const SUPERSEDED_INTENTS = new Set([
-    'beginners',
-    'low-spread',
-    'mt5',
-    'gold',
-    'scalping',
-    'ecn',
-    'copy-trading',
-    'swing-trading',
-    'high-leverage',
-    'islamic',
-  ]);
-
-  for (const page of countryBestFors ?? []) {
-    if (SUPERSEDED_INTENTS.has(page.slug)) {
-      continue;
-    }
-
-    const countrySlug = countryById.get(
-      Number(page.country_id)
-    );
-
-    if (
-      page.slug &&
-      countrySlug &&
-      page.indexable
-    ) {
-      urls.push({
-        loc: `/countries/${countrySlug}/best/${page.slug}`,
-        lastmod: cleanDate(page.updated_at),
-      });
-    }
-  }
-
-  // Broker comparison pages
-  const topBrokers = [...(brokers ?? [])]
-    .filter((broker) => broker.slug)
-    .sort(
-      (a, b) =>
-        (b.rating ?? 0) - (a.rating ?? 0)
-    )
-    .slice(0, MAX_BROKERS_FOR_PAIRS);
-
+  const topBrokers = [...brokers].filter((broker) => broker.slug).sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0)).slice(0, MAX_BROKERS_FOR_PAIRS);
   for (let i = 0; i < topBrokers.length; i++) {
-    for (
-      let j = i + 1;
-      j < topBrokers.length;
-      j++
-    ) {
-      const [a, b] = [
-        topBrokers[i],
-        topBrokers[j],
-      ].sort((x, y) =>
-        x.slug.localeCompare(y.slug)
-      );
-
-      const dates = [
-        a.updated_at,
-        b.updated_at,
-      ]
-        .map((value) => cleanDate(value))
-        .filter(Boolean)
-        .sort()
-        .reverse();
-
-      urls.push({
-        loc: `/compare/${a.slug}-vs-${b.slug}`,
-        lastmod: dates[0],
-      });
+    for (let j = i + 1; j < topBrokers.length; j++) {
+      const [a, b] = [topBrokers[i], topBrokers[j]].sort((x, y) => x.slug.localeCompare(y.slug));
+      urls.push({ loc: `/compare/${a.slug}-vs-${b.slug}`, lastmod: [a.updated_at, b.updated_at].map(cleanDate).filter(Boolean).sort().reverse()[0] });
     }
   }
 
-  // Remove duplicate URLs
   const byLoc = new Map();
-
-  for (const urlEntry of urls) {
-    const previous = byLoc.get(urlEntry.loc);
-
-    if (!previous) {
-      byLoc.set(urlEntry.loc, urlEntry);
-      continue;
-    }
-
-    if (
-      (urlEntry.lastmod || '') >
-      (previous.lastmod || '')
-    ) {
-      byLoc.set(urlEntry.loc, urlEntry);
-    }
+  for (const entry of urls) {
+    const previous = byLoc.get(entry.loc);
+    if (!previous || (entry.lastmod || '') > (previous.lastmod || '')) byLoc.set(entry.loc, entry);
   }
-
-  const unique = [...byLoc.values()];
-
-  const body = unique
-    .map((entry) => {
-      const lastmod = entry.lastmod
-        ? `\n    <lastmod>${entry.lastmod}</lastmod>`
-        : '';
-
-      return `  <url>
-    <loc>${escXml(siteUrl + entry.loc)}</loc>${lastmod}
-  </url>`;
-    })
-    .join('\n');
-
-  const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${body}
-</urlset>
-`;
-
-  writeFileSync(
-    join(DIST, 'sitemap.xml'),
-    xml,
-    'utf-8'
-  );
-
-  console.log(
-    `[generate-sitemap] Wrote ${unique.length} production URLs.`
-  );
+  const body = [...byLoc.values()].map((entry) => `  <url>\n    <loc>${escXml(siteUrl + entry.loc)}</loc>${entry.lastmod ? `\n    <lastmod>${entry.lastmod}</lastmod>` : ''}\n  </url>`).join('\n');
+  writeFileSync(join(DIST, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${body}\n</urlset>\n`, 'utf-8');
+  console.log(`[generate-sitemap] Wrote ${byLoc.size} production URLs.`);
 }
 
 main().catch((err) => {
   console.error('[generate-sitemap] ERROR:');
-
-  if (err instanceof Error) {
-    console.error(err.message);
-    console.error(err.stack);
-  } else {
-    try {
-      console.error(JSON.stringify(err, null, 2));
-    } catch {
-      console.error(String(err));
-    }
-  }
-
+  if (err instanceof Error) { console.error(err.message); console.error(err.stack); }
+  else { try { console.error(JSON.stringify(err, null, 2)); } catch { console.error(String(err)); } }
   process.exit(1);
 });

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   ArrowRight,
@@ -22,13 +22,14 @@ import {
   Zap,
   type LucideIcon,
 } from 'lucide-react';
-import type { Broker, CountryPage, Guide, Intent } from '../lib/types';
-import { fetchBrokers, fetchCountries, fetchGuides, fetchIntents } from '../lib/api';
+import type { Broker, CountryPage, ContentDocument, Intent } from '../lib/types';
+import { fetchBrokers, fetchCountries, fetchIntents } from '../lib/api';
+import { fetchPublishedContentDocuments } from '../lib/canonicalContent';
 import { useGeo } from '../lib/GeoContext';
 import BrokerCard from '../components/BrokerCard';
 import { ButtonLink } from '../components/Button';
 import { useSEO } from '../hooks/useSEO';
-import { SITE_NAME } from '../lib/seo';
+import { SITE_NAME, bestForPath } from '../lib/seo';
 import Monogram from '../components/Monogram';
 import Reveal from '../components/Reveal';
 import SectionHead from '../components/SectionHead';
@@ -62,18 +63,28 @@ const STEPS = [
 export default function Home() {
   const [brokers, setBrokers] = useState<Broker[]>([]);
   const [intents, setIntents] = useState<Intent[]>([]);
-  const [guides, setGuides] = useState<Guide[]>([]);
+  const [guides, setGuides] = useState<ContentDocument[]>([]);
   const [countries, setCountries] = useState<CountryPage[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const { country: activeGeo } = useGeo();
+  const location = useLocation();
+
+  // Smooth-scroll to an in-page anchor (e.g. /#categories) since client-side
+  // route changes don't trigger the browser's native hash-scroll behaviour.
+  useEffect(() => {
+    if (!location.hash) return;
+    const id = location.hash.replace(/^#/, '');
+    const el = document.getElementById(id);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [location.hash, loading]);
 
   useEffect(() => {
-    Promise.all([fetchBrokers(), fetchIntents(), fetchGuides(), fetchCountries()])
+    Promise.all([fetchBrokers(), fetchIntents(), fetchPublishedContentDocuments({ type: 'guide' }), fetchCountries()])
       .then(([b, i, g, c]) => {
         setBrokers(b);
         setIntents(i);
-        setGuides(g);
+        setGuides(g.filter((doc) => !doc.country_slug));
         setCountries(c);
       })
       .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load data'))
@@ -245,7 +256,7 @@ export default function Home() {
             <p className="mt-2 max-w-2xl text-sm leading-6 text-amber-900">
               PipRank only shows a broker here after its availability for {localizedCountry.name} has been verified. You can still browse the {localizedCountry.name} country guide while recommendations are being finalized.
             </p>
-            <Link to={`/countries/${localizedCountry.slug}`} className="mt-4 inline-flex items-center gap-2 text-sm font-bold text-emerald-700 hover:text-emerald-800">
+            <Link to={`/${localizedCountry.slug}`} className="mt-4 inline-flex items-center gap-2 text-sm font-bold text-emerald-700 hover:text-emerald-800">
               Explore {localizedCountry.name} broker information <ArrowRight size={15} />
             </Link>
           </div>
@@ -261,7 +272,7 @@ export default function Home() {
       </section>
 
       {/* ============================= INTENTS ============================= */}
-      <section className="relative overflow-hidden border-y border-line bg-white">
+      <section id="categories" className="relative scroll-mt-24 overflow-hidden border-y border-line bg-white">
         <div className="absolute inset-0 bg-grid-light opacity-60" />
         <div className="relative mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-20">
           <Reveal>
@@ -281,7 +292,7 @@ export default function Home() {
               return (
                 <Reveal key={intent.slug} delay={i * 0.05}>
                   <Link
-                    to={`/best/${intent.slug}`}
+                    to={bestForPath(intent.slug)}
                     className="group flex h-full flex-col rounded-2xl border border-line bg-paper/80 p-5 backdrop-blur-sm transition hover:-translate-y-1 hover:border-emerald-300 hover:bg-white hover:shadow-soft-lg"
                   >
                     <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-ink-900 text-emerald-400 transition group-hover:bg-emerald-500 group-hover:text-ink-950">
@@ -502,15 +513,15 @@ export default function Home() {
                 <Link to={`/guides/${g.slug}`} className="group block">
                   <div className="overflow-hidden rounded-2xl border border-line shadow-soft">
                     <img
-                      src={g.image}
+                      src={String(g.settings?.image ?? "")}
                       alt={g.title}
                       className="aspect-[16/9] w-full object-cover transition duration-500 group-hover:scale-105"
                       loading="lazy"
                     />
                   </div>
                   <div className="mt-4 flex items-center gap-2 text-xs">
-                    <span className="rounded-full bg-ink-900 px-2.5 py-1 font-bold text-white">{g.category}</span>
-                    <span className="text-slate-400">{g.minutes} min read · {g.level}</span>
+                    <span className="rounded-full bg-ink-900 px-2.5 py-1 font-bold text-white">{String(g.settings?.category ?? "Basics")}</span>
+                    <span className="text-slate-400">{Number(g.settings?.minutes ?? 0)} min read · {String(g.settings?.level ?? "Beginner")}</span>
                   </div>
                   <h3 className="mt-2 font-display text-lg font-bold leading-snug text-ink-900 transition group-hover:text-emerald-700">
                     {g.title}

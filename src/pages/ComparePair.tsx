@@ -8,6 +8,7 @@ import NotFound from './NotFound';
 import { fetchBrokers } from '../lib/api';
 import { composite } from '../lib/score';
 import { fmtMoney } from '../lib/format';
+import { bestForPath } from '../lib/seo';
 import { useSEO } from '../hooks/useSEO';
 import { comparePairSeo, buildBreadcrumbJsonLd, buildWebPageJsonLd } from '../lib/seo';
 
@@ -265,7 +266,7 @@ export default function ComparePair() {
         <h2 id="best-for-links" className="font-display text-2xl font-bold text-ink-950">Find the best broker for your trading style</h2>
         <p className="mt-2 text-sm leading-7 text-slate-600">If this matchup does not settle the decision, compare the brokers by the trading priorities that matter most to you.</p>
         <div className="mt-4 flex flex-wrap gap-2">
-          {[...(winner.best_for ?? []), ...(a.best_for ?? []), ...(b.best_for ?? [])].filter((v, i, arr) => arr.indexOf(v) === i).slice(0, 8).map((slug) => <Link key={slug} to={`/best/${slug}`} className="rounded-full border border-line bg-paper px-3.5 py-2 text-xs font-semibold text-slate-600 hover:border-emerald-400 hover:text-ink-900">Best for {slug.replace(/-/g, ' ')}</Link>)}
+          {[...(winner.best_for ?? []), ...(a.best_for ?? []), ...(b.best_for ?? [])].filter((v, i, arr) => arr.indexOf(v) === i).slice(0, 8).map((slug) => <Link key={slug} to={bestForPath(slug)} className="rounded-full border border-line bg-paper px-3.5 py-2 text-xs font-semibold text-slate-600 hover:border-emerald-400 hover:text-ink-900">Best for {slug.replace(/-/g, ' ')}</Link>)}
         </div>
       </section>
 

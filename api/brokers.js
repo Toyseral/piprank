@@ -2,6 +2,11 @@ import supabase from './_lib/db-client.js';
 import { requireRole } from './_lib/admin-guard.js';
 
 const BROKER_WRITE = ['super_admin', 'admin', 'brokers_admin'];
+const SITE_ORIGIN = 'https://piprank.com';
+const PUBLIC_BROKER_FIELDS = 'id,name,slug,tagline,brand_color,logo_url,rating,trust_score,founded,headquarters,website,min_deposit,spread_eurusd,commission,commission_value,max_leverage,leverage_value,execution_ms,withdrawal_hours,deposit_time,uptime,withdrawal_fee,inactivity_fee,bonus,demo_account,islamic_account,copy_trading,scalping,hedging,nbp,segregated,support_channels,support_score,regulations,platforms,payments,account_types,assets,best_for,pros,cons,review,testing,faqs,health,featured';
+
+// These are the actual brokers-table columns. Affiliate URLs are resolved by /go/:broker.
+const BROKER_MUTABLE_FIELDS = PUBLIC_BROKER_FIELDS.split(',').filter((field) => !['id', 'logo_url'].includes(field));
 
 const BROKER_DEFAULTS = {
   tagline: 'New broker under review',
@@ -11,7 +16,6 @@ const BROKER_DEFAULTS = {
   founded: new Date().getFullYear(),
   headquarters: '—',
   website: 'https://example.com',
-  affiliate_url: null,
   min_deposit: 100,
   spread_eurusd: 0.8,
   commission: 'None (spread-only)',
@@ -24,6 +28,7 @@ const BROKER_DEFAULTS = {
   uptime: 99.9,
   withdrawal_fee: 0,
   inactivity_fee: 'None',
+  bonus: null,
   demo_account: true,
   islamic_account: false,
   copy_trading: false,
@@ -31,8 +36,6 @@ const BROKER_DEFAULTS = {
   hedging: true,
   nbp: true,
   segregated: true,
-  bonus: null,
-  risk_warning: null,
   support_channels: ['Live chat', 'Email'],
   support_score: 80,
   regulations: [],
@@ -50,6 +53,14 @@ const BROKER_DEFAULTS = {
   featured: false,
 };
 
+function pickBrokerFields(input) {
+  const output = {};
+  for (const field of BROKER_MUTABLE_FIELDS) {
+    if (Object.prototype.hasOwnProperty.call(input, field)) output[field] = input[field];
+  }
+  return output;
+}
+
 function slugify(name) {
   return String(name)
     .toLowerCase()
@@ -57,64 +68,68 @@ function slugify(name) {
     .replace(/^-+|-+$/g, '');
 }
 
-export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+function setCors(res, methods) {
+  res.setHeader('Access-Control-Allow-Origin', SITE_ORIGIN);
+  res.setHeader('Vary', 'Origin');
+  res.setHeader('Access-Control-Allow-Methods', `${methods}, OPTIONS`);
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+}
+
+export default async function handler(req, res) {
+  setCors(res, 'GET, POST, PUT, DELETE');
   if (req.method === 'OPTIONS') return res.status(204).end();
 
   try {
-    // ---------- PUBLIC READ (logos merged from broker_media) ----------
     if (req.method === 'GET') {
-      const { data: media } = await supabase.from('broker_media').select('broker_id, logo_url');
-      const logoMap = new Map((media ?? []).map((m) => [m.broker_id, m.logo_url]));
-      // affiliate_url is intentionally stripped from every public response —
-      // the frontend routes through /go/{slug} instead of ever seeing the
-      // raw tracked URL. `website` (the broker's own homepage) still passes
-      // through since that's not a tracked/commission link.
-      const withLogo = (b) => {
-        const { affiliate_url, ...safe } = b;
-        return { ...safe, logo_url: logoMap.get(b.id) ?? null };
-      };
+      const requestedSlug = String(req.query?.slug ?? '').trim().toLowerCase();
 
-      const { slug } = req.query;
-      if (slug) {
-        const { data, error } = await supabase.from('brokers').select('*').eq('slug', slug).single();
-        if (error || !data) return res.status(404).json({ error: 'Broker not found' });
-        return res.status(200).json(withLogo(data));
+      if (requestedSlug) {
+        const { data, error } = await supabase
+          .from('brokers')
+          .select(PUBLIC_BROKER_FIELDS)
+          .eq('slug', requestedSlug)
+          .maybeSingle();
+        if (error) throw error;
+        if (!data) return res.status(404).json({ error: 'Broker not found' });
+        return res.status(200).json(data);
       }
+
       const { data, error } = await supabase
         .from('brokers')
-        .select('*')
+        .select(PUBLIC_BROKER_FIELDS)
         .order('rating', { ascending: false });
       if (error) throw error;
-      return res.status(200).json((data ?? []).map(withLogo));
+      return res.status(200).json(data ?? []);
     }
 
-    // ---------- BROKER WRITES: super admin or brokers manager ----------
     if (!(await requireRole(req, res, BROKER_WRITE))) return;
 
     if (req.method === 'POST') {
       const body = req.body ?? {};
       if (!body.name || String(body.name).trim().length < 2)
         return res.status(400).json({ error: 'Broker name is required' });
+
       const payload = {
         ...BROKER_DEFAULTS,
-        ...body,
+        ...pickBrokerFields(body),
+        name: String(body.name).trim(),
         slug: body.slug ? slugify(body.slug) : slugify(body.name),
-        bonus: body.bonus || null,
       };
-      delete payload.id;
+
       const { data, error } = await supabase.from('brokers').insert(payload).select().single();
       if (error) throw error;
       return res.status(201).json(data);
     }
 
     if (req.method === 'PUT') {
-      const { id, ...fields } = req.body ?? {};
+      const { id, ...input } = req.body ?? {};
       if (!id) return res.status(400).json({ error: 'id is required' });
-      if (fields.name && !fields.slug) fields.slug = slugify(fields.name);
-      if ('bonus' in fields && !fields.bonus) fields.bonus = null;
+      const fields = pickBrokerFields(input);
+      if (Object.prototype.hasOwnProperty.call(input, 'slug')) fields.slug = slugify(input.slug);
+      if (Object.prototype.hasOwnProperty.call(input, 'name')) fields.name = String(input.name).trim();
+      if (Object.prototype.hasOwnProperty.call(fields, 'bonus') && !fields.bonus) fields.bonus = null;
+      if (!Object.keys(fields).length) return res.status(400).json({ error: 'No valid broker fields supplied' });
+
       const { data, error } = await supabase
         .from('brokers')
         .update(fields)
@@ -139,6 +154,6 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (err) {
     console.error('brokers API error:', err);
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: 'Unable to process broker request' });
   }
 }
