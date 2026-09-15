@@ -1,33 +1,114 @@
 import type { ReactNode } from 'react';
-import type { Broker } from '../lib/types';
-import type { StructuredBrokerSection } from './PageBuilder';
+import type { Broker, BrokerContent } from '../lib/types';
+import { allInCost, tierLabel } from '../lib/score';
 import { fmtHours, fmtMoney } from '../lib/format';
+import { Check, FlaskConical, Landmark, X } from 'lucide-react';
+
+type Section = 'overview' | 'pricing' | 'trust' | 'platforms' | 'accounts' | 'features' | 'funding' | 'editorial';
 
 type Props = {
   broker: Broker;
-  section?: StructuredBrokerSection;
+  section?: Section;
+  content?: BrokerContent | null;
   editorial?: ReactNode;
   editorialHtml?: string;
 };
 
-function DataRow({ label, value, emphasis = false }: { label: string; value: string; emphasis?: boolean }) {
-  return <div className="flex items-start justify-between gap-5 border-b border-line/70 py-3 last:border-b-0"><span className="text-sm text-slate-500">{label}</span><span className={`max-w-[65%] text-right ${emphasis ? 'font-display text-lg font-bold text-ink-950' : 'font-semibold text-ink-900'}`}>{value || '—'}</span></div>;
+function Shell({ id, children, editorial }: { id?: string; children: ReactNode; editorial?: ReactNode }) {
+  return <section id={id} className="scroll-mt-28 rounded-3xl border border-line bg-white p-6 sm:p-8">{children}{editorial ? <div className="mt-5 border-t border-line pt-5">{editorial}</div> : null}</section>;
 }
-function DataGrid({ children }: { children: ReactNode }) { return <div className="overflow-hidden rounded-2xl border border-line bg-paper px-4 sm:px-5">{children}</div>; }
-function Shell({ eyebrow, title, children, editorial }: { eyebrow: string; title: string; children: ReactNode; editorial?: ReactNode }) {
-  return <section className="rounded-3xl border border-line bg-white p-5 shadow-soft sm:p-7"><div className="flex items-center justify-between gap-4 border-b border-line pb-4"><div><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-700">{eyebrow}</p><h2 className="mt-1 font-display text-2xl font-bold text-ink-950">{title}</h2></div><span className="hidden rounded-full border border-line bg-paper px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 sm:inline-flex">Broker data</span></div><div className="pt-5">{children}{editorial ? <div className="mt-6 border-t border-line pt-5">{editorial}</div> : null}</div></section>;
-}
-function HtmlEditorial({ html }: { html?: string }) { if (!html?.trim()) return null; return <div className="prose prose-slate max-w-none text-[15px] leading-7" dangerouslySetInnerHTML={{ __html: html }} />; }
 
-export default function StructuredBrokerDataCard({ broker, section = 'overview', editorial, editorialHtml }: Props) {
-  if (section === 'pricing') return <Shell eyebrow="Fees & spreads" title="Trading costs" editorial={editorial ?? <HtmlEditorial html={editorialHtml} />}><DataGrid><DataRow label="Minimum deposit" value={fmtMoney(broker.min_deposit)} emphasis /><DataRow label="EUR/USD spread" value={`${broker.spread_eurusd} pips`} emphasis /><DataRow label="Commission" value={broker.commission || '—'} /><DataRow label="Commission per lot" value={broker.commission_value === 0 ? 'None' : `$${broker.commission_value}/lot`} /><DataRow label="Maximum leverage" value={broker.max_leverage || '—'} /><DataRow label="Inactivity fee" value={broker.inactivity_fee || '—'} /></DataGrid></Shell>;
-  if (section === 'trust') return <Shell eyebrow="Regulation & trust" title="Regulation and protection" editorial={editorial ?? <HtmlEditorial html={editorialHtml} />}><DataGrid>{broker.regulations.map((r) => <DataRow key={`${r.body}-${r.country}`} label={r.body} value={`${r.country} · Tier ${r.tier}`} />)}<DataRow label="Trust score" value={`${broker.trust_score}/100`} emphasis /><DataRow label="Segregated funds" value={broker.segregated ? 'Yes' : 'No'} /><DataRow label="Negative balance protection" value={broker.nbp ? 'Yes' : 'No'} /></DataGrid>{broker.risk_warning ? <p className="mt-4 text-xs leading-5 text-slate-500">Risk warning: {broker.risk_warning}</p> : null}</Shell>;
-  if (section === 'platforms') return <Shell eyebrow="Trading platforms" title="Available platforms" editorial={editorial ?? <HtmlEditorial html={editorialHtml} />}><DataGrid>{broker.platforms.map((platform) => <DataRow key={platform} label="Platform" value={platform} />)}</DataGrid></Shell>;
-  if (section === 'features') return <Shell eyebrow="Deposit & withdraw" title="Funding methods" editorial={editorial ?? <HtmlEditorial html={editorialHtml} />}><DataGrid><DataRow label="Payment methods" value={(broker.payments || []).join(' · ')} /><DataRow label="Typical withdrawal time" value={`~${fmtHours(broker.withdrawal_hours)}`} /><DataRow label="Minimum deposit" value={fmtMoney(broker.min_deposit)} /></DataGrid></Shell>;
-  if (section === 'editorial') return <Shell eyebrow="Broker assessment" title={`What we like about ${broker.name}`} editorial={editorial ?? <HtmlEditorial html={editorialHtml} />}><div className="grid gap-6 md:grid-cols-2"><div className="rounded-2xl bg-paper p-5"><h3 className="font-display text-lg font-bold text-ink-950">Pros</h3><ul className="mt-4 space-y-3">{broker.pros.length ? broker.pros.map((item) => <li key={item} className="flex gap-3 text-sm leading-6 text-slate-700"><span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-emerald-600" />{item}</li>) : <li className="text-sm text-slate-500">No pros published yet.</li>}</ul></div><div className="rounded-2xl bg-paper p-5"><h3 className="font-display text-lg font-bold text-ink-950">Cons</h3><ul className="mt-4 space-y-3">{broker.cons.length ? broker.cons.map((item) => <li key={item} className="flex gap-3 text-sm leading-6 text-slate-700"><span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-slate-400" />{item}</li>) : <li className="text-sm text-slate-500">No cons published yet.</li>}</ul></div></div></Shell>;
-  return <Shell eyebrow="Overview" title={`${broker.name} at a glance`} editorial={editorial ?? <HtmlEditorial html={editorialHtml} />}><DataGrid><DataRow label="Rating" value={`${broker.rating.toFixed(1)} / 5`} emphasis /><DataRow label="Trust score" value={`${broker.trust_score}/100`} emphasis /><DataRow label="Minimum deposit" value={fmtMoney(broker.min_deposit)} /><DataRow label="EUR/USD spread" value={`${broker.spread_eurusd} pips`} /><DataRow label="Commission" value={broker.commission || '—'} /><DataRow label="Platforms" value={broker.platforms.join(' · ')} /><DataRow label="Founded" value={String(broker.founded || '—')} /><DataRow label="Headquarters" value={broker.headquarters || '—'} /></DataGrid></Shell>;
+function EditorialHtml({ html }: { html?: string }) {
+  if (!html?.trim()) return null;
+  return <div className="prose prose-slate max-w-none text-[15px] leading-relaxed" dangerouslySetInnerHTML={{ __html: html }} />;
+}
+
+function BoolIcon({ ok }: { ok: boolean }) {
+  return ok
+    ? <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-100 text-emerald-600"><Check size={12} strokeWidth={3} /></span>
+    : <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-100 text-slate-400"><X size={12} strokeWidth={3} /></span>;
+}
+
+export default function StructuredBrokerDataCard({ broker, section = 'overview', content, editorial, editorialHtml }: Props) {
+  const extras = content ?? null;
+  const accountRows = extras?.accounts?.length
+    ? extras.accounts
+    : broker.account_types.map((name) => ({ name, spread_from: `${broker.spread_eurusd} pips`, commission: broker.commission, min_deposit: fmtMoney(broker.min_deposit), best_for: 'Standard conditions' }));
+
+  const editorialContent = editorial ?? <EditorialHtml html={editorialHtml} />;
+
+  if (section === 'editorial') return (
+    <Shell editorial={editorialContent}>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <div><p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Broker assessment</p><h2 className="mt-1 font-display text-2xl font-bold text-ink-900">What we like about {broker.name}</h2></div>
+      </div>
+      <div className="mt-5 grid gap-5 sm:grid-cols-2">
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-5"><p className="text-xs font-bold uppercase tracking-widest text-emerald-700">What we like</p><ul className="mt-3 space-y-2.5">{broker.pros.map((p) => <li key={p} className="flex gap-2.5 text-sm text-slate-700"><Check size={16} className="mt-0.5 shrink-0 text-emerald-600" strokeWidth={3} />{p}</li>)}</ul></div>
+        <div className="rounded-2xl border border-rose-200 bg-rose-50/60 p-5"><p className="text-xs font-bold uppercase tracking-widest text-rose-600">Watch out for</p><ul className="mt-3 space-y-2.5">{broker.cons.map((c) => <li key={c} className="flex gap-2.5 text-sm text-slate-700"><X size={16} className="mt-0.5 shrink-0 text-rose-500" strokeWidth={3} />{c}</li>)}</ul></div>
+      </div>
+    </Shell>
+  );
+
+  if (section === 'pricing') return (
+    <Shell editorial={editorialContent}>
+      <div className="flex flex-wrap items-baseline justify-between gap-2"><div><p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Fees & spread</p><h2 className="mt-1 font-display text-2xl font-bold text-ink-900">Fees & spread analysis</h2></div><span className="tnum text-sm font-bold text-emerald-600">All-in EUR/USD cost: {allInCost(broker)} pips / lot</span></div>
+      <div className="mt-5 overflow-hidden rounded-2xl border border-line">{[
+        { l: 'EUR/USD typical spread', v: `${broker.spread_eurusd} pips` },
+        { l: 'Commission (per lot, round trip)', v: broker.commission_value === 0 ? 'None — spread-only pricing' : `$${broker.commission_value.toFixed(2)}` },
+        { l: 'All-in cost per standard lot', v: `${allInCost(broker)} pips ≈ $${(allInCost(broker) * 10).toFixed(2)}`, hot: true },
+        { l: 'Minimum deposit', v: fmtMoney(broker.min_deposit) },
+        { l: 'Withdrawal fee', v: broker.withdrawal_fee === 0 ? 'Free (most methods)' : `$${broker.withdrawal_fee} on some methods` },
+        { l: 'Inactivity fee', v: broker.inactivity_fee },
+        { l: 'Account types', v: broker.account_types.join(', ') },
+      ].map((row, i) => <div key={row.l} className={`flex flex-col gap-1 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between ${i % 2 === 0 ? 'bg-paper/70' : 'bg-white'} ${row.hot ? 'border-l-4 border-l-emerald-500' : ''}`}><span className="text-sm font-medium text-slate-500">{row.l}</span><span className="text-sm font-bold text-ink-900">{row.v}</span></div>)}</div>
+    </Shell>
+  );
+
+  if (section === 'trust') return (
+    <Shell editorial={editorialContent}>
+      <p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Regulation & safety</p><h2 className="mt-1 font-display text-2xl font-bold text-ink-900">Regulation & safety</h2>
+      <div className="mt-5 overflow-hidden rounded-2xl border border-line"><div className="grid grid-cols-[1fr_auto] gap-2 border-b border-line bg-ink-950 px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 sm:grid-cols-[1fr_1fr_auto]"><span>Regulator</span><span className="hidden sm:block">Jurisdiction</span><span>Licence tier</span></div>{broker.regulations.map((r) => <div key={`${r.body}-${r.country}`} className="grid grid-cols-[1fr_auto] items-center gap-2 px-5 py-3.5 sm:grid-cols-[1fr_1fr_auto]"><span className="flex items-center gap-2.5"><Landmark size={16} className="shrink-0 text-slate-400" /><span><span className="block text-sm font-bold text-ink-900">{r.body}</span><span className="text-xs text-slate-400 sm:hidden">{r.country}</span></span></span><span className="hidden text-sm text-slate-500 sm:block">{r.country}</span><span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${r.tier === 1 ? 'bg-emerald-100 text-emerald-700' : r.tier === 2 ? 'bg-sky-100 text-sky-700' : 'bg-slate-100 text-slate-500'}`}>{tierLabel(r.tier)}</span></div>)}</div>
+      <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">{[
+        ['Negative balance protection', broker.nbp], ['Segregated client funds', broker.segregated], ['Hedging allowed', broker.hedging], ['Scalping allowed', broker.scalping],
+      ].map(([label, ok]) => <div key={String(label)} className="flex items-center gap-2.5 rounded-xl border border-line bg-paper px-3.5 py-3"><BoolIcon ok={Boolean(ok)} /><span className="text-xs font-semibold leading-tight text-slate-600">{label}</span></div>)}</div>
+    </Shell>
+  );
+
+  if (section === 'platforms') return (
+    <Shell editorial={editorialContent}>
+      <p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Trading platforms</p><h2 className="mt-1 font-display text-2xl font-bold text-ink-900">Trading platforms at {broker.name}</h2>
+      <div className="mt-4 flex flex-wrap gap-2">{broker.copy_trading && <span className="rounded-xl bg-emerald-100 px-3.5 py-2 text-xs font-bold text-emerald-700">Copy trading built in</span>}{broker.islamic_account && <span className="rounded-xl bg-violet-100 px-3.5 py-2 text-xs font-bold text-violet-700">Islamic / swap-free accounts</span>}</div>
+      <div className="mt-5 grid gap-3 sm:grid-cols-3">{[
+        ['Median execution', `${broker.execution_ms} ms`], ['Platform uptime (90d)', `${broker.uptime}%`], ['Tradable symbols', Object.values(broker.assets).reduce((a, b) => a + b, 0).toLocaleString()],
+      ].map(([l, v]) => <div key={l} className="rounded-2xl bg-paper p-4 text-center"><p className="tnum font-display text-xl font-bold text-ink-900 sm:text-2xl">{v}</p><p className="mt-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">{l}</p></div>)}</div>
+    </Shell>
+  );
+
+  if (section === 'accounts') return (
+    <Shell editorial={editorialContent}>
+      <div className="flex items-center gap-2.5"><Landmark size={20} className="text-emerald-600" /><h2 className="font-display text-2xl font-bold text-ink-900">Account types</h2></div><p className="mt-2 text-sm text-slate-500">Every retail account on offer, with the real pricing profile for each.</p>
+      <div className="mt-5 grid gap-4 sm:grid-cols-2">{accountRows.map((a) => <div key={a.name} className="rounded-2xl border border-line bg-paper p-5"><div className="flex flex-wrap items-center justify-between gap-2"><p className="font-display text-base font-bold text-ink-900">{a.name}</p><span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-emerald-700 ring-1 ring-emerald-200">{a.best_for}</span></div><div className="mt-3 space-y-1.5">{[['Spread from', a.spread_from], ['Min deposit', a.min_deposit], ['Commission', a.commission]].map(([l, v]) => <div key={l} className="flex items-center justify-between gap-3 text-sm"><span className="text-slate-500">{l}</span><span className="tnum text-right text-sm font-bold text-ink-900">{v}</span></div>)}</div></div>)}</div>
+    </Shell>
+  );
+
+  if (section === 'funding' || section === 'features') return (
+    <Shell editorial={editorialContent}>
+      <div className="flex items-center gap-2.5"><FlaskConical size={20} className="text-emerald-600" /><h2 className="font-display text-2xl font-bold text-ink-900">Deposits & withdrawals, lab-tested</h2></div><p className="mt-2 text-sm text-slate-500">Measured by our desk over a 5-trading-day cycle with a standard live account.</p>
+      <div className="mt-5 grid gap-3 sm:grid-cols-2">{broker.testing.map((t) => <div key={t.label} className="rounded-2xl border border-line bg-paper p-4"><p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">{t.label}</p><p className="tnum mt-1 font-display text-2xl font-bold text-ink-900">{t.result}</p><p className="mt-1 text-xs leading-relaxed text-slate-500">{t.detail}</p></div>)}</div>
+      <div className="mt-7"><p className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-400">Deposits & withdrawals by method</p>{extras?.payments?.length ? <div className="mt-3 overflow-x-auto overflow-y-hidden rounded-2xl border border-line"><div className="min-w-[520px]"><div className="grid grid-cols-[1.1fr_1fr_1.2fr_auto] gap-2 border-b border-line bg-ink-950 px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 sm:px-5"><span>Method</span><span>Deposit</span><span>Withdrawal</span><span className="text-right">Fee</span></div>{extras.payments.map((p) => <div key={p.method} className="grid grid-cols-[1.1fr_1fr_1.2fr_auto] items-center gap-2 px-4 py-3.5 sm:px-5"><span className="text-xs font-bold text-ink-900 sm:text-sm">{p.method}</span><span className="tnum text-xs text-slate-600">{p.deposit}</span><span className="tnum text-xs text-slate-600">{p.withdrawal}</span><span className="text-right"><span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">{p.fee}</span></span></div>)}</div></div> : <div className="mt-2.5 flex flex-wrap gap-2">{broker.payments.map((p) => <span key={p} className="rounded-full border border-line bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-600">{p}</span>)}</div>}<p className="mt-3 text-xs text-slate-400">Deposits: {broker.deposit_time} · Measured average withdrawal: ~{fmtHours(broker.withdrawal_hours)}{broker.bonus ? ` · Active promotion: $${broker.bonus}` : ''}</p></div>
+    </Shell>
+  );
+
+  return (
+    <Shell editorial={editorialContent}>
+      <p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Overview</p><h2 className="mt-1 font-display text-2xl font-bold text-ink-900">Our {broker.name} review</h2>
+      <div className="mt-5 overflow-hidden rounded-2xl border border-line">{[
+        ['Rating', `${broker.rating.toFixed(1)} / 5`], ['Trust score', `${broker.trust_score}/100`], ['Minimum deposit', fmtMoney(broker.min_deposit)], ['EUR/USD spread', `${broker.spread_eurusd} pips`], ['Commission', broker.commission || '—'], ['Platforms', broker.platforms.join(' · ')], ['Founded', String(broker.founded || '—')], ['Headquarters', broker.headquarters || '—'],
+      ].map(([label, value], i) => <div key={label} className={`flex flex-col gap-1 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between ${i % 2 === 0 ? 'bg-paper/70' : 'bg-white'}`}><span className="text-sm font-medium text-slate-500">{label}</span><span className="text-sm font-bold text-ink-900">{value}</span></div>)}</div>
+    </Shell>
+  );
 }
 
 export function structuredBrokerSectionLabels() {
-  return { overview: 'Overview', pricing: 'Fees & spreads', trust: 'Regulation & Trust', platforms: 'Trading Platforms', features: 'Deposit & Withdraw', editorial: 'What we like' } as const;
+  return { overview: 'Overview', pricing: 'Fees & spreads', trust: 'Regulation & Trust', platforms: 'Trading Platforms', accounts: 'Account Types', features: 'Deposit & Withdraw', funding: 'Deposit & Withdraw', editorial: 'What we like' } as const;
 }
