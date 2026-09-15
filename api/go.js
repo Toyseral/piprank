@@ -6,9 +6,9 @@ import { isoToSlug, slugToIso2, parseCookieCountry } from './_lib/geo-map.js';
 // this is hit directly by browsers via the /go/:broker rewrite in
 // vercel.json. It never returns JSON — every path ends in a redirect.
 //
-// Resolver chain (matches the product spec):
-//   broker slug → affiliate resolver → country-specific URL if available
-//   → global URL fallback → (redirect) → affiliate network
+// Resolver chain:
+//   broker slug → country-specific affiliate URL → global affiliate URL
+//   → broker website fallback → redirect.
 const FALLBACK_PATH = '/brokers';
 
 function deviceTypeFromUA(ua) {
@@ -28,7 +28,7 @@ function applyTrackingParams(url, params, clickId) {
     }
     return u.toString();
   } catch {
-    return url; // malformed stored URL — better to send the raw value than 500
+    return url;
   }
 }
 
@@ -46,12 +46,11 @@ export default async function handler(req, res) {
 
     const { data: broker, error: brokerErr } = await supabase
       .from('brokers')
-      .select('id, slug, website, affiliate_url')
+      .select('id, slug, website')
       .eq('slug', brokerSlug)
       .single();
     if (brokerErr || !broker) return redirectTo(FALLBACK_PATH);
 
-    // --- resolve country: explicit on-site pick wins over IP geolocation ---
     const explicitCountry = parseCookieCountry(req.headers.cookie);
     const ipCountryIso = req.headers['x-vercel-ip-country'];
     const ipCountrySlug = isoToSlug(ipCountryIso);
@@ -61,7 +60,6 @@ export default async function handler(req, res) {
     const country = explicitCountry || ipCountrySlug || null;
     const countrySource = explicitCountryCode ? 'explicit' : ipCountryCode ? 'ip_geo' : null;
 
-    // --- resolve affiliate link: country-specific -> global -> legacy fallback ---
     const { data: links } = await supabase
       .from('affiliate_links')
       .select('country_code, affiliate_url, tracking_params, active')
@@ -83,9 +81,6 @@ export default async function handler(req, res) {
       targetUrl = globalRow.affiliate_url;
       trackingParams = globalRow.tracking_params || {};
       resolvedType = 'global';
-    } else if (broker.affiliate_url) {
-      targetUrl = broker.affiliate_url;
-      resolvedType = 'legacy_fallback';
     } else if (broker.website) {
       targetUrl = broker.website;
       resolvedType = 'website_fallback';
@@ -96,7 +91,6 @@ export default async function handler(req, res) {
     const clickId = crypto.randomUUID();
     const finalUrl = applyTrackingParams(targetUrl, trackingParams, clickId);
 
-    // Best-effort logging — never let a tracking failure block the redirect.
     try {
       await supabase.from('redirect_clicks').insert({
         click_id: clickId,
