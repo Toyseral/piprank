@@ -8,7 +8,6 @@ type Props = {
   brokers: Broker[];
   fields?: ComparisonField[];
   title?: string;
-  ctaLabel?: string;
   showCta?: boolean;
 };
 
@@ -62,7 +61,7 @@ export default function PipRankComparisonTable({ brokers, fields, title = 'Broke
           })}
           {showCta && <div className="grid items-center gap-2 border-t border-line bg-paper/60 px-4 py-4 sm:px-5" style={{ gridTemplateColumns: `1.2fr repeat(${brokers.length}, minmax(150px, 1fr))` }}>
             <span className="text-xs font-bold uppercase tracking-wide text-slate-500">Action</span>
-            {brokers.map((b) => <div key={b.id} className="px-1"><VisitButton broker={b} compact className="w-full justify-center" /></div>)}
+            {brokers.map((b) => <div key={b.id} className="px-1"><VisitButton broker={b} ctaVariant="comparison" compact className="w-full justify-center" /></div>)}
           </div>}
         </div>
       </div>
