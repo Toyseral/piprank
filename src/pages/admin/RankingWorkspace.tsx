@@ -33,24 +33,32 @@ export default function RankingWorkspace({ countries, intents, brokers, token }:
   const selectedCountry = useMemo(() => countries.find((item) => item.slug === country) ?? null, [countries, country]);
   const selectedIntent = useMemo(() => intents.find((item) => item.slug === intent) ?? null, [intents, intent]);
 
-  const load = useCallback(async () => {
+  const loadRows = useCallback(async () => {
     if (!selectedCountry || !selectedIntent) return;
     setLoading(true);
-    setMessage('');
     try {
-      const [rankingResponse, modeResponse] = await Promise.all([
-        fetch(`/api/country-intent-rankings?country=${encodeURIComponent(country)}&intent=${encodeURIComponent(intent)}`),
-        supabase.rpc('get_country_intent_ranking_mode', { p_country_id: selectedCountry.id, p_intent_id: selectedIntent.id }),
-      ]);
-      const rankingRows = await readJson<CountryIntentBrokerRanking[]>(rankingResponse, []);
+      const response = await fetch(`/api/country-intent-rankings?country=${encodeURIComponent(country)}&intent=${encodeURIComponent(intent)}`);
+      const rankingRows = await readJson<CountryIntentBrokerRanking[]>(response, []);
       if (Array.isArray(rankingRows)) setRows(rankingRows);
-      setMode(!modeResponse.error && (modeResponse.data === 'automatic' || modeResponse.data === 'manual') ? modeResponse.data : 'automatic');
     } finally {
       setLoading(false);
     }
   }, [country, intent, selectedCountry, selectedIntent]);
 
-  useEffect(() => { void load(); }, [load]);
+  const loadMode = useCallback(async () => {
+    if (!selectedCountry || !selectedIntent) return;
+    const { data, error } = await supabase.rpc('get_country_intent_ranking_mode', {
+      p_country_id: selectedCountry.id,
+      p_intent_id: selectedIntent.id,
+    });
+    if (!error && (data === 'automatic' || data === 'manual')) setMode(data);
+  }, [selectedCountry, selectedIntent]);
+
+  useEffect(() => {
+    if (!selectedCountry || !selectedIntent) return;
+    setMessage('');
+    void Promise.all([loadRows(), loadMode()]);
+  }, [selectedCountry, selectedIntent, loadRows, loadMode]);
 
   const brokerName = useMemo(() => {
     const map = new Map<number, string>();
@@ -61,7 +69,7 @@ export default function RankingWorkspace({ countries, intents, brokers, token }:
   const setRankingMode = async (nextMode: RankingMode) => {
     if (!selectedCountry || !selectedIntent || nextMode === mode) return;
     setSavingMode(true);
-    setMessage('');
+    setMessage('Saving ranking mode…');
     const { error } = await supabase.rpc('set_country_intent_ranking_mode', {
       p_country_id: selectedCountry.id,
       p_intent_id: selectedIntent.id,
@@ -72,10 +80,14 @@ export default function RankingWorkspace({ countries, intents, brokers, token }:
       setSavingMode(false);
       return;
     }
+
+    // Commit the UI state from the successful write. Do not call the combined
+    // loader here because a stale/read-after-write response could overwrite
+    // the just-saved mode with the default automatic value.
     setMode(nextMode);
     setMessage(nextMode === 'manual' ? 'Manual ranking enabled and seeded from the current automatic order.' : 'Automatic ranking restored.');
     setSavingMode(false);
-    await load();
+    await loadRows();
   };
 
   const putManualRank = async (row: CountryIntentBrokerRanking, nextRank: number) => {
@@ -107,7 +119,7 @@ export default function RankingWorkspace({ countries, intents, brokers, token }:
     if (!ok) setMessage('Could not save manual rank.');
     else setMessage('Manual order saved.');
     setSavingRank(null);
-    if (ok) await load();
+    if (ok) await loadRows();
   };
 
   const move = async (index: number, direction: -1 | 1) => {
@@ -125,7 +137,7 @@ export default function RankingWorkspace({ countries, intents, brokers, token }:
     if (!firstOk || !secondOk) setMessage('Could not save the new broker order.');
     else setMessage('Manual order saved.');
     setSavingRank(null);
-    await load();
+    await loadRows();
   };
 
   return (
