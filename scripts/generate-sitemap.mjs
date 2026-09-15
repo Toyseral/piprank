@@ -9,6 +9,7 @@ import { requireSiteUrlForProduction } from './seo-config.mjs';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DIST = join(__dirname, '..', 'dist');
 const MAX_BROKERS_FOR_PAIRS = 12;
+const CANONICAL_CONTENT_TYPES = ['guide', 'global-best-for', 'country-guide', 'country-best-for', 'localized-guide', 'localized-best-for'];
 
 function escXml(value) {
   return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;').replace(/'/g, '&apos;');
@@ -37,8 +38,8 @@ async function main() {
 
   const [brokersResult, countriesResult, documentsResult] = await Promise.all([
     supabase.from('brokers').select('slug, rating, updated_at'),
-    supabase.from('countries').select('id, slug, recommended, updated_at'),
-    supabase.from('content_documents').select('content_type, country_slug, topic_slug, slug, published, indexable, updated_at, content_key, settings').eq('published', true).eq('indexable', true),
+    supabase.from('countries').select('id, slug, recommended, updated_at, publishing_state'),
+    supabase.from('content_documents').select('content_type, country_slug, topic_slug, slug, published, indexable, updated_at, content_key, settings').in('content_type', CANONICAL_CONTENT_TYPES).eq('published', true).eq('indexable', true),
   ]);
   for (const result of [brokersResult, countriesResult, documentsResult]) {
     if (result.error) throw new Error(`[generate-sitemap] Supabase query failed: ${result.error.message}`);
@@ -49,7 +50,7 @@ async function main() {
   const documents = documentsResult.data ?? [];
 
   for (const broker of brokers) if (broker.slug) urls.push({ loc: `/brokers/${broker.slug}`, lastmod: cleanDate(broker.updated_at) });
-  for (const country of countries) if (country.slug) urls.push({ loc: `/${country.slug}`, lastmod: cleanDate(country.updated_at) });
+  for (const country of countries) if (country.slug && country.publishing_state === 'published') urls.push({ loc: `/${country.slug}`, lastmod: cleanDate(country.updated_at) });
 
   for (const document of documents) {
     if (!document.slug) continue;
@@ -73,8 +74,8 @@ async function main() {
       const locale = documentLocale(document);
       if (!locale) continue;
       const path = document.content_type === 'localized-guide'
-        ? `/${document.country_slug}/${locale}/guides/${document.slug}`
-        : `/${document.country_slug}/${locale}/${document.slug}`;
+        ? `/${document.country_slug}/${encodeURIComponent(locale)}/guides/${document.slug}`
+        : `/${document.country_slug}/${encodeURIComponent(locale)}/${document.slug}`;
       urls.push({ loc: path, lastmod: cleanDate(document.updated_at) });
     }
   }
