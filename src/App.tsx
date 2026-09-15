@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { BrowserRouter, Route, Routes, useLocation } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { Analytics } from '@vercel/analytics/react';
 import Footer from './components/Footer';
 import Navbar from './components/Navbar';
@@ -11,7 +11,6 @@ import { GeoProvider } from './lib/GeoContext';
 const SmartCTA = lazy(() => import('./components/SmartCTA'));
 const About = lazy(() => import('./pages/About'));
 const Admin = lazy(() => import('./pages/Admin'));
-const RankingAdmin = lazy(() => import('./pages/RankingAdmin'));
 const Authors = lazy(() => import('./pages/Authors'));
 const CanonicalHub = lazy(() => import('./pages/CanonicalHub'));
 const LegacyBestForRedirect = lazy(() => import('./pages/LegacyBestForRedirect'));
@@ -39,7 +38,7 @@ export function Shell() {
           <Route path="/authors" element={<Authors />} />
           <Route path="/promotions" element={<Promotions />} />
           <Route path="/archypage" element={<Admin />} />
-          <Route path="/archypage/rankings" element={<RankingAdmin />} />
+          <Route path="/archypage/rankings" element={<Navigate to="/archypage#tab=countries" replace />} />
           <Route path="/best/:slug" element={<LegacyBestForRedirect />} />
           <Route path="/countries/:countrySlug/best/:slug" element={<LegacyCountryBestForRedirect />} />
           <Route path="/:countrySlug/best-low-spread-forex-brokers" element={<LegacyCountryBestForRedirect />} />
