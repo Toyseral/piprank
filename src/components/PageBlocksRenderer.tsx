@@ -33,7 +33,7 @@ export default function PageBlocksRenderer({ blocks, brokers, intent, countrySlu
         if (block.type === 'structured_broker_data') {
           const broker = brokers.find((b) => b.id === Number(block.brokerId));
           if (!broker) return null;
-          return <StructuredBrokerDataCard key={block.id || index} broker={broker} section={block.section} />;
+          return <StructuredBrokerDataCard key={block.id || index} broker={broker} section={block.section} editorialHtml={block.html} />;
         }
         if (block.type === 'broker_card') {
           const broker = brokers.find((b) => b.id === Number(block.brokerId));
