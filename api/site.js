@@ -8,14 +8,6 @@ const MEDIA_WRITE = ['super_admin', 'admin', 'brokers_admin'];
 const SUBSCRIBER_ACCESS = ['super_admin', 'admin', 'moderator'];
 const PROMO_WRITE = ['super_admin', 'admin', 'content_admin'];
 
-function cors(res, methods) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', `${methods}, OPTIONS`);
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  if (res.req?.method === 'OPTIONS') return true;
-  return false;
-}
-
 async function findAuthUserId(email) {
   const clean = String(email).toLowerCase();
   for (let page = 1; page <= 10; page++) {
@@ -28,17 +20,12 @@ async function findAuthUserId(email) {
   return null;
 }
 
-
 async function geo(req, res) {
   const cookieSlug = parseCookieCountry(req.headers.cookie);
   const ipIso = String(req.headers['x-vercel-ip-country'] ?? req.headers['cf-ipcountry'] ?? '').trim().toUpperCase() || null;
   const cookieIso = cookieSlug ? slugToIso2(cookieSlug) : null;
   const slug = cookieSlug || isoToSlug(ipIso);
-  return res.status(200).json({
-    slug: slug ?? null,
-    iso2: cookieIso || ipIso || null,
-    source: cookieSlug ? 'manual' : ipIso ? 'ip_geo' : 'none',
-  });
+  return res.status(200).json({ slug: slug ?? null, iso2: cookieIso || ipIso || null, source: cookieSlug ? 'manual' : ipIso ? 'ip_geo' : 'none' });
 }
 
 async function adminUsers(req, res) {
@@ -50,7 +37,6 @@ async function adminUsers(req, res) {
     const { data: rows } = await supabase.from('admin_users').select('role').eq('email', data.user.email.toLowerCase()).eq('active', true).limit(1);
     return res.status(200).json({ email: data.user.email, role: rows?.[0]?.role ?? null });
   }
-
   const me = await requireRole(req, res, ['super_admin']);
   if (!me) return;
   if (req.method === 'GET') {
@@ -73,8 +59,8 @@ async function adminUsers(req, res) {
         const uid = await findAuthUserId(clean);
         if (!uid) return res.status(500).json({ error: 'Auth account exists but could not be resolved' });
         const { error: upErr } = await supabase.auth.admin.updateUserById(uid, { password: pwd });
-        if (upErr) return res.status(500).json({ error: upErr.message });
-      } else return res.status(500).json({ error: `Could not create login: ${createErr.message}` });
+        if (upErr) return res.status(500).json({ error: 'Could not update login' });
+      } else return res.status(500).json({ error: 'Could not create login' });
     }
     const { data, error } = await supabase.from('admin_users').insert({ email: clean, role, active: true }).select().single();
     if (error) throw error;
@@ -99,7 +85,7 @@ async function adminUsers(req, res) {
       const pwd = String(password);
       if (pwd.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters', user: data });
       const uid = await findAuthUserId(target.email);
-      if (uid) { const { error } = await supabase.auth.admin.updateUserById(uid, { password: pwd }); if (error) return res.status(500).json({ error: error.message }); }
+      if (uid) { const { error } = await supabase.auth.admin.updateUserById(uid, { password: pwd }); if (error) return res.status(500).json({ error: 'Could not update password' }); }
     }
     return res.status(200).json(data);
   }
@@ -118,6 +104,17 @@ async function adminUsers(req, res) {
   return res.status(405).json({ error: 'Method not allowed' });
 }
 
+function decodeUpload(fileBase64, contentType) {
+  const buffer = Buffer.from(String(fileBase64), 'base64');
+  if (buffer.length === 0 || buffer.length > 512_000) return null;
+  const signatures = {
+    'image/png': (b) => b.subarray(0, 8).equals(Buffer.from([137,80,78,71,13,10,26,10])),
+    'image/jpeg': (b) => b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff,
+    'image/webp': (b) => b.subarray(0, 4).toString('ascii') === 'RIFF' && b.subarray(8, 12).toString('ascii') === 'WEBP',
+  };
+  return signatures[contentType]?.(buffer) ? buffer : null;
+}
+
 async function logoUpload(req, res) {
   const allowed = await requireRole(req, res, MEDIA_WRITE);
   if (!allowed) return;
@@ -125,11 +122,12 @@ async function logoUpload(req, res) {
   const { brokerId, fileName, fileBase64, contentType } = req.body ?? {};
   if (!brokerId || !fileBase64 || !fileName) return res.status(400).json({ error: 'brokerId, fileName and fileBase64 are required' });
   const ext = String(fileName).split('.').pop()?.toLowerCase() || 'png';
-  if (!['png', 'jpg', 'jpeg', 'svg', 'webp'].includes(ext)) return res.status(400).json({ error: 'Only PNG, JPG, SVG or WebP images are allowed' });
-  if (String(fileBase64).length > 700_000) return res.status(400).json({ error: 'Logo too large — keep under ~500 KB' });
-  const path = `broker-${Number(brokerId)}-${Date.now()}.${ext}`;
-  const buffer = Buffer.from(String(fileBase64), 'base64');
-  const { error: upErr } = await supabase.storage.from('broker-logos').upload(path, buffer, { contentType: contentType || `image/${ext === 'jpg' ? 'jpeg' : ext}`, upsert: true });
+  const mimeByExt = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp' };
+  if (!mimeByExt[ext] || String(contentType || '').toLowerCase() !== mimeByExt[ext]) return res.status(400).json({ error: 'Only valid PNG, JPG or WebP images are allowed' });
+  const buffer = decodeUpload(fileBase64, mimeByExt[ext]);
+  if (!buffer) return res.status(400).json({ error: 'Invalid or oversized image' });
+  const path = `broker-${Number(brokerId)}-${Date.now()}-${crypto.randomBytes(4).toString('hex')}.${ext}`;
+  const { error: upErr } = await supabase.storage.from('broker-logos').upload(path, buffer, { contentType: mimeByExt[ext], upsert: true });
   if (upErr) throw upErr;
   const { data: urlData } = supabase.storage.from('broker-logos').getPublicUrl(path);
   const url = urlData.publicUrl;
@@ -215,8 +213,6 @@ async function promotions(req, res) {
 }
 
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   const resource = String(req.query?.resource ?? '');
   if (req.method === 'OPTIONS') return res.status(204).end();
   try {
@@ -228,6 +224,6 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Unknown resource' });
   } catch (err) {
     console.error(`site API (${resource}) error:`, err);
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: 'Internal server error' });
   }
 }
