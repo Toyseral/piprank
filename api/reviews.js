@@ -17,12 +17,15 @@ function setCors(res) {
 function clientKey(req) {
   return String(req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || 'unknown').split(',')[0].trim().slice(0, 80);
 }
-function voterIp(req) {
-  return clientKey(req) || 'unknown';
+function voterFingerprint(req) {
+  const ip = clientKey(req) || 'unknown';
+  const ua = String(req.headers['user-agent'] || 'unknown').slice(0, 300);
+  const secret = process.env.REVIEW_VOTE_HASH_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || SITE_ORIGIN;
+  return crypto.createHash('sha256').update(`${secret}:${ip}:${ua}`).digest('hex');
 }
 function ipHash(req) {
   const secret = process.env.REVIEW_VOTE_HASH_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || SITE_ORIGIN;
-  return crypto.createHash('sha256').update(`${secret}:${voterIp(req)}`).digest('hex');
+  return crypto.createHash('sha256').update(`${secret}:${clientKey(req) || 'unknown'}`).digest('hex');
 }
 
 export default async function handler(req, res) {
@@ -89,9 +92,9 @@ export default async function handler(req, res) {
         return res.status(200).json(data);
       }
 
-      const voterKey = String(body.voter_key || '').trim();
-      if (voterKey.length < 16 || voterKey.length > 128) return res.status(400).json({ error: 'A valid voter key is required' });
-      const rateKey = `${ipHash(req)}:${voterKey}`;
+      const voterKey = String(body.voter_key || '').trim() || voterFingerprint(req);
+      const fingerprint = ipHash(req);
+      const rateKey = `${fingerprint}:${voterKey}`;
       const now = Date.now();
       const previous = recentHelpfulVotes.get(rateKey) || 0;
       if (now - previous < 5_000) return res.status(429).json({ error: 'Please wait before voting again' });
@@ -101,7 +104,7 @@ export default async function handler(req, res) {
       const { data: rpcResult, error: rpcError } = await supabase.rpc('increment_review_helpful', {
         review_id: Number(id),
         voter_key: voterKey,
-        ip_hash: ipHash(req),
+        ip_hash: fingerprint,
       });
       if (rpcError) {
         console.error('review helpful RPC error:', rpcError);
