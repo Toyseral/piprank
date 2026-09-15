@@ -1,5 +1,5 @@
 import { ExternalLink, LogOut, SlidersHorizontal } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, NavLink } from 'react-router-dom';
 import type { Session } from '@supabase/supabase-js';
 
 type Tab = {
@@ -51,10 +51,9 @@ export default function AdminSidebar({ session, role, tabs, activeTab, counts, r
           ))}
 
           {canManageRankings && (
-            <Link to="/archypage/rankings" className="mt-2 flex w-full items-center gap-3 rounded-xl border border-emerald-100 bg-emerald-50 px-3.5 py-2.5 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-100">
-              <SlidersHorizontal size={16} className="text-emerald-600" />
-              Manual Ranking
-            </Link>
+            <NavLink to="/archypage/rankings" className={({ isActive }) => `flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-semibold transition ${isActive ? 'bg-ink-950 text-white shadow-sm' : 'text-slate-500 hover:bg-paper hover:text-ink-900'}`}>
+              {({ isActive }) => <><SlidersHorizontal size={16} className={isActive ? 'text-emerald-400' : 'text-slate-400'} />Manual Ranking</>}
+            </NavLink>
           )}
         </nav>
 
@@ -76,10 +75,10 @@ export default function AdminSidebar({ session, role, tabs, activeTab, counts, r
 
       {canManageRankings && (
         <div className="border-b border-line bg-white px-4 py-2 lg:hidden">
-          <Link to="/archypage/rankings" className="flex items-center justify-center gap-2 rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2.5 text-sm font-bold text-emerald-800">
-            <SlidersHorizontal size={16} className="text-emerald-600" />
+          <NavLink to="/archypage/rankings" className={({ isActive }) => `flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold ${isActive ? 'bg-ink-950 text-white' : 'border border-line bg-white text-slate-600'}`}>
+            <SlidersHorizontal size={16} />
             Manual Ranking
-          </Link>
+          </NavLink>
         </div>
       )}
     </>
