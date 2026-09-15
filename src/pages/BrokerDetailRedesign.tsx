@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { BadgeCheck, Building2, CircleDollarSign, Globe2, Monitor, ShieldCheck } from 'lucide-react';
+import { BadgeCheck, Building2, CircleDollarSign, Download, Globe2, Monitor, ShieldCheck } from 'lucide-react';
 import type { Broker, BrokerContent, ContentDocument, Review } from '../lib/types';
 import type { PageBlock } from '../components/PageBuilder';
 import { fetchBroker, fetchBrokerContent, fetchContentDocument, fetchReviews } from '../lib/api';
@@ -9,23 +9,74 @@ import { pipRankScore } from '../lib/score';
 import BrokerCard from '../components/BrokerCard';
 import PageBlocksRenderer from '../components/PageBlocksRenderer';
 import PipRankVerdictCard from '../components/PipRankVerdictCard';
+import StructuredBrokerDataCard from '../components/StructuredBrokerDataCard';
 import VisitButton from '../components/VisitButton';
 import MatchCTA from '../components/piprank/MatchCTA';
 import { useSEO } from '../hooks/useSEO';
 
-function FixedDataCard({ title, icon, children }: { title: string; icon: ReactNode; children: ReactNode }) {
-  return <section className="rounded-3xl border border-line bg-white p-5 shadow-soft sm:p-6"><div className="flex items-center gap-3 border-b border-line pb-4"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">{icon}</span><h2 className="font-display text-xl font-bold text-ink-950">{title}</h2></div><div className="pt-5">{children}</div></section>;
-}
-
 function TextList({ items }: { items?: string[] }) {
   const values = (items ?? []).filter(Boolean);
-  if (!values.length) return <p className="text-sm text-slate-500">No editorial information has been published for this section yet.</p>;
+  if (!values.length) return null;
   return <div className="space-y-3">{values.map((text, i) => <p key={`${i}-${text.slice(0, 20)}`} className="text-[15px] leading-7 text-slate-700">{text}</p>)}</div>;
 }
 
-function SystemFacts({ broker }: { broker: Broker }) {
-  const facts = [['Rating', `${broker.rating.toFixed(1)} / 5`], ['Trust score', `${broker.trust_score}/100`], ['Minimum deposit', fmtMoney(broker.min_deposit)], ['EUR/USD spread', `${broker.spread_eurusd} pips`], ['Maximum leverage', broker.max_leverage], ['Founded', String(broker.founded)]];
-  return <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{facts.map(([label, value]) => <div key={label} className="rounded-2xl bg-paper px-4 py-3"><p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</p><p className="mt-1 font-semibold text-ink-900">{value}</p></div>)}</div>;
+function HeroFacts({ broker }: { broker: Broker }) {
+  const facts = [
+    ['Platform', broker.platforms.slice(0, 2).join(' · ') || '—'],
+    ['Min deposit', fmtMoney(broker.min_deposit)],
+    ['Trust score', `${broker.trust_score}/100`],
+    ['EUR/USD spread', `${broker.spread_eurusd} pips`],
+  ];
+  return (
+    <div className="mt-6 grid max-w-3xl grid-cols-2 gap-2 sm:grid-cols-4">
+      {facts.map(([label, value]) => (
+        <div key={label} className="rounded-2xl border border-white/10 bg-white/[0.07] px-3 py-3 backdrop-blur-sm">
+          <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400">{label}</p>
+          <p className="mt-1 text-sm font-bold text-white">{value}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function EditorialZone({ blocks, zone, broker }: { blocks: PageBlock[]; zone: string; broker: Broker }) {
+  const zoneBlocks = blocks.filter((b: any) => b.zone === zone);
+  if (!zoneBlocks.length) return null;
+  return <PageBlocksRenderer blocks={zoneBlocks} brokers={[broker]} className="mt-6 space-y-5" />;
+}
+
+function SectionShell({ id, eyebrow, title, icon, children }: { id: string; eyebrow: string; title: string; icon: ReactNode; children: ReactNode }) {
+  return (
+    <section id={id} className="scroll-mt-28 rounded-3xl border border-line bg-white p-5 shadow-soft sm:p-7">
+      <div className="flex items-start gap-4 border-b border-line pb-5">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">{icon}</span>
+        <div><p className="text-xs font-bold uppercase tracking-[0.16em] text-emerald-700">{eyebrow}</p><h2 className="mt-1 font-display text-2xl font-bold text-ink-950">{title}</h2></div>
+      </div>
+      <div className="pt-6">{children}</div>
+    </section>
+  );
+}
+
+function AnchorNav() {
+  const links = [
+    ['overview', 'Overview'],
+    ['what-we-like', 'What we like'],
+    ['fees', 'Fees & spreads'],
+    ['trust', 'Regulation & trust'],
+    ['accounts', 'Account types'],
+    ['platforms', 'Trading platforms'],
+    ['funding', 'Deposit & withdraw'],
+    ['reviews', 'Reviews'],
+    ['faq', 'FAQ'],
+  ];
+  return (
+    <nav aria-label="On this page" className="rounded-3xl border border-line bg-white p-4 shadow-soft sm:p-5">
+      <div className="flex items-center justify-between gap-4"><p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">On this page</p><span className="text-xs text-slate-400">Jump to section</span></div>
+      <div className="mt-4 flex gap-2 overflow-x-auto pb-1 lg:grid lg:grid-cols-1 lg:overflow-visible">
+        {links.map(([id, label]) => <a key={id} href={`#${id}`} className="shrink-0 rounded-xl bg-paper px-3 py-2 text-sm font-semibold text-slate-600 transition hover:bg-emerald-50 hover:text-emerald-700">{label}</a>)}
+      </div>
+    </nav>
+  );
 }
 
 export default function BrokerDetailRedesign() {
@@ -64,38 +115,81 @@ export default function BrokerDetailRedesign() {
   const score = pipRankScore(broker);
 
   return <main className="bg-paper">
-    <section className="border-b border-line bg-ink-950 text-white"><div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
-      <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-400"><Link to="/brokers" className="hover:text-white">Broker Reviews</Link><span>/</span><span>{broker.name}</span></div>
-      <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_auto] lg:items-end"><div>
-        <div className="flex flex-wrap items-center gap-3"><div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl bg-white p-2">{broker.logo_url ? <img src={broker.logo_url} alt={`${broker.name} logo`} className="h-full w-full object-contain" /> : <span className="font-display text-xl font-bold text-ink-950">{broker.name.slice(0, 2).toUpperCase()}</span>}</div><div><p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-300">Broker review</p><h1 className="mt-1 font-display text-4xl font-bold tracking-tight sm:text-5xl">{broker.name}</h1></div></div>
-        <p className="mt-5 max-w-3xl text-base leading-7 text-slate-300 sm:text-lg">{broker.tagline}</p>
-        <div className="mt-5 flex flex-wrap gap-2">{broker.regulations.slice(0, 4).map((r) => <span key={`${r.body}-${r.country}`} className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-slate-200"><BadgeCheck size={13} className="text-emerald-300" />{r.body}</span>)}</div>
-      </div><div className="rounded-3xl border border-white/10 bg-white/5 p-5 lg:min-w-[260px]"><p className="text-xs font-bold uppercase tracking-wider text-slate-400">PipRank score</p><p className="mt-1 font-display text-4xl font-bold text-emerald-300">{score}<span className="text-sm text-slate-400">/100</span></p><div className="mt-4"><VisitButton broker={broker} className="w-full justify-center" /></div></div></div>
-    </div></section>
+    <section className="border-b border-line bg-ink-950 text-white">
+      <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
+        <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-400"><Link to="/brokers" className="hover:text-white">Broker Reviews</Link><span>/</span><span>{broker.name}</span></div>
+        <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_280px] lg:items-end">
+          <div>
+            <div className="flex flex-wrap items-center gap-3"><div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl bg-white p-2">{broker.logo_url ? <img src={broker.logo_url} alt={`${broker.name} logo`} className="h-full w-full object-contain" /> : <span className="font-display text-xl font-bold text-ink-950">{broker.name.slice(0, 2).toUpperCase()}</span>}</div><div><p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-300">Broker review</p><h1 className="mt-1 font-display text-4xl font-bold tracking-tight sm:text-5xl">{broker.name}</h1></div></div>
+            <p className="mt-5 max-w-3xl text-base leading-7 text-slate-300 sm:text-lg">{broker.tagline}</p>
+            <div className="mt-4 flex flex-wrap gap-2">{broker.regulations.slice(0, 4).map((r) => <span key={`${r.body}-${r.country}`} className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-slate-200"><BadgeCheck size={13} className="text-emerald-300" />{r.body}</span>)}</div>
+            <HeroFacts broker={broker} />
+          </div>
+          <div className="rounded-3xl border border-white/10 bg-white/[0.06] p-5">
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-400">PipRank score</p><p className="mt-1 font-display text-4xl font-bold text-emerald-300">{score}<span className="text-sm text-slate-400">/100</span></p>
+            <p className="mt-2 text-xs leading-5 text-slate-400">A summary of trust, cost, accessibility, broker health and overall rating.</p>
+            <div className="mt-4"><VisitButton broker={broker} className="w-full justify-center" /></div>
+          </div>
+        </div>
+      </div>
+    </section>
 
-    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12"><div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_300px]"><div className="min-w-0 space-y-8">
-      <section id="overview" className="rounded-3xl border border-line bg-white p-5 shadow-soft sm:p-7"><div className="flex items-center justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-wider text-emerald-700">Overview</p><h2 className="mt-1 font-display text-2xl font-bold text-ink-950">{broker.name} at a glance</h2></div><Globe2 className="text-slate-300" /></div><div className="mt-6"><SystemFacts broker={broker} /></div><div className="mt-6"><TextList items={content?.overview ?? broker.review} /></div></section>
+    <div className="mx-auto max-w-6xl px-4 py-7 sm:px-6 sm:py-12">
+      <div className="mb-8 lg:hidden"><AnchorNav /></div>
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_300px]">
+        <div className="min-w-0 space-y-8">
+          <SectionShell id="overview" eyebrow="Overview" title={`${broker.name} at a glance`} icon={<Globe2 size={19} />}>
+            <TextList items={content?.overview ?? broker.review} />
+            {!content?.overview?.length && !broker.review && <StructuredBrokerDataCard broker={broker} section="overview" />}
+            <div className="mt-6"><PipRankVerdictCard broker={broker} text={content?.verdict?.join(' ')} /></div>
+          </SectionShell>
 
-      <PipRankVerdictCard broker={broker} text={content?.verdict?.join(' ')} />
-      {editorial.length > 0 && <PageBlocksRenderer blocks={editorial} brokers={[broker]} className="space-y-6" />}
+          <section id="what-we-like" className="scroll-mt-28"><StructuredBrokerDataCard broker={broker} section="editorial" /></section>
 
-      <section id="pricing"><FixedDataCard title="Pricing & trading costs" icon={<CircleDollarSign size={19} />}><div className="grid gap-3 sm:grid-cols-2"><div><span className="text-xs text-slate-500">Minimum deposit</span><strong className="mt-1 block text-lg">{fmtMoney(broker.min_deposit)}</strong></div><div><span className="text-xs text-slate-500">EUR/USD spread</span><strong className="mt-1 block text-lg">{broker.spread_eurusd} pips</strong></div><div><span className="text-xs text-slate-500">Commission</span><strong className="mt-1 block text-lg">{broker.commission || '—'}</strong></div><div><span className="text-xs text-slate-500">Inactivity fee</span><strong className="mt-1 block text-lg">{broker.inactivity_fee || '—'}</strong></div></div><div className="mt-5"><TextList items={content?.fees_detail} /></div><PageBlocksRenderer blocks={blocks.filter((b: any) => b.zone === 'pricing-content')} brokers={[broker]} className="mt-5 space-y-5" /></FixedDataCard></section>
+          <SectionShell id="fees" eyebrow="Fees & spreads" title="What it costs to trade" icon={<CircleDollarSign size={19} />}>
+            <StructuredBrokerDataCard broker={broker} section="pricing" />
+            <TextList items={content?.fees_detail} />
+            <EditorialZone blocks={blocks} zone="pricing-content" broker={broker} />
+          </SectionShell>
 
-      <section id="platforms"><FixedDataCard title="Trading platforms" icon={<Monitor size={19} />}><div className="flex flex-wrap gap-2">{broker.platforms.map((platform) => <span key={platform} className="rounded-full border border-line bg-paper px-3 py-2 text-sm font-bold">{platform}</span>)}</div><div className="mt-5"><TextList items={content?.platform_intro} /></div><PageBlocksRenderer blocks={blocks.filter((b: any) => b.zone === 'platform-content')} brokers={[broker]} className="mt-5 space-y-5" /></FixedDataCard></section>
+          <SectionShell id="trust" eyebrow="Regulation & trust" title="How the broker is regulated" icon={<ShieldCheck size={19} />}>
+            <StructuredBrokerDataCard broker={broker} section="trust" />
+            <TextList items={content?.regulation_detail} />
+            <EditorialZone blocks={blocks} zone="trust-content" broker={broker} />
+          </SectionShell>
 
-      <section id="trust"><FixedDataCard title="Trust & regulation" icon={<ShieldCheck size={19} />}><div className="grid gap-3 sm:grid-cols-2">{broker.regulations.map((r) => <div key={`${r.body}-${r.country}`} className="rounded-2xl bg-paper p-4"><p className="font-bold text-ink-950">{r.body}</p><p className="mt-1 text-xs text-slate-500">{r.country} · Tier {r.tier}</p></div>)}</div><div className="mt-5"><TextList items={content?.regulation_detail} /></div><PageBlocksRenderer blocks={blocks.filter((b: any) => b.zone === 'trust-content')} brokers={[broker]} className="mt-5 space-y-5" /></FixedDataCard></section>
+          <SectionShell id="accounts" eyebrow="Account types" title="Choose the account that fits" icon={<Building2 size={19} />}>
+            <div className="grid gap-3 sm:grid-cols-2">{broker.account_types.map((account) => <div key={account} className="rounded-2xl border border-line bg-paper p-4 text-sm font-bold text-ink-950">{account}</div>)}</div>
+            <div className="mt-5"><TextList items={content?.accounts_intro} /></div>
+            <EditorialZone blocks={blocks} zone="account-content" broker={broker} />
+          </SectionShell>
 
-      <FixedDataCard title="Account types & funding" icon={<Building2 size={19} />}><div className="grid gap-3 sm:grid-cols-2">{broker.account_types.map((account) => <div key={account} className="rounded-2xl border border-line p-4 text-sm font-semibold">{account}</div>)}</div><div className="mt-5"><TextList items={content?.accounts_intro} /></div><TextList items={content?.funding_intro} /></FixedDataCard>
+          <SectionShell id="platforms" eyebrow="Trading platforms" title="Where you can trade" icon={<Monitor size={19} />}>
+            <StructuredBrokerDataCard broker={broker} section="platforms" />
+            <TextList items={content?.platform_intro} />
+            <EditorialZone blocks={blocks} zone="platform-content" broker={broker} />
+          </SectionShell>
 
-      <PipRankVerdictCard broker={broker} headline={`Why consider ${broker.name}?`} text={content?.why_recommend?.join(' ')} showCta={false} />
+          <SectionShell id="funding" eyebrow="Deposit & withdraw" title="Funding your account" icon={<Download size={19} />}>
+            <StructuredBrokerDataCard broker={broker} section="features" />
+            <div className="mt-5"><TextList items={content?.funding_intro} /></div>
+            <EditorialZone blocks={blocks} zone="funding-content" broker={broker} />
+          </SectionShell>
 
-      {reviews.length > 0 && <section className="rounded-3xl border border-line bg-white p-5 shadow-soft sm:p-7"><p className="text-xs font-bold uppercase tracking-wider text-emerald-700">Trader reviews</p><h2 className="mt-1 font-display text-2xl font-bold">What traders say about {broker.name}</h2><div className="mt-6 space-y-4">{reviews.slice(0, 6).map((review) => <article key={review.id} className="rounded-2xl bg-paper p-4"><div className="flex items-center justify-between gap-3"><strong>{review.title || `${review.rating}/5 review`}</strong><span className="text-sm font-bold">{review.rating}/5</span></div><p className="mt-2 text-sm leading-6 text-slate-600">{review.body}</p><p className="mt-3 text-xs font-semibold text-slate-400">{review.author} · {review.country}</p></article>)}</div></section>}
+          {editorial.length > 0 && <section className="scroll-mt-28"><p className="mb-4 text-xs font-bold uppercase tracking-[0.16em] text-emerald-700">More from PipRank</p><PageBlocksRenderer blocks={editorial} brokers={[broker]} className="space-y-6" /></section>}
 
-      {faqs.length > 0 && <section className="rounded-3xl border border-line bg-white p-5 shadow-soft sm:p-7"><p className="text-xs font-bold uppercase tracking-wider text-emerald-700">FAQ</p><h2 className="mt-1 font-display text-2xl font-bold">{broker.name} frequently asked questions</h2><div className="mt-6 space-y-3">{faqs.map((faq, i) => <details key={`${i}-${faq.q}`} className="rounded-2xl border border-line bg-paper p-4"><summary className="cursor-pointer font-bold text-ink-950">{faq.q}</summary><p className="mt-3 text-sm leading-6 text-slate-600">{faq.a}</p></details>)}</div></section>}
-      <MatchCTA />
+          <PipRankVerdictCard broker={broker} headline={`Why consider ${broker.name}?`} text={content?.why_recommend?.join(' ')} showCta={false} />
+
+          {reviews.length > 0 && <section id="reviews" className="scroll-mt-28 rounded-3xl border border-line bg-white p-5 shadow-soft sm:p-7"><p className="text-xs font-bold uppercase tracking-wider text-emerald-700">Trader reviews</p><h2 className="mt-1 font-display text-2xl font-bold">What traders say about {broker.name}</h2><div className="mt-6 space-y-4">{reviews.slice(0, 6).map((review) => <article key={review.id} className="rounded-2xl bg-paper p-4"><div className="flex items-center justify-between gap-3"><strong>{review.title || `${review.rating}/5 review`}</strong><span className="text-sm font-bold">{review.rating}/5</span></div><p className="mt-2 text-sm leading-6 text-slate-600">{review.body}</p><p className="mt-3 text-xs font-semibold text-slate-400">{review.author} · {review.country}</p></article>)}</div></section>}
+
+          {faqs.length > 0 && <section id="faq" className="scroll-mt-28 rounded-3xl border border-line bg-white p-5 shadow-soft sm:p-7"><p className="text-xs font-bold uppercase tracking-wider text-emerald-700">FAQ</p><h2 className="mt-1 font-display text-2xl font-bold">{broker.name} frequently asked questions</h2><div className="mt-6 space-y-3">{faqs.map((faq, i) => <details key={`${i}-${faq.q}`} className="rounded-2xl border border-line bg-paper p-4"><summary className="cursor-pointer font-bold text-ink-950">{faq.q}</summary><p className="mt-3 text-sm leading-6 text-slate-600">{faq.a}</p></details>)}</div></section>}
+
+          <section className="rounded-3xl bg-ink-950 p-6 text-white sm:p-8"><p className="text-xs font-bold uppercase tracking-[0.16em] text-emerald-300">Ready to trade?</p><h2 className="mt-2 font-display text-2xl font-bold">Open a {broker.name} account</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">Review the broker details above, then continue through PipRank's tracked account link.</p><div className="mt-5"><VisitButton broker={broker} /></div></section>
+          <MatchCTA />
+        </div>
+
+        <aside className="hidden lg:block"><div className="sticky top-24 space-y-4"><AnchorNav /><BrokerCard broker={broker} /></div></aside>
+      </div>
     </div>
-
-    <aside className="hidden lg:block"><div className="sticky top-24 space-y-4"><div className="rounded-3xl border border-line bg-white p-5 shadow-soft"><p className="text-xs font-bold uppercase tracking-wider text-slate-400">On this page</p><nav className="mt-4 space-y-2 text-sm font-semibold text-slate-600"><a href="#overview" className="block hover:text-emerald-700">Overview</a><a href="#pricing" className="block hover:text-emerald-700">Pricing</a><a href="#platforms" className="block hover:text-emerald-700">Platforms</a><a href="#trust" className="block hover:text-emerald-700">Trust & regulation</a></nav></div><BrokerCard broker={broker} /></div></aside>
-    </div></div>
   </main>;
 }
