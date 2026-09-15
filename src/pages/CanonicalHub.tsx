@@ -5,7 +5,7 @@ import { resolveCanonicalPath } from '../lib/canonicalHub/resolver';
 import { useSEO } from '../hooks/useSEO';
 import ContentRenderer from '../components/ContentRenderer';
 import CanonicalGlobalBestFor from '../components/CanonicalGlobalBestFor';
-import BrokerDetail from './BrokerDetail';
+import BrokerDetailRedesign from './BrokerDetailRedesign';
 import Brokers from './Brokers';
 import Compare from './Compare';
 import ComparePair from './ComparePair';
@@ -48,7 +48,7 @@ export default function CanonicalHub() {
     case 'localized-guide':
     case 'localized-best-for':
       return <ContentRenderer route={route} />;
-    case 'broker': return route.path === '/brokers' ? <Brokers /> : <BrokerDetail />;
+    case 'broker': return route.path === '/brokers' ? <Brokers /> : <BrokerDetailRedesign />;
     case 'country': return route.path === '/countries' ? <Countries /> : <CountryDetail />;
     case 'compare': return route.path === '/compare' ? <Compare /> : <ComparePair />;
     default: return <NotFound />;
