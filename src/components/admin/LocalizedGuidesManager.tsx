@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Eye, Pencil, Plus } from 'lucide-react';
+import { Eye, Pencil, Plus, Trash2 } from 'lucide-react';
 import type { ContentDocument, CountryLanguage, CountryPage } from '../../lib/types';
 import UnifiedGuideEditor from './UnifiedGuideEditor';
 
@@ -21,6 +21,9 @@ export default function LocalizedGuidesManager({ countries, languages, contentDo
   const language = countryLanguages.find(l => l.id === effectiveLanguageId);
   const guides = useMemo(() => contentDocs.filter(d => d.content_type === 'localized-guide' && d.country_slug === country?.slug && String(d.settings?.languageCode || '').toLowerCase() === String(language?.code || '').toLowerCase()), [contentDocs, country?.slug, language?.code]);
   const [editing, setEditing] = useState<ContentDocument | GuideDraft | null>(null);
+  const [deletedIds, setDeletedIds] = useState<Set<number>>(() => new Set());
+
+  const visibleGuides = useMemo(() => guides.filter((doc) => !deletedIds.has(doc.id)), [guides, deletedIds]);
 
   const blank = (): GuideDraft => ({
     id: 0,
@@ -43,6 +46,12 @@ export default function LocalizedGuidesManager({ countries, languages, contentDo
     setEditing(null);
   };
 
+  const remove = async (doc: ContentDocument) => {
+    if (!window.confirm(`Delete “${doc.title || doc.slug}”? This permanently removes the localized guide.`)) return;
+    await mutate('/api/content-documents', 'DELETE', { id: doc.id }, `${doc.title || doc.slug} deleted`);
+    setDeletedIds((current) => new Set(current).add(doc.id));
+  };
+
   return <div className="space-y-5">
     <div className="grid gap-3 md:grid-cols-2">
       <label className="block"><span className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500">Country</span><select value={country?.id || 0} onChange={e => { setCountryId(Number(e.target.value)); setLanguageId(0); }} className="h-11 w-full rounded-xl border border-line bg-paper px-3 text-sm">{countries.map(c => <option key={c.id} value={c.id}>{c.flag} {c.name}</option>)}</select></label>
@@ -51,7 +60,7 @@ export default function LocalizedGuidesManager({ countries, languages, contentDo
 
     {!language ? <div className="rounded-2xl border border-dashed border-line bg-white p-8 text-center text-sm text-slate-500">Add a language for this country first.</div> : <>
       <div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-display text-lg font-bold text-ink-950">Local Guides</h3><p className="mt-1 text-xs text-slate-500">Editorial guides for {country?.name}, written for {language.native_name}.</p></div><button type="button" onClick={() => setEditing(blank())} className="inline-flex items-center gap-2 rounded-xl bg-ink-950 px-4 py-2.5 text-xs font-bold text-white"><Plus size={14}/> New guide</button></div>
-      <div className="space-y-2">{guides.map(doc => <div key={doc.id} className="flex items-center gap-3 rounded-xl border border-line bg-white px-4 py-3"><div className="min-w-0 flex-1"><p className="truncate text-sm font-bold text-ink-950">{doc.title || doc.slug}</p><p className="mt-0.5 text-[11px] text-slate-400">{doc.slug || 'No slug'} · {doc.published ? 'Published' : 'Draft'} · {doc.indexable ? 'Indexable' : 'Noindex'}</p></div>{doc.slug && <a href={`/${country?.slug}/${language.url_prefix}/guides/${doc.slug}?preview=1`} target="_blank" rel="noreferrer" className="rounded-lg p-2 text-slate-400 hover:bg-paper" title="Preview"><Eye size={14}/></a>}<button onClick={() => setEditing({ ...doc, blocks: Array.isArray(doc.blocks) ? doc.blocks : [] })} className="rounded-lg p-2 text-slate-400 hover:bg-paper" title="Edit"><Pencil size={14}/></button></div>)}{!guides.length && <div className="rounded-xl border border-dashed border-line bg-white p-6 text-center text-sm text-slate-500">No localized guides yet for this language.</div>}</div>
+      <div className="space-y-2">{visibleGuides.map(doc => <div key={doc.id} className="flex items-center gap-3 rounded-xl border border-line bg-white px-4 py-3"><div className="min-w-0 flex-1"><p className="truncate text-sm font-bold text-ink-950">{doc.title || doc.slug}</p><p className="mt-0.5 text-[11px] text-slate-400">{doc.slug || 'No slug'} · {doc.published ? 'Published' : 'Draft'} · {doc.indexable ? 'Indexable' : 'Noindex'}</p></div>{doc.slug && <a href={`/${country?.slug}/${language.url_prefix}/guides/${doc.slug}?preview=1`} target="_blank" rel="noreferrer" className="rounded-lg border border-line bg-white p-2 text-slate-500 hover:bg-paper" title="Preview local guide"><Eye size={14}/></a>}<button onClick={() => setEditing({ ...doc, blocks: Array.isArray(doc.blocks) ? doc.blocks : [] })} className="rounded-lg border border-line bg-white p-2 text-slate-500 hover:bg-paper" title="Edit local guide"><Pencil size={14}/></button><button onClick={() => void remove(doc)} className="rounded-lg border border-rose-200 bg-white p-2 text-rose-600 hover:bg-rose-50" title="Delete local guide"><Trash2 size={14}/></button></div>)}{!visibleGuides.length && <div className="rounded-xl border border-dashed border-line bg-white p-6 text-center text-sm text-slate-500">No localized guides yet for this language.</div>}</div>
     </>}
 
     {editing && <UnifiedGuideEditor document={editing} countries={countries} brokers={[]} token={accessToken} defaultContentType="localized-guide" defaultCountrySlug={country?.slug || ''} languageCode={language?.code || ''} languagePrefix={language?.url_prefix || ''} onClose={() => setEditing(null)} onSave={save} />}
