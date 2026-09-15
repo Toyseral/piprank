@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import supabase from './_lib/db-client.js';
 import { requireRole } from './_lib/admin-guard.js';
 
@@ -5,6 +6,7 @@ const SITE_ORIGIN = 'https://piprank.com';
 const STAFF_ALL = ['super_admin', 'admin', 'brokers_admin', 'content_admin', 'moderator'];
 const REVIEW_MODERATION = ['super_admin', 'admin', 'moderator'];
 const recentReviewSubmissions = new Map();
+const recentHelpfulVotes = new Map();
 
 function setCors(res) {
   res.setHeader('Access-Control-Allow-Origin', SITE_ORIGIN);
@@ -14,6 +16,13 @@ function setCors(res) {
 }
 function clientKey(req) {
   return String(req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || 'unknown').split(',')[0].trim().slice(0, 80);
+}
+function voterIp(req) {
+  return clientKey(req) || 'unknown';
+}
+function ipHash(req) {
+  const secret = process.env.REVIEW_VOTE_HASH_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || SITE_ORIGIN;
+  return crypto.createHash('sha256').update(`${secret}:${voterIp(req)}`).digest('hex');
 }
 
 export default async function handler(req, res) {
@@ -79,13 +88,26 @@ export default async function handler(req, res) {
         if (error) throw error;
         return res.status(200).json(data);
       }
-      const { data: rpcResult, error: rpcError } = await supabase.rpc('increment_review_helpful', { review_id: Number(id) });
-      if (!rpcError && rpcResult) return res.status(200).json(rpcResult);
-      const { data: current, error: e1 } = await supabase.from('reviews').select('id,helpful').eq('id', Number(id)).single();
-      if (e1 || !current) return res.status(404).json({ error: 'Review not found' });
-      const { data, error } = await supabase.from('reviews').update({ helpful: (current.helpful ?? 0) + 1 }).eq('id', Number(id)).select().single();
-      if (error) throw error;
-      return res.status(200).json(data);
+
+      const voterKey = String(body.voter_key || '').trim();
+      if (voterKey.length < 16 || voterKey.length > 128) return res.status(400).json({ error: 'A valid voter key is required' });
+      const rateKey = `${ipHash(req)}:${voterKey}`;
+      const now = Date.now();
+      const previous = recentHelpfulVotes.get(rateKey) || 0;
+      if (now - previous < 5_000) return res.status(429).json({ error: 'Please wait before voting again' });
+      recentHelpfulVotes.set(rateKey, now);
+      for (const [k, timestamp] of recentHelpfulVotes) if (now - timestamp > 10 * 60_000) recentHelpfulVotes.delete(k);
+
+      const { data: rpcResult, error: rpcError } = await supabase.rpc('increment_review_helpful', {
+        review_id: Number(id),
+        voter_key: voterKey,
+        ip_hash: ipHash(req),
+      });
+      if (rpcError) {
+        console.error('review helpful RPC error:', rpcError);
+        return res.status(500).json({ error: 'Unable to record helpful vote' });
+      }
+      return res.status(200).json(rpcResult);
     }
 
     if (req.method === 'DELETE') {
