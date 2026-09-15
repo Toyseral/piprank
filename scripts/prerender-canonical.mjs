@@ -26,9 +26,6 @@ function breadcrumbJsonLd(items) {
 function faqJsonLd(faqs) {
   return { '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: faqs.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })) };
 }
-function itemListJsonLd(name, items) {
-  return { '@context': 'https://schema.org', '@type': 'ItemList', name, itemListElement: items.map((x, i) => ({ '@type': 'ListItem', position: i + 1, name: x.name, url: absolute(x.path) })) };
-}
 
 function renderBlock(block, brokersById) {
   if (!block || typeof block !== 'object') return '';
@@ -74,14 +71,26 @@ function renderDocument(doc, brokersById) {
   return blocks || doc.html || '';
 }
 
+function replaceMeta(html, meta) {
+  let output = html
+    .replace(/<title>[\s\S]*?<\/title>/i, `<title>${esc(meta.title)}</title>`)
+    .replace(/<meta\s+name=["']description["'][^>]*>/i, `<meta name="description" content="${esc(meta.description)}">`)
+    .replace(/<link\s+rel=["']canonical["'][^>]*>/gi, '')
+    .replace(/<meta\s+property=["']og:title["'][^>]*>/gi, '')
+    .replace(/<meta\s+property=["']og:description["'][^>]*>/gi, '');
+
+  if (!/<title>[\s\S]*?<\/title>/i.test(output)) output = output.replace('</head>', `<title>${esc(meta.title)}</title></head>`);
+  if (!/<meta\s+name=["']description["']/i.test(output)) output = output.replace('</head>', `<meta name="description" content="${esc(meta.description)}"></head>`);
+
+  return output;
+}
+
 function writePage(shell, writtenPaths, path, meta, content, jsonLd = []) {
   if (writtenPaths.has(path)) return false;
   const file = path === '/' ? join(DIST, 'index.html') : join(DIST, path.replace(/^\//, ''), 'index.html');
   mkdirSync(dirname(file), { recursive: true });
   const json = jsonLd.map((x) => `<script type="application/ld+json">${JSON.stringify(x).replace(/</g, '\\u003c')}</script>`).join('');
-  const html = shell
-    .replace('<title>PipRank</title>', `<title>${esc(meta.title)}</title>`)
-    .replace('<meta name="description" content="">', `<meta name="description" content="${esc(meta.description)}">`)
+  const html = replaceMeta(shell, meta)
     .replace('</head>', `<link rel="canonical" href="${absolute(path)}"><meta property="og:title" content="${esc(meta.title)}"><meta property="og:description" content="${esc(meta.description)}">${json}</head>`)
     .replace('<div id="root"></div>', `<div id="root">${content}</div>`);
   writeFileSync(file, html, 'utf8');
@@ -102,9 +111,9 @@ async function main() {
   const shell = readFileSync(join(DIST, 'index.html'), 'utf8');
   const supabase = createClient(url, key);
   const [brokersRes, countriesRes, docsRes] = await Promise.all([
-    supabase.from('brokers').select('*'),
-    supabase.from('countries').select('*'),
-    supabase.from('content_documents').select('*').in('content_type', ['guide', 'global-best-for', 'country-guide', 'country-best-for', 'localized-guide', 'localized-best-for', 'broker', 'country']).eq('published', true),
+    supabase.from('brokers').select('id,name,slug,tagline,rating,trust_score,min_deposit,spread_eurusd,max_leverage,platforms,regulations,commission,affiliate_url'),
+    supabase.from('countries').select('id,slug,name,recommended,intro,publishing_state').eq('publishing_state', 'published'),
+    supabase.from('content_documents').select('id,content_key,content_type,country_slug,topic_slug,slug,title,excerpt,html,blocks,settings,seo_title,seo_description,indexable,published,updated_at').in('content_type', ['guide', 'global-best-for', 'country-guide', 'country-best-for', 'localized-guide', 'localized-best-for', 'broker', 'country']).eq('published', true).eq('indexable', true),
   ]);
   if (brokersRes.error) throw brokersRes.error;
   if (countriesRes.error) throw countriesRes.error;
@@ -118,7 +127,7 @@ async function main() {
   const writtenPaths = new Set();
   let written = 0;
 
-  const guides = docs.filter((d) => d.content_type === 'guide' && !d.country_slug);
+  const guides = docs.filter((d) => d.content_type === 'guide' && !d.country_slug && d.slug);
   const globalBestFors = docs.filter((d) => d.content_type === 'global-best-for' && d.slug);
   const countryGuides = docs.filter((d) => d.content_type === 'country-guide' && d.country_slug && d.slug);
   const countryBestFors = docs.filter((d) => d.content_type === 'country-best-for' && d.country_slug && d.slug);
@@ -209,7 +218,7 @@ async function main() {
     if (writePage(shell, writtenPaths, path, { title, description }, content, [pageJsonLd(title, description, path), breadcrumbJsonLd([{ name: 'Home', path: '/' }, { name: countriesBySlug.get(doc.country_slug)?.name || doc.country_slug, path: `/${doc.country_slug}` }, { name: doc.title, path }]), ...(faqs.length ? [faqJsonLd(faqs)] : [])])) written++;
   }
 
-  log(`Canonical prerender complete: ${written} pages from ${docs.length} published content documents.`);
+  log(`Canonical prerender complete: ${written} pages from ${docs.length} published, indexable content documents.`);
 }
 
 main().catch((error) => { console.error('[prerender] FATAL:', error); process.exitCode = 1; });
