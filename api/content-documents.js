@@ -9,21 +9,11 @@ const ALLOWED_ATTRS = new Set(['href','title','target','rel','src','alt','width'
 const PUBLIC_FIELDS = 'id,content_key,content_type,country_slug,topic_slug,slug,title,excerpt,html,blocks,settings,seo_title,seo_description,indexable,published,updated_at';
 const BLOCK_TYPES = new Set(['richtext','heading','image','table','callout','divider','links','structured_broker_data','broker_card','broker_grid','comparison_table','broker_cta','piprank_verdict']);
 const BLOCK_KEYS = {
-  richtext: ['id','type','title','html'],
-  heading: ['id','type','title'],
-  image: ['id','type','title','src','alt'],
-  table: ['id','type','title','rows'],
-  callout: ['id','type','title','html','tone'],
-  divider: ['id','type','title'],
-  links: ['id','type','title','links'],
-  structured_broker_data: ['id','type','title','brokerId','section'],
-  broker_card: ['id','type','title','brokerId','variant'],
-  broker_grid: ['id','type','title','brokerIds','variant'],
-  comparison_table: ['id','type','title','brokerIds','fields','ctaLabel','showCta'],
-  broker_cta: ['id','type','title','brokerId','variant','ctaLabel','ctaHref','headline','buttonLabel'],
-  piprank_verdict: ['id','type','title','html'],
+  richtext: ['id','type','title','html'], heading: ['id','type','title'], image: ['id','type','title','src','alt'], table: ['id','type','title','rows'],
+  callout: ['id','type','title','html','tone'], divider: ['id','type','title'], links: ['id','type','title','links'],
+  structured_broker_data: ['id','type','title','brokerId','section'], broker_card: ['id','type','title','brokerId','variant'], broker_grid: ['id','type','title','brokerIds','variant'],
+  comparison_table: ['id','type','title','brokerIds','fields','ctaLabel','showCta'], broker_cta: ['id','type','title','brokerId','variant','ctaLabel','ctaHref','headline','buttonLabel'], piprank_verdict: ['id','type','title','html'],
 };
-
 const PUBLIC_SETTING_KEYS = ['locale','languageCode','icon','label','criteria','sections','faqs','ranking_intent_slug','canonicalIntentSlug','image'];
 
 function slugify(value) { return String(value ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''); }
@@ -37,96 +27,53 @@ function safeUrl(value, { image = false } = {}) {
 function sanitizeTag(raw) {
   const match = raw.match(/^<\s*(\/?)\s*([a-z0-9]+)([^>]*)>$/i);
   if (!match) return '';
-  const closing = Boolean(match[1]);
-  const tag = match[2].toLowerCase();
+  const closing = Boolean(match[1]); const tag = match[2].toLowerCase();
   if (!ALLOWED_TAGS.has(tag)) return '';
   if (closing) return `</${tag}>`;
-  const attrs = [];
-  const attrRe = /([:\w-]+)\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/g;
-  let attr;
+  const attrs = []; const attrRe = /([:\w-]+)\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/g; let attr;
   while ((attr = attrRe.exec(match[3] || ''))) {
-    const name = attr[1].toLowerCase();
-    if (!ALLOWED_ATTRS.has(name) || name.startsWith('on') || name === 'style') continue;
+    const name = attr[1].toLowerCase(); if (!ALLOWED_ATTRS.has(name) || name.startsWith('on') || name === 'style') continue;
     const value = attr[2].replace(/^['"]|['"]$/g, '');
-    if (name === 'href') {
-      const safe = safeUrl(value);
-      if (safe) attrs.push(`href="${safe.replaceAll('"', '&quot;')}"`);
-      continue;
-    }
-    if (name === 'src') {
-      const safe = safeUrl(value, { image: true });
-      if (safe) attrs.push(`src="${safe.replaceAll('"', '&quot;')}"`);
-      continue;
-    }
+    if (name === 'href') { const safe = safeUrl(value); if (safe) attrs.push(`href="${safe.replaceAll('"', '&quot;')}"`); continue; }
+    if (name === 'src') { const safe = safeUrl(value, { image: true }); if (safe) attrs.push(`src="${safe.replaceAll('"', '&quot;')}"`); continue; }
     attrs.push(`${name}="${value.replaceAll('"', '&quot;')}"`);
   }
   if (tag === 'a' && !attrs.some((x) => x.startsWith('rel='))) attrs.push('rel="noopener noreferrer"');
   return `<${tag}${attrs.length ? ` ${attrs.join(' ')}` : ''}>`;
 }
-function cleanHtml(input = '') {
-  const html = String(input).replace(/<!--[\s\S]*?-->/g, '');
-  return html.replace(/<[^>]*>/g, sanitizeTag).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '').trim();
-}
+function cleanHtml(input = '') { return String(input).replace(/<!--[\s\S]*?-->/g, '').replace(/<[^>]*>/g, sanitizeTag).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '').trim(); }
 function cleanText(value, max = 500) { return String(value ?? '').trim().slice(0, max); }
-function cleanStringArray(value, max = 100, itemMax = 300) {
-  return Array.isArray(value) ? value.filter((item) => typeof item === 'string').map((item) => cleanText(item, itemMax)).filter(Boolean).slice(0, max) : [];
-}
-function cleanRows(value) {
-  if (!Array.isArray(value)) return [];
-  return value.slice(0, 100).map((row) => Array.isArray(row) ? row.slice(0, 20).map((cell) => cleanText(cell, 500)) : []).filter((row) => row.length);
-}
-function cleanLinks(value) {
-  if (!Array.isArray(value)) return [];
-  return value.slice(0, 100).map((link) => ({ label: cleanText(link?.label, 180), href: safeUrl(link?.href) || '#' })).filter((link) => link.label);
-}
+function cleanStringArray(value, max = 100, itemMax = 300) { return Array.isArray(value) ? value.filter((item) => typeof item === 'string').map((item) => cleanText(item, itemMax)).filter(Boolean).slice(0, max) : []; }
+function cleanRows(value) { return Array.isArray(value) ? value.slice(0, 100).map((row) => Array.isArray(row) ? row.slice(0, 20).map((cell) => cleanText(cell, 500)) : []).filter((row) => row.length) : []; }
+function cleanLinks(value) { return Array.isArray(value) ? value.slice(0, 100).map((link) => ({ label: cleanText(link?.label, 180), href: safeUrl(link?.href) || '#' })).filter((link) => link.label) : []; }
 function cleanBlock(block) {
   if (!block || typeof block !== 'object' || Array.isArray(block)) return null;
-  const type = String(block.type || '').trim();
-  if (!BLOCK_TYPES.has(type)) return null;
-  const output = {};
-  for (const key of BLOCK_KEYS[type]) {
-    if (block[key] !== undefined) output[key] = block[key];
-  }
-  output.id = cleanText(output.id || `block_${Math.random().toString(36).slice(2, 10)}`, 120);
-  output.type = type;
-  if ('title' in output) output.title = cleanText(output.title, 300);
-  if ('html' in output) output.html = cleanHtml(output.html);
-  if ('src' in output) output.src = safeUrl(output.src, { image: true });
-  if ('alt' in output) output.alt = cleanText(output.alt, 300);
-  if ('rows' in output) output.rows = cleanRows(output.rows);
-  if ('links' in output) output.links = cleanLinks(output.links);
+  const type = String(block.type || '').trim(); if (!BLOCK_TYPES.has(type)) return null;
+  const output = {}; for (const key of BLOCK_KEYS[type]) if (block[key] !== undefined) output[key] = block[key];
+  output.id = cleanText(output.id || `block_${Math.random().toString(36).slice(2, 10)}`, 120); output.type = type;
+  if ('title' in output) output.title = cleanText(output.title, 300); if ('html' in output) output.html = cleanHtml(output.html);
+  if ('src' in output) output.src = safeUrl(output.src, { image: true }); if ('alt' in output) output.alt = cleanText(output.alt, 300);
+  if ('rows' in output) output.rows = cleanRows(output.rows); if ('links' in output) output.links = cleanLinks(output.links);
   if ('tone' in output && !['neutral','success','warning','dark'].includes(output.tone)) output.tone = 'neutral';
   if ('section' in output && !['overview','pricing','trust','platforms','features','editorial'].includes(output.section)) output.section = 'overview';
   if ('variant' in output && !['default','compact','featured','primary','dark','soft'].includes(output.variant)) delete output.variant;
   if ('brokerId' in output) output.brokerId = Number.isFinite(Number(output.brokerId)) ? Number(output.brokerId) : null;
   if ('brokerIds' in output) output.brokerIds = Array.isArray(output.brokerIds) ? output.brokerIds.map(Number).filter(Number.isFinite).slice(0, 20) : [];
-  if ('fields' in output) output.fields = cleanStringArray(output.fields, 20, 80);
-  if ('ctaLabel' in output) output.ctaLabel = cleanText(output.ctaLabel, 180);
-  if ('ctaHref' in output) output.ctaHref = safeUrl(output.ctaHref) || null;
-  if ('headline' in output) output.headline = cleanText(output.headline, 300);
-  if ('buttonLabel' in output) output.buttonLabel = cleanText(output.buttonLabel, 180);
-  if ('showCta' in output) output.showCta = Boolean(output.showCta);
+  if ('fields' in output) output.fields = cleanStringArray(output.fields, 20, 80); if ('ctaLabel' in output) output.ctaLabel = cleanText(output.ctaLabel, 180);
+  if ('ctaHref' in output) output.ctaHref = safeUrl(output.ctaHref) || null; if ('headline' in output) output.headline = cleanText(output.headline, 300);
+  if ('buttonLabel' in output) output.buttonLabel = cleanText(output.buttonLabel, 180); if ('showCta' in output) output.showCta = Boolean(output.showCta);
   return output;
 }
-function cleanBlocks(blocks) {
-  if (!Array.isArray(blocks)) return [];
-  return blocks.map(cleanBlock).filter(Boolean).slice(0, 200);
-}
+function cleanBlocks(blocks) { return Array.isArray(blocks) ? blocks.map(cleanBlock).filter(Boolean).slice(0, 200) : []; }
 function sanitizePublicSettings(settings) {
   if (!settings || typeof settings !== 'object' || Array.isArray(settings)) return {};
   const output = {};
   for (const key of PUBLIC_SETTING_KEYS) {
-    const value = settings[key];
-    if (value === undefined || value === null) continue;
+    const value = settings[key]; if (value === undefined || value === null) continue;
     if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') { output[key] = typeof value === 'string' ? value.slice(0, 500) : value; continue; }
     if (key === 'criteria') { output[key] = cleanStringArray(value, 100, 300); continue; }
-    if (key === 'sections') {
-      output[key] = Array.isArray(value) ? value.filter((item) => item && typeof item === 'object' && !Array.isArray(item)).map((item) => ({ ...item, html: item.html ? cleanHtml(item.html) : undefined, title: item.title ? cleanText(item.title, 300) : undefined })).slice(0, 100) : [];
-      continue;
-    }
-    if (key === 'faqs') {
-      output[key] = Array.isArray(value) ? value.filter((item) => item && typeof item === 'object' && !Array.isArray(item)).map((item) => ({ q: cleanText(item.q, 500), a: cleanText(item.a, 2000) })).filter((item) => item.q && item.a).slice(0, 100) : [];
-    }
+    if (key === 'sections') { output[key] = Array.isArray(value) ? value.filter((item) => item && typeof item === 'object' && !Array.isArray(item)).map((item) => ({ title: item.title ? cleanText(item.title, 300) : undefined, html: item.html ? cleanHtml(item.html) : undefined })).slice(0, 100) : []; continue; }
+    if (key === 'faqs') { output[key] = Array.isArray(value) ? value.filter((item) => item && typeof item === 'object' && !Array.isArray(item)).map((item) => ({ q: cleanText(item.q, 500), a: cleanText(item.a, 2000) })).filter((item) => item.q && item.a).slice(0, 100) : []; }
   }
   return output;
 }
@@ -135,7 +82,7 @@ function toPublicDocument(document) {
   return { id: document.id, content_key: document.content_key, content_type: document.content_type, country_slug: document.country_slug, topic_slug: document.topic_slug, slug: document.slug, title: document.title, excerpt: document.excerpt, html: document.html, blocks: document.blocks, settings: sanitizePublicSettings(document.settings), seo_title: document.seo_title, seo_description: document.seo_description, indexable: document.indexable, published: document.published, updated_at: document.updated_at };
 }
 function canonicalKey({ contentType, countrySlug, slug, locale, contentKey }) {
-  if (contentKey && !['guide','global-best-for','country-guide','country-best-for','localized-guide','localized-best-for','broker','country'].includes(contentType)) return String(contentKey).slice(0, 180);
+  if (contentKey && !CANONICAL_CONTENT_TYPES.has(contentType)) return String(contentKey).slice(0, 180);
   if (!slug) return null;
   if (contentType === 'guide') return `guide:${slug}`;
   if (contentType === 'global-best-for') return `best-for:${slug}`;
@@ -154,7 +101,15 @@ function normalize(body, existing = null) {
   const slug = existing?.slug ?? (body.slug ? slugify(body.slug) : (topicSlug || slugify(body.title || '') || null));
   const locale = String(existing?.settings?.locale || existing?.settings?.languageCode || body.settings?.locale || body.settings?.languageCode || '').trim().slice(0, 40);
   const contentKey = existing?.content_key || canonicalKey({ contentType, countrySlug, slug, locale, contentKey: body.content_key });
-  return { content_key: contentKey, content_type: contentType, country_slug: countrySlug, topic_slug: topicSlug, slug, title: String(body.title || existing?.title || '').slice(0, 180), excerpt: String(body.excerpt || '').slice(0, 600), html: cleanHtml(body.html || ''), blocks: cleanBlocks(body.blocks), settings: body.settings && typeof body.settings === 'object' && !Array.isArray(body.settings) ? body.settings : (existing?.settings || {}), seo_title: body.seo_title ? String(body.seo_title).slice(0, 180) : null, seo_description: body.seo_description ? String(body.seo_description).slice(0, 320) : null, indexable: body.indexable === undefined ? (existing?.indexable ?? true) : Boolean(body.indexable), published: body.published === undefined ? (existing?.published ?? true) : Boolean(body.published) };
+  return {
+    content_key: contentKey, content_type: contentType, country_slug: countrySlug, topic_slug: topicSlug, slug,
+    title: String(body.title ?? existing?.title ?? '').slice(0, 180), excerpt: String(body.excerpt ?? existing?.excerpt ?? '').slice(0, 600),
+    html: cleanHtml(body.html ?? existing?.html ?? ''), blocks: cleanBlocks(body.blocks ?? existing?.blocks ?? []),
+    settings: body.settings && typeof body.settings === 'object' && !Array.isArray(body.settings) ? body.settings : (existing?.settings || {}),
+    seo_title: body.seo_title !== undefined ? (body.seo_title ? String(body.seo_title).slice(0, 180) : null) : (existing?.seo_title ?? null),
+    seo_description: body.seo_description !== undefined ? (body.seo_description ? String(body.seo_description).slice(0, 320) : null) : (existing?.seo_description ?? null),
+    indexable: body.indexable === undefined ? (existing?.indexable ?? true) : Boolean(body.indexable), published: body.published === undefined ? (existing?.published ?? true) : Boolean(body.published),
+  };
 }
 function rejectInvalidType(payload, res) {
   const type = String(payload.content_type || '').trim().toLowerCase();
@@ -174,14 +129,8 @@ export default async function handler(req, res) {
       if (RETIRED_CONTENT_TYPES.has(requestedType) || String(key || '').startsWith('country-topic:')) return res.status(410).json({ error: 'Retired content type.' });
       if (requestedType && !CANONICAL_CONTENT_TYPES.has(requestedType)) return res.status(400).json({ error: 'Unsupported content type' });
       let query = supabase.from('content_documents').select(wantsAdmin ? '*' : PUBLIC_FIELDS).in('content_type', [...CANONICAL_CONTENT_TYPES]).order('updated_at', { ascending: false });
-      query = query.eq('published', true);
-      if (wantsAdmin) query = supabase.from('content_documents').select('*').in('content_type', [...CANONICAL_CONTENT_TYPES]).order('updated_at', { ascending: false });
-      if (id) query = query.eq('id', Number(id));
-      if (key) query = query.eq('content_key', String(key));
-      if (country) query = query.eq('country_slug', String(country));
-      if (topic) query = query.eq('topic_slug', String(topic));
-      if (type) query = query.eq('content_type', requestedType);
-      if (slug) query = query.eq('slug', String(slug));
+      if (!wantsAdmin) query = query.eq('published', true);
+      if (id) query = query.eq('id', Number(id)); if (key) query = query.eq('content_key', String(key)); if (country) query = query.eq('country_slug', String(country)); if (topic) query = query.eq('topic_slug', String(topic)); if (type) query = query.eq('content_type', requestedType); if (slug) query = query.eq('slug', String(slug));
       if (key || id) { const { data, error } = await query.maybeSingle(); if (error) throw error; return res.status(200).json(wantsAdmin ? (data || null) : toPublicDocument(data || null)); }
       const { data, error } = await query; if (error) throw error;
       return res.status(200).json(wantsAdmin ? (data || []) : (data || []).map(toPublicDocument));
@@ -199,26 +148,20 @@ export default async function handler(req, res) {
     if (req.method === 'PUT') {
       const { id, ...rest } = req.body || {};
       if (!id) return res.status(400).json({ error: 'id is required' });
-      const { data: existing, error: lookupError } = await supabase.from('content_documents').select('id,content_key,content_type,country_slug,topic_slug,slug,settings,indexable,published,title').eq('id', Number(id)).maybeSingle();
+      const { data: existing, error: lookupError } = await supabase.from('content_documents').select('id,content_key,content_type,country_slug,topic_slug,slug,title,excerpt,html,blocks,settings,seo_title,seo_description,indexable,published').eq('id', Number(id)).maybeSingle();
       if (lookupError) throw lookupError;
       if (!existing) return res.status(404).json({ error: 'Content document not found' });
       const payload = { ...normalize(rest, existing), updated_by: actor.email };
       if (rejectInvalidType(payload, res)) return;
       if (payload.content_key !== existing.content_key || payload.content_type !== existing.content_type || payload.country_slug !== existing.country_slug || payload.slug !== existing.slug) return res.status(409).json({ error: 'Canonical identity is immutable. Create a new canonical document to change its URL.' });
-      delete payload.topic_slug;
-      delete payload.content_key;
-      delete payload.content_type;
-      delete payload.country_slug;
-      delete payload.slug;
+      delete payload.topic_slug; delete payload.content_key; delete payload.content_type; delete payload.country_slug; delete payload.slug;
       const { data, error } = await supabase.from('content_documents').update(payload).eq('id', Number(id)).select().single();
       if (error) throw error;
       return res.status(200).json(data);
     }
     if (req.method === 'DELETE') {
-      const { id } = req.body || {};
-      if (!id) return res.status(400).json({ error: 'id is required' });
-      const { error } = await supabase.from('content_documents').delete().eq('id', Number(id));
-      if (error) throw error;
+      const { id } = req.body || {}; if (!id) return res.status(400).json({ error: 'id is required' });
+      const { error } = await supabase.from('content_documents').delete().eq('id', Number(id)); if (error) throw error;
       return res.status(200).json({ ok: true });
     }
     return res.status(405).json({ error: 'Method not allowed' });
