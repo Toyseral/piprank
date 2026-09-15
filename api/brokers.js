@@ -3,11 +3,10 @@ import { requireRole } from './_lib/admin-guard.js';
 
 const BROKER_WRITE = ['super_admin', 'admin', 'brokers_admin'];
 const SITE_ORIGIN = 'https://piprank.com';
-const PUBLIC_BROKER_FIELDS = 'id,name,slug,tagline,brand_color,rating,trust_score,founded,headquarters,website,min_deposit,spread_eurusd,commission,commission_value,max_leverage,leverage_value,execution_ms,withdrawal_hours,deposit_time,uptime,withdrawal_fee,inactivity_fee,demo_account,islamic_account,copy_trading,scalping,hedging,nbp,segregated,bonus,risk_warning,support_channels,support_score,regulations,platforms,payments,account_types,assets,best_for,pros,cons,review,testing,faqs,health,featured';
+const PUBLIC_BROKER_FIELDS = 'id,name,slug,tagline,brand_color,logo_url,rating,trust_score,founded,headquarters,website,min_deposit,spread_eurusd,commission,commission_value,max_leverage,leverage_value,execution_ms,withdrawal_hours,deposit_time,uptime,withdrawal_fee,inactivity_fee,bonus,demo_account,islamic_account,copy_trading,scalping,hedging,nbp,segregated,support_channels,support_score,regulations,platforms,payments,account_types,assets,best_for,pros,cons,review,testing,faqs,health,featured';
 
-// Only these fields may ever be written to the brokers table. In particular,
-// logo_url is a public response field from broker_media, not a brokers column.
-const BROKER_MUTABLE_FIELDS = PUBLIC_BROKER_FIELDS.split(',').filter((field) => !['id'].includes(field));
+// These are the actual brokers-table columns. Affiliate URLs are resolved by /go/:broker.
+const BROKER_MUTABLE_FIELDS = PUBLIC_BROKER_FIELDS.split(',').filter((field) => !['id', 'logo_url'].includes(field));
 
 const BROKER_DEFAULTS = {
   tagline: 'New broker under review',
@@ -29,6 +28,7 @@ const BROKER_DEFAULTS = {
   uptime: 99.9,
   withdrawal_fee: 0,
   inactivity_fee: 'None',
+  bonus: null,
   demo_account: true,
   islamic_account: false,
   copy_trading: false,
@@ -36,8 +36,6 @@ const BROKER_DEFAULTS = {
   hedging: true,
   nbp: true,
   segregated: true,
-  bonus: null,
-  risk_warning: null,
   support_channels: ['Live chat', 'Email'],
   support_score: 80,
   regulations: [],
@@ -83,38 +81,29 @@ export default async function handler(req, res) {
 
   try {
     if (req.method === 'GET') {
-      const { data: media, error: mediaError } = await supabase.from('broker_media').select('broker_id, logo_url');
-      if (mediaError) throw mediaError;
-      const logoMap = new Map((media ?? []).map((m) => [m.broker_id, m.logo_url]));
-      const withLogo = (b) => ({ ...b, logo_url: logoMap.get(b.id) ?? null });
-
-      const { slug } = req.query;
-      if (slug) {
-        const { data, error } = await supabase.from('brokers').select(PUBLIC_BROKER_FIELDS).eq('slug', slug).single();
-        if (error || !data) return res.status(404).json({ error: 'Broker not found' });
-        return res.status(200).json(withLogo(data));
-      }
       const { data, error } = await supabase
         .from('brokers')
         .select(PUBLIC_BROKER_FIELDS)
         .order('rating', { ascending: false });
       if (error) throw error;
-      return res.status(200).json((data ?? []).map(withLogo));
+      return res.status(200).json(data ?? []);
     }
 
+    if (req.method === 'GET') return res.status(405).json({ error: 'Method not allowed' });
     if (!(await requireRole(req, res, BROKER_WRITE))) return;
 
     if (req.method === 'POST') {
       const body = req.body ?? {};
       if (!body.name || String(body.name).trim().length < 2)
         return res.status(400).json({ error: 'Broker name is required' });
+
       const payload = {
         ...BROKER_DEFAULTS,
         ...pickBrokerFields(body),
+        name: String(body.name).trim(),
         slug: body.slug ? slugify(body.slug) : slugify(body.name),
-        bonus: body.bonus || null,
       };
-      delete payload.id;
+
       const { data, error } = await supabase.from('brokers').insert(payload).select().single();
       if (error) throw error;
       return res.status(201).json(data);
@@ -124,8 +113,11 @@ export default async function handler(req, res) {
       const { id, ...input } = req.body ?? {};
       if (!id) return res.status(400).json({ error: 'id is required' });
       const fields = pickBrokerFields(input);
-      if (fields.name && !fields.slug) fields.slug = slugify(fields.name);
-      if ('bonus' in fields && !fields.bonus) fields.bonus = null;
+      if (Object.prototype.hasOwnProperty.call(input, 'slug')) fields.slug = slugify(input.slug);
+      if (Object.prototype.hasOwnProperty.call(input, 'name')) fields.name = String(input.name).trim();
+      if (Object.prototype.hasOwnProperty.call(fields, 'bonus') && !fields.bonus) fields.bonus = null;
+      if (!Object.keys(fields).length) return res.status(400).json({ error: 'No valid broker fields supplied' });
+
       const { data, error } = await supabase
         .from('brokers')
         .update(fields)
