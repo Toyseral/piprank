@@ -27,14 +27,21 @@ type Props = {
   guides: ContentDocument[];
   onNewGuide: () => void;
   onEditGuide: (guide: ContentDocument) => void;
-  /** Legacy intent-config callbacks kept source-compatible with Admin while intents remain non-owning config. */
+  /** Intent metadata is editable here; canonical page ownership remains in content_documents. */
   intents?: Intent[];
   onNewIntent?: () => void;
   onEditIntent?: (intent: Intent) => void;
   intentToTopic?: Record<string, string>;
 };
 
-export default function GlobalHub({ guides, onNewGuide, onEditGuide }: Props) {
+export default function GlobalHub({
+  guides,
+  onNewGuide,
+  onEditGuide,
+  intents = [],
+  onNewIntent,
+  onEditIntent,
+}: Props) {
   const [bestFors, setBestFors] = useState<ContentDocument[]>([]);
   const [editing, setEditing] = useState<ContentDocument | 'new' | null>(null);
   const [loading, setLoading] = useState(true);
@@ -63,14 +70,22 @@ export default function GlobalHub({ guides, onNewGuide, onEditGuide }: Props) {
     [bestFors],
   );
 
+  const sortedIntents = useMemo(
+    () => [...intents].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.label.localeCompare(b.label)),
+    [intents],
+  );
+
   return (
     <div className="space-y-5">
       {error && <p className="rounded-xl bg-rose-50 px-4 py-2.5 text-sm text-rose-600">{error}</p>}
 
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div className="grid gap-5 xl:grid-cols-3">
         <div className="rounded-2xl border border-line bg-white shadow-soft">
           <div className="flex items-center justify-between border-b border-line px-5 py-4">
-            <p className="font-display text-base font-bold text-ink-900">Guides ({guides.length})</p>
+            <div>
+              <p className="font-display text-base font-bold text-ink-900">Guides ({guides.length})</p>
+              <p className="text-[11px] text-slate-400">Canonical editorial guides</p>
+            </div>
             <button onClick={onNewGuide} className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3.5 py-1.5 text-xs font-bold text-white">
               <Plus size={13} /> New guide
             </button>
@@ -105,7 +120,7 @@ export default function GlobalHub({ guides, onNewGuide, onEditGuide }: Props) {
               <p className="text-[11px] text-slate-400">Canonical Content Studio documents</p>
             </div>
             <button onClick={() => setEditing('new')} className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3.5 py-1.5 text-xs font-bold text-white">
-              <Plus size={13} /> <span>New page</span>
+              <Plus size={13} /> New page
             </button>
           </div>
           <div className="divide-y divide-line">
@@ -142,6 +157,38 @@ export default function GlobalHub({ guides, onNewGuide, onEditGuide }: Props) {
               );
             })}
             {!loading && !sortedBestFors.length && <p className="p-5 text-sm text-slate-400">No canonical Best-For documents yet.</p>}
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-line bg-white shadow-soft">
+          <div className="flex items-center justify-between border-b border-line px-5 py-4">
+            <div>
+              <p className="font-display text-base font-bold text-ink-900">Intents ({intents.length})</p>
+              <p className="text-[11px] text-slate-400">Ranking/config metadata · not page ownership</p>
+            </div>
+            {onNewIntent && (
+              <button onClick={onNewIntent} className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3.5 py-1.5 text-xs font-bold text-white">
+                <Plus size={13} /> New intent
+              </button>
+            )}
+          </div>
+          <div className="divide-y divide-line">
+            {sortedIntents.map((intent) => (
+              <div key={intent.id} className="flex items-center gap-3 px-5 py-3.5">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-bold text-ink-900">{intent.label || intent.title}</p>
+                  <p className="truncate text-xs text-slate-400">
+                    {intent.slug}{intent.indexable === false ? ' · Noindex' : ' · Indexable'}
+                  </p>
+                </div>
+                {onEditIntent && (
+                  <button onClick={() => onEditIntent(intent)} className="rounded-lg p-2 text-slate-400" title="Edit intent">
+                    <Pencil size={14} />
+                  </button>
+                )}
+              </div>
+            ))}
+            {!sortedIntents.length && <p className="p-5 text-sm text-slate-400">No intents configured yet.</p>}
           </div>
         </div>
       </div>
