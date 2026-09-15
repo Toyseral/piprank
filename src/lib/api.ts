@@ -30,8 +30,12 @@ export const fetchBrokerContent = (brokerId: number) => get<BrokerContent | null
 export const fetchBrokerAvailability = (brokerId: number) => get<BrokerCountryAvailability[]>(`/api/broker-assets?resource=availability&broker_id=${brokerId}`);
 export const fetchBrokerVerification = (brokerId?: number, countrySlug?: string) => get<BrokerCountryVerification[]>(`/api/broker-assets?resource=verification${brokerId ? `&broker_id=${brokerId}` : ''}${countrySlug ? `&country_slug=${encodeURIComponent(countrySlug)}` : ''}`);
 export const saveBrokerVerification = (payload: Partial<BrokerCountryVerification>) => send<BrokerCountryVerification>('/api/broker-assets?resource=verification', 'PUT', payload);
-export const fetchCountries = () => get<CountryPage[]>('/api/countries');
-export const fetchCountry = (slug: string) => get<CountryPage>(`/api/countries?slug=${encodeURIComponent(slug)}`);
+
+// Country reads go directly to the canonical content function. This avoids the
+// legacy /api/countries Vercel rewrite being part of public route resolution.
+export const fetchCountries = () => get<CountryPage[]>('/api/content?resource=countries');
+export const fetchCountry = (slug: string) => get<CountryPage>(`/api/content?resource=countries&slug=${encodeURIComponent(slug)}`);
+
 export const fetchCountryIntentRankings = (countrySlug: string, intentSlug: string) => get<CountryIntentBrokerRanking[]>(`/api/country-intent-rankings?country=${encodeURIComponent(countrySlug)}&intent=${encodeURIComponent(publicIntentSlug(intentSlug))}`);
 export const createReview = async (payload: { broker_id: number; author: string; country: string; rating: number; title: string; body: string }, authToken?: string): Promise<Review> => { const res = await fetch('/api/reviews', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}) }, body: JSON.stringify(payload) }); const data = await res.json().catch(() => ({})); if (!res.ok) throw new Error((data as { error?: string }).error || `Request failed (${res.status})`); return data as Review; };
 export const voteHelpful = (id: number) => send<Review>('/api/reviews', 'PUT', { id });
