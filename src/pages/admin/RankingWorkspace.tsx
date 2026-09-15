@@ -70,6 +70,10 @@ export default function RankingWorkspace({ countries, intents, brokers, token }:
 
   const setRankingMode = async (nextMode: RankingMode) => {
     if (!selectedCountry || !selectedIntent || nextMode === mode || savingMode) return;
+
+    // Invalidate any mode read already in flight. Otherwise that older request
+    // can finish after this save and put the UI back on Automatic.
+    ++requestId.current;
     setSavingMode(true);
     setMessage('Saving ranking mode…');
 
@@ -85,13 +89,13 @@ export default function RankingWorkspace({ countries, intents, brokers, token }:
       return;
     }
 
-    // Do not call load() here. A concurrent/stale mode read can overwrite the
-    // just-saved value and make the UI appear to revert to Automatic.
+    // The successful RPC is the source of truth for the mode. Do not call
+    // load() here because a concurrent/stale mode read can overwrite it.
     setMode(nextMode);
     setMessage(nextMode === 'manual' ? 'Manual ranking enabled. The current automatic order was seeded.' : 'Automatic ranking restored.');
     setSavingMode(false);
 
-    // Refresh broker rows only; the successful RPC is the source of truth for mode.
+    // Refresh broker rows only; never re-read the mode during this operation.
     const response = await fetch(`/api/country-intent-rankings?country=${encodeURIComponent(country)}&intent=${encodeURIComponent(intent)}`);
     const rankingRows = await readJson<CountryIntentBrokerRanking[]>(response, []);
     if (Array.isArray(rankingRows)) setRows(rankingRows);
