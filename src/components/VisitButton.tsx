@@ -10,6 +10,8 @@ interface Props {
   context?: string;
   bestFor?: string;
   pair?: string;
+  /** CTA wording for the placement. */
+  ctaVariant?: 'broker' | 'comparison';
 }
 
 function inferPageType(pathname: string): string {
@@ -23,7 +25,7 @@ function inferPageType(pathname: string): string {
 }
 
 /** Every commercial broker CTA uses the server-side /go redirect. */
-export default function VisitButton({ broker, compact = false, className = '', context, bestFor, pair }: Props) {
+export default function VisitButton({ broker, compact = false, className = '', context, bestFor, pair, ctaVariant = 'broker' }: Props) {
   const pageType = context ?? inferPageType(window.location.pathname);
   const params = new URLSearchParams();
   params.set('src', window.location.pathname);
@@ -40,12 +42,14 @@ export default function VisitButton({ broker, compact = false, className = '', c
 
   const onClick = () => {
     track('affiliate_click', { broker: broker.slug, page: window.location.pathname });
-    track('cta_click', { broker: broker.slug, context: 'visit_cta', page: window.location.pathname });
+    track('cta_click', { broker: broker.slug, context: 'broker_cta', page: window.location.pathname });
   };
+
+  const label = compact ? 'Open Account' : ctaVariant === 'comparison' ? `Open ${broker.name} Accounts` : `Open ${broker.name} Account`;
 
   const button = (
     <a href={href} target="_blank" rel="nofollow sponsored noopener noreferrer" onClick={onClick} className={btnCls('primary', compact ? 'sm' : 'md', className)}>
-      Visit {broker.name}
+      {label}
       <ArrowUpRight size={compact ? 14 : 16} className="transition-transform duration-200 group-hover/btn:-translate-y-0.5 group-hover/btn:translate-x-0.5" />
     </a>
   );
