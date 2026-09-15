@@ -52,4 +52,19 @@ export interface LocalizedSeoPage {
   updated_by?: string | null;
   updated_at?: string;
 }
-export interface CountryIntentBrokerRanking { country_id:number; intent_id:number; broker_id:number; final_rank:number; final_score:number; featured:boolean; force_include?:boolean; force_exclude?:boolean; manual_rank?:number|null; score_adjustment?:number; featured_override?:boolean|null; editorial_note?:string|null; broker?:Broker; }
+export interface CountryIntentBrokerRanking {
+  country_id: number;
+  intent_id: number;
+  broker_id: number;
+  final_rank: number;
+  final_score: number;
+  eligibility_status?: string;
+  featured: boolean;
+  force_include?: boolean;
+  force_exclude?: boolean;
+  manual_rank?: number | null;
+  score_adjustment?: number;
+  featured_override?: boolean | null;
+  editorial_note?: string | null;
+  broker?: Broker;
+}
