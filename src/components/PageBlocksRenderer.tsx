@@ -2,6 +2,7 @@ import { Fragment, useMemo } from 'react';
 import BrokerCard from './BrokerCard';
 import PipRankVerdictCard from './PipRankVerdictCard';
 import PipRankComparisonTable from './PipRankComparisonTable';
+import StructuredBrokerDataCard from './StructuredBrokerDataCard';
 import { blocksToHtml, type PageBlock } from './PageBuilder';
 import type { Broker } from '../lib/types';
 
@@ -29,6 +30,11 @@ export default function PageBlocksRenderer({ blocks, brokers, intent, countrySlu
   return (
     <div className={className}>
       {normalized.map((block, index) => {
+        if (block.type === 'structured_broker_data') {
+          const broker = brokers.find((b) => b.id === Number(block.brokerId));
+          if (!broker) return null;
+          return <StructuredBrokerDataCard key={block.id || index} broker={broker} section={block.section} />;
+        }
         if (block.type === 'broker_card') {
           const broker = brokers.find((b) => b.id === Number(block.brokerId));
           if (!broker) return null;
