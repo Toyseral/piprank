@@ -5,6 +5,10 @@ const BROKER_WRITE = ['super_admin', 'admin', 'brokers_admin'];
 const SITE_ORIGIN = 'https://piprank.com';
 const PUBLIC_BROKER_FIELDS = 'id,name,slug,tagline,brand_color,rating,trust_score,founded,headquarters,website,min_deposit,spread_eurusd,commission,commission_value,max_leverage,leverage_value,execution_ms,withdrawal_hours,deposit_time,uptime,withdrawal_fee,inactivity_fee,demo_account,islamic_account,copy_trading,scalping,hedging,nbp,segregated,bonus,risk_warning,support_channels,support_score,regulations,platforms,payments,account_types,assets,best_for,pros,cons,review,testing,faqs,health,featured';
 
+// Only these fields may ever be written to the brokers table. In particular,
+// logo_url is a public response field from broker_media, not a brokers column.
+const BROKER_MUTABLE_FIELDS = PUBLIC_BROKER_FIELDS.split(',').filter((field) => !['id'].includes(field));
+
 const BROKER_DEFAULTS = {
   tagline: 'New broker under review',
   brand_color: '#35a371',
@@ -50,6 +54,14 @@ const BROKER_DEFAULTS = {
   health: { regulation: 80, longevity: 75, withdrawals: 80, execution: 78, support: 80, sentiment: 78 },
   featured: false,
 };
+
+function pickBrokerFields(input) {
+  const output = {};
+  for (const field of BROKER_MUTABLE_FIELDS) {
+    if (Object.prototype.hasOwnProperty.call(input, field)) output[field] = input[field];
+  }
+  return output;
+}
 
 function slugify(name) {
   return String(name)
@@ -98,21 +110,20 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Broker name is required' });
       const payload = {
         ...BROKER_DEFAULTS,
-        ...body,
+        ...pickBrokerFields(body),
         slug: body.slug ? slugify(body.slug) : slugify(body.name),
         bonus: body.bonus || null,
       };
       delete payload.id;
-      delete payload.affiliate_url;
       const { data, error } = await supabase.from('brokers').insert(payload).select().single();
       if (error) throw error;
       return res.status(201).json(data);
     }
 
     if (req.method === 'PUT') {
-      const { id, ...fields } = req.body ?? {};
+      const { id, ...input } = req.body ?? {};
       if (!id) return res.status(400).json({ error: 'id is required' });
-      delete fields.affiliate_url;
+      const fields = pickBrokerFields(input);
       if (fields.name && !fields.slug) fields.slug = slugify(fields.name);
       if ('bonus' in fields && !fields.bonus) fields.bonus = null;
       const { data, error } = await supabase
