@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowDown, ArrowUp, Check, Loader2, RotateCcw } from 'lucide-react';
 import type { Broker, CountryIntentBrokerRanking, CountryPage, Intent } from '../../lib/types';
 import supabase from '../../lib/supabase';
@@ -24,6 +24,7 @@ export default function RankingWorkspace({ countries, intents, brokers, token }:
   const [savingMode, setSavingMode] = useState(false);
   const [savingRank, setSavingRank] = useState<number | null>(null);
   const [message, setMessage] = useState('');
+  const requestId = useRef(0);
 
   useEffect(() => {
     if (!country && countries[0]) setCountry(countries[0].slug);
@@ -35,6 +36,7 @@ export default function RankingWorkspace({ countries, intents, brokers, token }:
 
   const load = useCallback(async () => {
     if (!selectedCountry || !selectedIntent) return;
+    const currentRequest = ++requestId.current;
     setLoading(true);
     setMessage('');
     try {
@@ -42,11 +44,19 @@ export default function RankingWorkspace({ countries, intents, brokers, token }:
         fetch(`/api/country-intent-rankings?country=${encodeURIComponent(country)}&intent=${encodeURIComponent(intent)}`),
         supabase.rpc('get_country_intent_ranking_mode', { p_country_id: selectedCountry.id, p_intent_id: selectedIntent.id }),
       ]);
+      if (currentRequest !== requestId.current) return;
+
       const rankingRows = await readJson<CountryIntentBrokerRanking[]>(rankingResponse, []);
       if (Array.isArray(rankingRows)) setRows(rankingRows);
-      setMode(!modeResponse.error && (modeResponse.data === 'automatic' || modeResponse.data === 'manual') ? modeResponse.data : 'automatic');
+
+      const returnedMode = modeResponse.data;
+      if (!modeResponse.error && (returnedMode === 'automatic' || returnedMode === 'manual')) {
+        setMode(returnedMode);
+      } else if (modeResponse.error) {
+        setMessage(modeResponse.error.message || 'Could not read ranking mode.');
+      }
     } finally {
-      setLoading(false);
+      if (currentRequest === requestId.current) setLoading(false);
     }
   }, [country, intent, selectedCountry, selectedIntent]);
 
@@ -59,23 +69,32 @@ export default function RankingWorkspace({ countries, intents, brokers, token }:
   }, [brokers]);
 
   const setRankingMode = async (nextMode: RankingMode) => {
-    if (!selectedCountry || !selectedIntent || nextMode === mode) return;
+    if (!selectedCountry || !selectedIntent || nextMode === mode || savingMode) return;
     setSavingMode(true);
-    setMessage('');
+    setMessage('Saving ranking mode…');
+
     const { error } = await supabase.rpc('set_country_intent_ranking_mode', {
       p_country_id: selectedCountry.id,
       p_intent_id: selectedIntent.id,
       p_ranking_mode: nextMode,
     });
+
     if (error) {
       setMessage(error.message || 'Could not change ranking mode.');
       setSavingMode(false);
       return;
     }
+
+    // Do not call load() here. A concurrent/stale mode read can overwrite the
+    // just-saved value and make the UI appear to revert to Automatic.
     setMode(nextMode);
-    setMessage(nextMode === 'manual' ? 'Manual ranking enabled and seeded from the current automatic order.' : 'Automatic ranking restored.');
+    setMessage(nextMode === 'manual' ? 'Manual ranking enabled. The current automatic order was seeded.' : 'Automatic ranking restored.');
     setSavingMode(false);
-    await load();
+
+    // Refresh broker rows only; the successful RPC is the source of truth for mode.
+    const response = await fetch(`/api/country-intent-rankings?country=${encodeURIComponent(country)}&intent=${encodeURIComponent(intent)}`);
+    const rankingRows = await readJson<CountryIntentBrokerRanking[]>(response, []);
+    if (Array.isArray(rankingRows)) setRows(rankingRows);
   };
 
   const putManualRank = async (row: CountryIntentBrokerRanking, nextRank: number) => {
