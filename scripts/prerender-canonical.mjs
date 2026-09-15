@@ -60,8 +60,8 @@ function renderBlock(block, brokersById) {
   if (block.type === 'broker_cta') {
     const broker = brokersById.get(Number(block.brokerId));
     if (!broker) return '';
-    const href = broker.affiliate_url || `/brokers/${broker.slug}`;
-    return `<section><h3>${esc(block.title || `Consider ${broker.name}`)}</h3><p>${esc(block.text || broker.tagline || '')}</p><a href="${esc(href)}">View ${esc(broker.name)}</a></section>`;
+    const href = `/go/${encodeURIComponent(broker.slug)}`;
+    return `<section><h3>${esc(block.title || `Consider ${broker.name}`)}</h3><p>${esc(block.text || broker.tagline || '')}</p><a href="${href}">View ${esc(broker.name)}</a></section>`;
   }
   return block.html || '';
 }
@@ -111,7 +111,9 @@ async function main() {
   const shell = readFileSync(join(DIST, 'index.html'), 'utf8');
   const supabase = createClient(url, key);
   const [brokersRes, countriesRes, docsRes] = await Promise.all([
-    supabase.from('brokers').select('id,name,slug,tagline,rating,trust_score,min_deposit,spread_eurusd,max_leverage,platforms,regulations,commission,affiliate_url'),
+    // Affiliate URLs are resolved through /go/:broker and affiliate_links at runtime.
+    // Prerendering must never depend on the private/legacy brokers.affiliate_url field.
+    supabase.from('brokers').select('id,name,slug,tagline,rating,trust_score,min_deposit,spread_eurusd,max_leverage,platforms,regulations,commission,website'),
     supabase.from('countries').select('id,slug,name,recommended,intro,publishing_state').eq('publishing_state', 'published'),
     supabase.from('content_documents').select('id,content_key,content_type,country_slug,topic_slug,slug,title,excerpt,html,blocks,settings,seo_title,seo_description,indexable,published,updated_at').in('content_type', ['guide', 'global-best-for', 'country-guide', 'country-best-for', 'localized-guide', 'localized-best-for', 'broker', 'country']).eq('published', true).eq('indexable', true),
   ]);
