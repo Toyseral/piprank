@@ -2,6 +2,8 @@ import supabase from './_lib/db-client.js';
 import { requireRole } from './_lib/admin-guard.js';
 
 const BROKER_WRITE = ['super_admin', 'admin', 'brokers_admin'];
+const SITE_ORIGIN = 'https://piprank.com';
+const PUBLIC_BROKER_FIELDS = 'id,name,slug,tagline,brand_color,rating,trust_score,founded,headquarters,website,min_deposit,spread_eurusd,commission,commission_value,max_leverage,leverage_value,execution_ms,withdrawal_hours,deposit_time,uptime,withdrawal_fee,inactivity_fee,demo_account,islamic_account,copy_trading,scalping,hedging,nbp,segregated,bonus,risk_warning,support_channels,support_score,regulations,platforms,payments,account_types,assets,best_for,pros,cons,review,testing,faqs,health,featured';
 
 const BROKER_DEFAULTS = {
   tagline: 'New broker under review',
@@ -57,41 +59,38 @@ function slugify(name) {
     .replace(/^-+|-+$/g, '');
 }
 
-export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+function setCors(res, methods) {
+  res.setHeader('Access-Control-Allow-Origin', SITE_ORIGIN);
+  res.setHeader('Vary', 'Origin');
+  res.setHeader('Access-Control-Allow-Methods', `${methods}, OPTIONS`);
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+}
+
+export default async function handler(req, res) {
+  setCors(res, 'GET, POST, PUT, DELETE');
   if (req.method === 'OPTIONS') return res.status(204).end();
 
   try {
-    // ---------- PUBLIC READ (logos merged from broker_media) ----------
     if (req.method === 'GET') {
-      const { data: media } = await supabase.from('broker_media').select('broker_id, logo_url');
+      const { data: media, error: mediaError } = await supabase.from('broker_media').select('broker_id, logo_url');
+      if (mediaError) throw mediaError;
       const logoMap = new Map((media ?? []).map((m) => [m.broker_id, m.logo_url]));
-      // affiliate_url is intentionally stripped from every public response —
-      // the frontend routes through /go/{slug} instead of ever seeing the
-      // raw tracked URL. `website` (the broker's own homepage) still passes
-      // through since that's not a tracked/commission link.
-      const withLogo = (b) => {
-        const { affiliate_url, ...safe } = b;
-        return { ...safe, logo_url: logoMap.get(b.id) ?? null };
-      };
+      const withLogo = (b) => ({ ...b, logo_url: logoMap.get(b.id) ?? null });
 
       const { slug } = req.query;
       if (slug) {
-        const { data, error } = await supabase.from('brokers').select('*').eq('slug', slug).single();
+        const { data, error } = await supabase.from('brokers').select(PUBLIC_BROKER_FIELDS).eq('slug', slug).single();
         if (error || !data) return res.status(404).json({ error: 'Broker not found' });
         return res.status(200).json(withLogo(data));
       }
       const { data, error } = await supabase
         .from('brokers')
-        .select('*')
+        .select(PUBLIC_BROKER_FIELDS)
         .order('rating', { ascending: false });
       if (error) throw error;
       return res.status(200).json((data ?? []).map(withLogo));
     }
 
-    // ---------- BROKER WRITES: super admin or brokers manager ----------
     if (!(await requireRole(req, res, BROKER_WRITE))) return;
 
     if (req.method === 'POST') {
@@ -139,6 +138,6 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (err) {
     console.error('brokers API error:', err);
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: 'Unable to process broker request' });
   }
 }
