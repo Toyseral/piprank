@@ -1,12 +1,13 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { BadgeCheck, ShieldCheck } from 'lucide-react';
-import type { Broker, BrokerContent } from '../lib/types';
-import { fetchBroker, fetchBrokerContent } from '../lib/api';
-import { fmtMoney } from '../lib/format';
+import type { Broker, BrokerContent, ContentDocument } from '../lib/types';
+import { fetchBroker, fetchBrokerContent, fetchBrokers, fetchContentDocument } from '../lib/api';
+import fmtMoney from '../lib/format';
 import PipRankVerdictCard from '../components/PipRankVerdictCard';
 import StructuredBrokerDataCard from '../components/StructuredBrokerDataCard';
 import OriginalTradingPlatformsCard from '../components/OriginalTradingPlatformsCard';
+import PageBlocksRenderer from '../components/PageBlocksRenderer';
 import BrokerStickyCTA from '../components/BrokerStickyCTA';
 import VisitButton from '../components/VisitButton';
 import BrokerCard from '../components/BrokerCard';
@@ -36,20 +37,38 @@ export default function BrokerDetailNew() {
   const { slug = '' } = useParams<{ slug: string }>();
   const [broker, setBroker] = useState<Broker | null>(null);
   const [content, setContent] = useState<BrokerContent | null>(null);
+  const [richProfile, setRichProfile] = useState<ContentDocument | null>(null);
+  const [allBrokers, setAllBrokers] = useState<Broker[]>([]);
   const [loading, setLoading] = useState(true);
   const [stickyCtaOpen, setStickyCtaOpen] = useState(true);
+
   useEffect(() => {
-    let live = true; setLoading(true);
+    let live = true;
+    setLoading(true);
+    setRichProfile(null);
+    setAllBrokers([]);
     fetchBroker(slug).then(async (b) => {
-      if (!live) return; setBroker(b);
-      const c = await fetchBrokerContent(b.id).catch(() => null);
-      if (!live) return; setContent(c);
+      if (!live) return;
+      setBroker(b);
+      const [c, rich, brokers] = await Promise.all([
+        fetchBrokerContent(b.id).catch(() => null),
+        fetchContentDocument(`broker:${b.slug}:main`).catch(() => null),
+        fetchBrokers().catch(() => []),
+      ]);
+      if (!live) return;
+      setContent(c);
+      setRichProfile(rich?.published ? rich : null);
+      setAllBrokers(Array.isArray(brokers) && brokers.length ? brokers : [b]);
     }).catch(() => live && setBroker(null)).finally(() => live && setLoading(false));
     return () => { live = false; };
   }, [slug]);
+
   const faqs = content?.faqs?.length ? content.faqs : broker?.faqs ?? [];
   const reviewer = reviewerFor(broker?.slug ?? slug);
-  const seo = broker ? brokerSeo(broker) : null;
+  const baseSeo = broker ? brokerSeo(broker) : null;
+  const seo = baseSeo
+    ? { ...baseSeo, title: richProfile?.seo_title || baseSeo.title, description: richProfile?.seo_description || baseSeo.description }
+    : null;
   const jsonLd = seo && broker
     ? [
         buildWebPageJsonLd(seo),
@@ -64,9 +83,15 @@ export default function BrokerDetailNew() {
       ]
     : undefined;
   useSEO(seo, jsonLd);
+
   if (loading) return <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6"><div className="h-80 animate-pulse rounded-3xl border border-line bg-white" /></div>;
   if (!broker) return <div className="mx-auto max-w-5xl px-4 py-16 text-center"><h1 className="font-display text-3xl font-bold">Broker not found</h1><Link className="mt-4 inline-flex font-bold text-emerald-700" to="/brokers">Back to brokers</Link></div>;
+
   const heroRegulators = broker.regulations.filter((r) => HERO_REGULATORS.has(r.body)).map((r) => r.body).filter((name, i, all) => all.indexOf(name) === i);
+  const editorialBlocks = Array.isArray(richProfile?.blocks) ? richProfile.blocks as any[] : [];
+  const hasRichEditorial = Boolean(richProfile?.published && (editorialBlocks.length || richProfile?.html?.trim()));
+  const editorialBrokers = allBrokers.length ? allBrokers : [broker];
+
   return (
     <main className={`bg-paper ${stickyCtaOpen ? 'pb-24' : 'pb-8'}`}>
       <section className="border-b border-line bg-ink-950 text-white">
@@ -87,7 +112,7 @@ export default function BrokerDetailNew() {
             </Shell>
             <section id="assessment" className="scroll-mt-28"><StructuredBrokerDataCard broker={broker} section="editorial" /></section>
             <section id="verdict" className="scroll-mt-28"><PipRankVerdictCard broker={broker} text={content?.verdict?.join(' ')} /></section>
-            <section id="editorial" className="scroll-mt-28 rounded-3xl border border-line bg-white p-5 shadow-soft sm:p-7"><div className="border-b border-line pb-5"><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-700">Editorial</p><h2 className="mt-1 font-display text-2xl font-bold text-ink-950">In-depth {broker.name} analysis</h2></div><div className="pt-6"><Copy items={broker.review} /></div></section>
+            <section id="editorial" className="scroll-mt-28 rounded-3xl border border-line bg-white p-5 shadow-soft sm:p-7"><div className="border-b border-line pb-5"><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-700">Editorial</p><h2 className="mt-1 font-display text-2xl font-bold text-ink-950">In-depth {broker.name} analysis</h2></div><div className="pt-6">{hasRichEditorial ? <PageBlocksRenderer blocks={editorialBlocks as any} brokers={editorialBrokers} /> : <Copy items={broker.review} />}</div></section>
             <section id="fees" className="scroll-mt-28"><StructuredBrokerDataCard broker={broker} section="pricing" editorial={<Copy items={content?.fees_detail} />} /></section>
             <section id="platforms" className="scroll-mt-28"><OriginalTradingPlatformsCard broker={broker} content={content} />{content?.platform_intro?.length ? <div className="mt-5 rounded-3xl border border-line bg-white p-5 shadow-soft sm:p-7"><Copy items={content.platform_intro} /></div> : null}</section>
             <section id="trust" className="scroll-mt-28"><StructuredBrokerDataCard broker={broker} section="trust" editorial={<Copy items={content?.regulation_detail} />} /></section>
