@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Plus, Save, X } from 'lucide-react';
-import type { Broker, ContentDocument } from '../../lib/types';
+import type { Broker, ContentDocument, CountryPage } from '../../lib/types';
 import PageBuilder, { blocksToHtml, type PageBlock } from '../PageBuilder';
+import ManualBrokerOrder from '../ManualBrokerOrder';
+import { getCountrySeoTopic, rankCountryTopicBrokers } from '../../data/countrySeoTopics';
 
 export type CanonicalEditorKind = 'broker' | 'best-for';
 export type CanonicalSlot =
@@ -21,6 +23,7 @@ type Props = {
   kind: CanonicalEditorKind;
   document: ContentDocument | null;
   brokers: Broker[];
+  countries: CountryPage[];
   token: string;
   onClose: () => void;
   onSave: (document: ContentDocument, isNew: boolean) => Promise<void>;
@@ -56,8 +59,8 @@ function zoneOf(block: PageBlock): CanonicalSlot {
   return ((block as any).zone || 'editorial') as CanonicalSlot;
 }
 
-export default function CanonicalPageEditor({ kind, document, brokers, token, onClose, onSave }: Props) {
-  const [form, setForm] = useState<ContentDocument>(() => document ? { ...document } : {
+export default function CanonicalPageEditor({ kind, document, brokers, countries, token, onClose, onSave }: Props) {
+  const [form, setForm] = useState<ContentDocument>(() => document ? { ...document, settings: document.settings ?? {} } : {
     id: 0,
     content_key: kind === 'broker' ? 'broker:new:main' : 'best-for:new',
     content_type: kind,
@@ -79,13 +82,19 @@ export default function CanonicalPageEditor({ kind, document, brokers, token, on
   });
   const [blocks, setBlocks] = useState<PageBlock[]>(normalizeBlocks(document));
   const [activeSlot, setActiveSlot] = useState<CanonicalSlot>(kind === 'broker' ? 'overview' : 'intro');
+  const [rankingMode, setRankingMode] = useState<string>(String((document?.settings as Record<string, any> | undefined)?.rankingMode || 'auto'));
+  const [pinned, setPinned] = useState<string[]>((document?.settings as Record<string, any> | undefined)?.pinnedBrokerSlugs || []);
+  const [excluded] = useState<string[]>((document?.settings as Record<string, any> | undefined)?.excludedBrokerSlugs || []);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
     const next = normalizeBlocks(document);
-    setForm(document ? { ...document } : form);
+    setForm(document ? { ...document, settings: document.settings ?? {} } : form);
     setBlocks(next);
+    const settings = (document?.settings ?? {}) as Record<string, any>;
+    setRankingMode(String(settings.rankingMode || 'auto'));
+    setPinned(Array.isArray(settings.pinnedBrokerSlugs) ? settings.pinnedBrokerSlugs : []);
   }, [document?.id]);
 
   const slots = kind === 'broker' ? BROKER_SLOTS : BEST_FOR_SLOTS;
@@ -100,6 +109,22 @@ export default function CanonicalPageEditor({ kind, document, brokers, token, on
     return map;
   }, [blocks, slots]);
 
+  const manualPool = useMemo(() => {
+    if (kind !== 'best-for') return [] as Broker[];
+    const topic = String(form.topic_slug || '').trim().toLowerCase();
+    const excludedSet = new Set(excluded);
+    if (!topic) return [] as Broker[];
+    if (form.content_type === 'global-best-for') {
+      return brokers.filter((broker) => broker.best_for.includes(topic) && !excludedSet.has(broker.slug));
+    }
+    const country = countries.find((candidate) => candidate.slug === form.country_slug);
+    const countryTopic = getCountrySeoTopic(topic);
+    if (!country || !countryTopic) return [] as Broker[];
+    return rankCountryTopicBrokers(brokers, country, countryTopic).filter((broker) => !excludedSet.has(broker.slug));
+  }, [kind, form.content_type, form.country_slug, form.topic_slug, countries, brokers, excluded]);
+
+  const unavailablePinned = useMemo(() => pinned.filter((slug) => !manualPool.some((broker) => broker.slug === slug)), [pinned, manualPool]);
+
   const updateSlot = (slot: CanonicalSlot, next: PageBlock[]) => {
     setBlocks((current) => {
       const kept = current.filter((block) => zoneOf(block) !== slot);
@@ -111,11 +136,14 @@ export default function CanonicalPageEditor({ kind, document, brokers, token, on
     try {
       setBusy(true);
       setError('');
+      if (kind === 'best-for' && rankingMode === 'manual' && pinned.length === 0) throw new Error('Manual ranking requires at least one selected broker.');
+      const settings = (form.settings ?? {}) as Record<string, any>;
       const payload = {
         ...form,
+        settings: { ...settings, rankingMode, pinnedBrokerSlugs: Array.from(new Set(pinned)), excludedBrokerSlugs: excluded },
         blocks,
         html: blocksToHtml(blocks, brokers),
-        content_type: kind,
+        content_type: form.content_type,
       } as ContentDocument;
       await onSave(payload, !document);
     } catch (e) {
@@ -191,6 +219,21 @@ export default function CanonicalPageEditor({ kind, document, brokers, token, on
               <label className="flex items-center justify-between rounded-xl border border-line bg-paper p-4"><span><strong className="block text-sm">Index</strong><span className="text-xs text-slate-400">Allow search indexing.</span></span><input type="checkbox" checked={!!form.indexable} onChange={(e) => setForm((f) => ({ ...f, indexable: e.target.checked }))} /></label>
             </div>
           </main>
+
+          {kind === 'best-for' && <aside className="hidden w-80 shrink-0 overflow-y-auto border-l border-line bg-paper p-4 xl:block">
+            <section className="rounded-2xl border border-line bg-white p-4">
+              <p className="font-display text-sm font-bold text-ink-950">Broker ranking</p>
+              <p className="mt-1 text-[11px] leading-5 text-slate-500">Automatic uses the existing broker/topic rules. Manual lets the admin choose the exact eligible brokers and their display order for this Best-For page.</p>
+              <select value={rankingMode} onChange={(e) => setRankingMode(e.target.value)} className="mt-3 h-10 w-full rounded-xl border border-line bg-paper px-3 text-xs font-bold">
+                <option value="auto">Automatic ranking</option>
+                <option value="manual">Manual broker order</option>
+              </select>
+              {rankingMode === 'manual' && <>
+                <ManualBrokerOrder brokers={manualPool} value={pinned.filter((slug) => manualPool.some((broker) => broker.slug === slug))} onChange={setPinned} />
+                {unavailablePinned.length > 0 && <div className="mt-3 rounded-xl bg-amber-50 p-3 text-[10px] leading-5 text-amber-800"><b>{unavailablePinned.length} saved selection{unavailablePinned.length === 1 ? '' : 's'} not currently eligible.</b> They will not appear publicly until the broker becomes eligible for this country/topic again.</div>}
+              </>}
+            </section>
+          </aside>}
         </div>
 
         <footer className="flex justify-end gap-2 border-t border-line bg-white px-5 py-4">
