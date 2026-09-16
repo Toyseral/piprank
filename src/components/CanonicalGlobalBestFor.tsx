@@ -62,7 +62,17 @@ export default function CanonicalGlobalBestFor({ route }: Props) {
   }, [route.document, slug, geoCountry?.slug]);
 
   const rankingSlug = rankingIntentSlug(slug, doc);
-  const ranked = useMemo(() => intent ? brokers.filter((broker) => broker.best_for.includes(intent.slug)).sort((a, b) => b.rating - a.rating || b.trust_score - a.trust_score) : [], [brokers, intent]);
+  const ranked = useMemo(() => {
+    if (!intent) return [];
+    const settings = settingsOf(doc);
+    const excluded = new Set(Array.isArray(settings.excludedBrokerSlugs) ? settings.excludedBrokerSlugs : []);
+    const eligible = brokers.filter((broker) => broker.best_for.includes(intent.slug) && !excluded.has(broker.slug));
+    if (settings.rankingMode === 'manual' && Array.isArray(settings.pinnedBrokerSlugs)) {
+      const order = new Map(settings.pinnedBrokerSlugs.map((slug: string, index: number) => [slug, index]));
+      return eligible.filter((broker) => order.has(broker.slug)).sort((a, b) => Number(order.get(a.slug)) - Number(order.get(b.slug)));
+    }
+    return [...eligible].sort((a, b) => b.rating - a.rating || b.trust_score - a.trust_score);
+  }, [brokers, intent, doc]);
   const faqs = faqsOf(doc);
   const criteria = criteriaOf(doc);
   const seo: SeoInput | null = doc ? {
