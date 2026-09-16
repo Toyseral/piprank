@@ -57,7 +57,13 @@ export default function PageBlocksRenderer({ blocks, brokers, intent, countrySlu
         }
         const html = blocksToHtml([block], brokers);
         if (!html) return null;
-        return <Fragment key={block.id || index}><div dangerouslySetInnerHTML={{ __html: html }} /></Fragment>;
+        return (
+          <Fragment key={block.id || index}>
+            <div className="prose prose-slate max-w-none text-[15px] leading-7 text-slate-700 [&_h2]:font-display [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:text-ink-950 [&_h2]:tracking-tight [&_h3]:font-display [&_h3]:text-xl [&_h3]:font-bold [&_h3]:text-ink-950 [&_h3]:tracking-tight [&_a]:font-semibold [&_a]:text-emerald-700 [&_table]:w-full [&_img]:rounded-2xl">
+              <div dangerouslySetInnerHTML={{ __html: html }} />
+            </div>
+          </Fragment>
+        );
       })}
     </div>
   );
