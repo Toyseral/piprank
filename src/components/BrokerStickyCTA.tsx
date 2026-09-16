@@ -1,12 +1,28 @@
+import { useEffect, useState } from 'react';
 import type { Broker } from '../lib/types';
+import { fetchBroker } from '../lib/api';
 import VisitButton from './VisitButton';
 import Monogram from './Monogram';
 
 interface Props {
-  broker: Broker;
+  slug: string;
 }
 
-export default function BrokerStickyCTA({ broker }: Props) {
+export default function BrokerStickyCTA({ slug }: Props) {
+  const [broker, setBroker] = useState<Broker | null>(null);
+
+  useEffect(() => {
+    let live = true;
+    fetchBroker(slug).then((value) => {
+      if (live) setBroker(value);
+    }).catch(() => {
+      if (live) setBroker(null);
+    });
+    return () => { live = false; };
+  }, [slug]);
+
+  if (!broker) return null;
+
   return (
     <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-white/95 px-3 py-2.5 shadow-[0_-8px_30px_rgba(15,23,42,0.10)] backdrop-blur-md sm:px-6 sm:py-3">
       <div className="mx-auto flex max-w-7xl items-center gap-3 sm:gap-4">
