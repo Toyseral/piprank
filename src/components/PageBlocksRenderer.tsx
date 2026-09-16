@@ -5,6 +5,7 @@ import PipRankComparisonTable from './PipRankComparisonTable';
 import StructuredBrokerDataCard from './StructuredBrokerDataCard';
 import { blocksToHtml, type PageBlock } from './PageBuilder';
 import type { Broker } from '../lib/types';
+import { fmtMoney } from '../lib/format';
 
 type Props = {
   blocks: PageBlock[];
@@ -15,6 +16,31 @@ type Props = {
   zone?: string;
   excludeZone?: string;
 };
+
+function BrokerAtAGlance({ broker }: { broker: Broker }) {
+  const rows = [
+    ['Minimum deposit', fmtMoney(broker.min_deposit)],
+    ['EUR/USD spread', `${broker.spread_eurusd} pips`],
+    ['Commission', broker.commission || '—'],
+    ['Platforms', broker.platforms.join(' · ') || '—'],
+    ['Founded', String(broker.founded || '—')],
+    ['Headquarters', broker.headquarters || '—'],
+  ];
+  return (
+    <section className="scroll-mt-28 rounded-3xl border border-line bg-white p-6 sm:p-8">
+      <p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Overview</p>
+      <h2 className="mt-1 font-display text-2xl font-bold text-ink-900">{broker.name} at a glance</h2>
+      <div className="mt-5 overflow-hidden rounded-2xl border border-line">
+        {rows.map(([label, value], i) => (
+          <div key={label} className={`flex flex-col gap-1 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between ${i % 2 === 0 ? 'bg-paper/70' : 'bg-white'}`}>
+            <span className="text-sm font-medium text-slate-500">{label}</span>
+            <span className="text-sm font-bold text-ink-900">{value}</span>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
 
 export default function PageBlocksRenderer({ blocks, brokers, intent, countrySlug, className = '', zone, excludeZone }: Props) {
   const normalized = useMemo(
@@ -33,6 +59,7 @@ export default function PageBlocksRenderer({ blocks, brokers, intent, countrySlu
         if (block.type === 'structured_broker_data') {
           const broker = brokers.find((b) => b.id === Number(block.brokerId));
           if (!broker) return null;
+          if (block.section === 'overview') return <BrokerAtAGlance key={block.id || index} broker={broker} />;
           return <StructuredBrokerDataCard key={block.id || index} broker={broker} section={block.section} editorialHtml={block.html} />;
         }
         if (block.type === 'broker_card') {
@@ -59,9 +86,7 @@ export default function PageBlocksRenderer({ blocks, brokers, intent, countrySlu
         if (!html) return null;
         return (
           <Fragment key={block.id || index}>
-            <div className="prose prose-slate max-w-none text-[15px] leading-7 text-slate-700 [&_h2]:font-display [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:text-ink-950 [&_h2]:tracking-tight [&_h3]:font-display [&_h3]:text-xl [&_h3]:font-bold [&_h3]:text-ink-950 [&_h3]:tracking-tight [&_a]:font-semibold [&_a]:text-emerald-700 [&_table]:w-full [&_img]:rounded-2xl">
-              <div dangerouslySetInnerHTML={{ __html: html }} />
-            </div>
+            <div className="prose prose-slate max-w-none text-[15px] leading-7 [&_p]:my-0 [&_p+p]:mt-5 [&_h2]:mt-8 [&_h2]:mb-3 [&_h3]:mt-6 [&_h3]:mb-2 [&_ul]:my-4 [&_ol]:my-4 [&_li]:my-1.5 [&_blockquote]:my-6 [&_table]:my-6" dangerouslySetInnerHTML={{ __html: html }} />
           </Fragment>
         );
       })}
