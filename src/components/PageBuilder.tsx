@@ -12,6 +12,8 @@ export type BrokerCardVariant = 'default' | 'compact' | 'featured';
 export type BrokerCtaVariant = 'primary' | 'dark' | 'soft';
 export type ComparisonField = 'rating' | 'trust_score' | 'min_deposit' | 'spread_eurusd' | 'commission' | 'max_leverage' | 'platforms' | 'payments' | 'regulations';
 export type BrokerEditorialSection = 'editorial' | 'pricing' | 'platforms' | 'trust' | 'accounts' | 'funding';
+export type BestForEditorialSection = 'introduction' | 'why_these_brokers' | 'who_its_for' | 'who_its_not_for' | 'detailed_analysis' | 'methodology';
+export type PageEditorialSection = BrokerEditorialSection | BestForEditorialSection;
 export type PageBuilderContext = 'default' | 'guide' | 'best-for' | 'broker-editorial';
 
 export type PageBlock = {
@@ -27,7 +29,7 @@ export type PageBlock = {
   brokerId?: number;
   brokerIds?: number[];
   section?: StructuredBrokerSection;
-  editorialSection?: BrokerEditorialSection;
+  editorialSection?: PageEditorialSection;
   variant?: BrokerCardVariant | BrokerCtaVariant;
   fields?: ComparisonField[];
   ctaLabel?: string;
@@ -37,51 +39,14 @@ export type PageBlock = {
   showCta?: boolean;
 };
 
-type Props = {
-  value?: unknown[];
-  onChange: (blocks: PageBlock[]) => void;
-  onUploadImage?: (file: File) => Promise<string>;
-  context?: PageBuilderContext;
-  editorialSection?: BrokerEditorialSection;
-};
-
+type Props = { value?: unknown[]; onChange: (blocks: PageBlock[]) => void; onUploadImage?: (file: File) => Promise<string>; context?: PageBuilderContext; editorialSection?: BrokerEditorialSection };
 const uid = () => `b_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 const esc = (v: unknown) => String(v ?? '').replace(/[&<>\"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', "'": '&#039;' }[c] as string));
-
-const legacyHtmlToBlocks = (html: string): PageBlock[] => {
-  if (!html?.trim() || typeof DOMParser === 'undefined') return [];
-  const doc = new DOMParser().parseFromString(html, 'text/html');
-  return Array.from(doc.body.childNodes).filter(n => n.nodeType === 1 || !!n.textContent?.trim()).map((node: any): PageBlock => {
-    const tag = String(node.tagName || '').toLowerCase();
-    if (/^h[1-6]$/.test(tag)) return { id: uid(), type: 'heading', title: node.textContent?.trim() || 'Section heading' };
-    return { id: uid(), type: 'richtext', html: node.outerHTML || node.textContent || '' };
-  });
-};
-
-const norm = (value?: unknown[]): PageBlock[] => {
-  if (!Array.isArray(value)) return [];
-  if (value.length === 1 && (value[0] as any)?.type === 'richtext' && typeof (value[0] as any)?.html === 'string') {
-    const legacy = legacyHtmlToBlocks((value[0] as any).html);
-    if (legacy.length > 1) return legacy;
-  }
-  return value.map((b: any) => ({ id: b.id || uid(), type: b.type || 'richtext', ...b }));
-};
-
+const legacyHtmlToBlocks = (html: string): PageBlock[] => { if (!html?.trim() || typeof DOMParser === 'undefined') return []; const doc = new DOMParser().parseFromString(html, 'text/html'); return Array.from(doc.body.childNodes).filter(n => n.nodeType === 1 || !!n.textContent?.trim()).map((node: any): PageBlock => { const tag = String(node.tagName || '').toLowerCase(); if (/^h[1-6]$/.test(tag)) return { id: uid(), type: 'heading', title: node.textContent?.trim() || 'Section heading' }; return { id: uid(), type: 'richtext', html: node.outerHTML || node.textContent || '' }; }); };
+const norm = (value?: unknown[]): PageBlock[] => { if (!Array.isArray(value)) return []; if (value.length === 1 && (value[0] as any)?.type === 'richtext' && typeof (value[0] as any)?.html === 'string') { const legacy = legacyHtmlToBlocks((value[0] as any).html); if (legacy.length > 1) return legacy; } return value.map((b: any) => ({ id: b.id || uid(), type: b.type || 'richtext', ...b })); };
 const sectionLabel = (s: StructuredBrokerSection) => ({ overview: 'Overview', pricing: 'Pricing & trading costs', trust: 'Trust & regulation', platforms: 'Trading platforms', features: 'Features & payments', editorial: 'Editorial highlights' }[s]);
 const fieldLabel = (f: ComparisonField) => ({ rating: 'Rating', trust_score: 'Trust score', min_deposit: 'Min. deposit', spread_eurusd: 'EUR/USD spread', commission: 'Commission', max_leverage: 'Max leverage', platforms: 'Platforms', payments: 'Payment methods', regulations: 'Regulation' }[f]);
-
-const brokerField = (b: Broker, f: ComparisonField): string => {
-  if (f === 'rating') return `${b.rating ?? ''}/5`;
-  if (f === 'trust_score') return String(b.trust_score ?? '');
-  if (f === 'min_deposit') return fmtMoney(b.min_deposit);
-  if (f === 'spread_eurusd') return `${b.spread_eurusd ?? ''} pips`;
-  if (f === 'commission') return String(b.commission ?? '');
-  if (f === 'max_leverage') return String(b.max_leverage ?? '');
-  if (f === 'platforms') return (b.platforms || []).join(', ') || 'Not listed';
-  if (f === 'payments') return (b.payments || []).join(', ') || 'Not listed';
-  return (b.regulations || []).map(r => r.body || r.country).filter(Boolean).join(', ') || 'Not listed';
-};
-
+const brokerField = (b: Broker, f: ComparisonField): string => { if (f === 'rating') return `${b.rating ?? ''}/5`; if (f === 'trust_score') return String(b.trust_score ?? ''); if (f === 'min_deposit') return fmtMoney(b.min_deposit); if (f === 'spread_eurusd') return `${b.spread_eurusd ?? ''} pips`; if (f === 'commission') return String(b.commission ?? ''); if (f === 'max_leverage') return String(b.max_leverage ?? ''); if (f === 'platforms') return (b.platforms || []).join(', ') || 'Not listed'; if (f === 'payments') return (b.payments || []).join(', ') || 'Not listed'; return (b.regulations || []).map(r => r.body || r.country).filter(Boolean).join(', ') || 'Not listed'; };
 function visitHref(b: Broker) { return `/go/${encodeURIComponent(b.slug)}?src=${encodeURIComponent(typeof window !== 'undefined' ? window.location.pathname : '')}&page_type=other`; }
 function structuredBrokerHtml(block: PageBlock, brokers: Broker[]) { const b = brokers.find(x => x.id === Number(block.brokerId)); if (!b) return ''; const s = block.section || 'overview'; const rows: [string,string][] = s === 'overview' ? [['Broker',b.name],['Rating',`${b.rating}/5`],['Trust score',String(b.trust_score)],['Founded',String(b.founded || '')],['Headquarters',b.headquarters || '']] : s === 'pricing' ? [['Minimum deposit',fmtMoney(b.min_deposit)],['EUR/USD spread',`${b.spread_eurusd} pips`],['Commission',b.commission || ''],['Maximum leverage',b.max_leverage || '']] : s === 'trust' ? [['Trust score',String(b.trust_score)],['Regulation',(b.regulations || []).map(r=>r.body || r.country).filter(Boolean).join(', ') || 'Not listed'],['Segregated funds',b.segregated ? 'Yes' : 'No'],['Negative balance protection',b.nbp ? 'Yes' : 'No'],['Risk warning',b.risk_warning || '']] : s === 'platforms' ? [['Platforms',(b.platforms || []).join(', ') || 'Not listed']] : s === 'features' ? [['Demo account',b.demo_account ? 'Yes' : 'No'],['Islamic account',b.islamic_account ? 'Yes' : 'No'],['Copy trading',b.copy_trading ? 'Yes' : 'No'],['Scalping',b.scalping ? 'Yes' : 'No'],['Hedging',b.hedging ? 'Yes' : 'No'],['Payment methods',(b.payments || []).join(', ') || 'Not listed']] : [['Best for',(b.best_for || []).map(x=>INTENT_LABELS[x] ?? x).join(', ')],['Pros',(b.pros || []).join(' • ')],['Cons',(b.cons || []).join(' • ')]]; return `<section class="piprank-structured-broker-data rounded-2xl border border-line bg-white p-5 shadow-sm" data-broker-id="${Number(b.id)}" data-section="${esc(s)}"><h3 class="font-display text-xl font-bold text-ink-950">${esc(b.name)} — ${esc(sectionLabel(s))}</h3><div class="mt-4 overflow-x-auto"><table class="w-full border-collapse"><tbody>${rows.filter(([,v])=>v !== '').map(([k,v])=>`<tr><th class="w-1/3 border-b border-line bg-paper px-4 py-3 text-left text-xs font-bold text-ink-900">${esc(k)}</th><td class="border-b border-line px-4 py-3 text-sm font-medium text-slate-700">${esc(v)}</td></tr>`).join('')}</tbody></table></div></section>`; }
 function shortList(values: string[], max=3) { if(!values?.length) return '—'; const shown=values.slice(0,max); return values.length>max?`${shown.join(' · ')} +${values.length-max}`:shown.join(' · '); }
