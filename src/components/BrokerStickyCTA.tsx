@@ -50,6 +50,7 @@ export default function BrokerStickyCTA({ broker, onClose }: Props) {
         <VisitButton
           broker={broker}
           compact
+          compactLabel={false}
           className="shrink-0 whitespace-nowrap"
         />
 
