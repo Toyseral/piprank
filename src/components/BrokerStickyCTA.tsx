@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import type { Broker } from '../lib/types';
 import { fetchBroker } from '../lib/api';
+import { useSEO } from '../hooks/useSEO';
+import { brokerSeo, buildBreadcrumbJsonLd, buildWebPageJsonLd, buildFAQPageJsonLd } from '../lib/seo';
 import VisitButton from './VisitButton';
 import Monogram from './Monogram';
 
@@ -20,6 +22,24 @@ export default function BrokerStickyCTA({ slug }: Props) {
     });
     return () => { live = false; };
   }, [slug]);
+
+  const seo = broker ? brokerSeo(broker) : null;
+  useSEO(
+    seo,
+    broker
+      ? [
+          buildWebPageJsonLd(seo!),
+          buildBreadcrumbJsonLd([
+            { name: 'Home', path: '/' },
+            { name: 'Forex Brokers', path: '/brokers' },
+            { name: broker.name, path: `/brokers/${broker.slug}` },
+          ]),
+          ...(broker.faqs?.length
+            ? [buildFAQPageJsonLd(broker.faqs.map((faq) => ({ question: faq.q, answer: faq.a })))]
+            : []),
+        ]
+      : null,
+  );
 
   if (!broker) return null;
 
