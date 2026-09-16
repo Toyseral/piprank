@@ -4,7 +4,6 @@ import { Analytics } from '@vercel/analytics/react';
 import Footer from './components/Footer';
 import Navbar from './components/Navbar';
 import ScrollToTop from './components/ScrollToTop';
-import BrokerStickyCTA from './components/BrokerStickyCTA';
 import Home from './pages/Home';
 import NotFound from './pages/NotFound';
 import { GeoProvider } from './lib/GeoContext';
@@ -23,12 +22,6 @@ function RouteLoader() { return <div className="flex min-h-[60vh] items-center j
 
 function isBrokerPath(pathname: string) {
   return /^\/brokers\/[^/]+\/?$/.test(pathname) || /^\/[^/]+\/brokers\/[^/]+\/?$/.test(pathname);
-}
-
-function BrokerCTA({ pathname }: { pathname: string }) {
-  const brokerSlug = pathname.match(/^\/brokers\/([^/]+)/)?.[1] ?? pathname.match(/^\/[^/]+\/brokers\/([^/]+)/)?.[1];
-  if (!brokerSlug) return null;
-  return <BrokerStickyCTA slug={brokerSlug} />;
 }
 
 export function Shell() {
@@ -80,7 +73,6 @@ export function Shell() {
     </main>
     {!bare && <Footer />}
     {!bare && <Suspense fallback={null}><SmartCTA /></Suspense>}
-    {brokerRoute && <BrokerCTA pathname={pathname} />}
   </div>;
 }
 
