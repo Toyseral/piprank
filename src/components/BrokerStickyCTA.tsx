@@ -3,7 +3,6 @@ import { X } from 'lucide-react';
 import type { Broker } from '../lib/types';
 import { pipRankScore, scoreColors } from '../lib/score';
 import VisitButton from './VisitButton';
-import Monogram from './Monogram';
 
 interface Props {
   broker: Broker;
@@ -23,16 +22,8 @@ export default function BrokerStickyCTA({ broker, onClose }: Props) {
   };
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-50 border-t border-slate-700/80 bg-ink-950/98 text-white shadow-[0_-14px_40px_rgba(2,6,23,0.22)] backdrop-blur-xl">
-      <div className="mx-auto flex max-w-7xl items-center gap-2 px-3 py-2 sm:gap-3 sm:px-6 sm:py-2.5">
-        <Monogram
-          name={broker.name}
-          logoUrl={broker.logo_url}
-          color={broker.brand_color}
-          size={32}
-          className="hidden shrink-0 rounded-lg ring-1 ring-white/15 sm:flex"
-        />
-
+    <div className="fixed inset-x-0 bottom-0 z-50 border-t border-slate-700/80 bg-ink-950/98 text-white shadow-[0_-10px_30px_rgba(2,6,23,0.2)] backdrop-blur-xl">
+      <div className="mx-auto flex max-w-7xl items-center gap-3 px-3 py-2 sm:gap-4 sm:px-6">
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-center gap-2 sm:gap-3">
             <p className="min-w-0 truncate font-display text-sm font-bold text-white sm:text-base">
@@ -40,9 +31,10 @@ export default function BrokerStickyCTA({ broker, onClose }: Props) {
             </p>
             <span className="h-4 w-px shrink-0 bg-white/15" aria-hidden="true" />
             <span
-              className={`inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-[10px] font-extrabold tracking-tight sm:text-xs ${tone.bg} ${tone.border} ${tone.text}`}
+              className={`inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-[11px] font-extrabold tracking-tight sm:text-xs ${tone.bg} ${tone.border} ${tone.text}`}
+              aria-label={`PipRank score ${score} out of 100`}
             >
-              {score}/100
+              {score}
             </span>
           </div>
         </div>
@@ -50,7 +42,7 @@ export default function BrokerStickyCTA({ broker, onClose }: Props) {
         <VisitButton
           broker={broker}
           compact
-          compactLabel={false}
+          compactLabel={true}
           className="shrink-0 whitespace-nowrap"
         />
 
@@ -59,9 +51,9 @@ export default function BrokerStickyCTA({ broker, onClose }: Props) {
           onClick={close}
           aria-label="Close sticky broker CTA"
           title="Close"
-          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-slate-500 transition hover:bg-white/10 hover:text-white focus:outline-none focus:ring-2 focus:ring-emerald-400/60 sm:h-8 sm:w-8"
+          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/10 text-slate-400 transition hover:border-white/20 hover:bg-white/10 hover:text-white focus:outline-none focus:ring-2 focus:ring-emerald-400/60"
         >
-          <X size={14} strokeWidth={1.8} aria-hidden="true" />
+          <X size={14} aria-hidden="true" />
         </button>
       </div>
     </div>
