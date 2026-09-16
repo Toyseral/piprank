@@ -17,7 +17,8 @@ const SECTIONS: { key: Section; label: string; description: string; managedBy: s
 ];
 
 const isStructured = (block: PageBlock) => block.type === 'structured_broker_data';
-const sectionOf = (block: PageBlock): Section => SECTIONS.some(s => s.key === block.editorialSection) ? block.editorialSection! : 'editorial';
+const isBrokerEditorialSection = (value: PageBlock['editorialSection']): value is BrokerEditorialSection => value === 'editorial' || value === 'pricing' || value === 'platforms' || value === 'trust' || value === 'accounts' || value === 'funding';
+const sectionOf = (block: PageBlock): Section => isBrokerEditorialSection(block.editorialSection) ? block.editorialSection : 'editorial';
 
 function brokerIdFrom(blocks: PageBlock[]) {
   const block = blocks.find(isStructured) as PageBlock | undefined;
