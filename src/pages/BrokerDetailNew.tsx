@@ -7,10 +7,12 @@ import { fmtMoney } from '../lib/format';
 import PipRankVerdictCard from '../components/PipRankVerdictCard';
 import StructuredBrokerDataCard from '../components/StructuredBrokerDataCard';
 import OriginalTradingPlatformsCard from '../components/OriginalTradingPlatformsCard';
+import BrokerStickyCTA from '../components/BrokerStickyCTA';
 import VisitButton from '../components/VisitButton';
 import BrokerCard from '../components/BrokerCard';
 import Monogram from '../components/Monogram';
 import { reviewerFor } from '../lib/team';
+import { brokerSeo, buildBreadcrumbJsonLd, buildFAQPageJsonLd, buildWebPageJsonLd } from '../lib/seo';
 import { useSEO } from '../hooks/useSEO';
 
 const anchors = [
@@ -45,11 +47,27 @@ export default function BrokerDetailNew() {
   }, [slug]);
   const faqs = content?.faqs?.length ? content.faqs : broker?.faqs ?? [];
   const reviewer = reviewerFor(broker?.slug ?? slug);
-  useSEO(broker ? { title: `${broker.name} Review | PipRank`, description: broker.tagline || `Read the PipRank review of ${broker.name}.`, path: `/brokers/${broker.slug}`, type: 'article' } : null);
+  const seo = broker ? brokerSeo(broker) : null;
+  useSEO(
+    seo,
+    broker
+      ? [
+          buildWebPageJsonLd(seo),
+          buildBreadcrumbJsonLd([
+            { name: 'Home', path: '/' },
+            { name: 'Forex Brokers', path: '/brokers' },
+            { name: broker.name, path: `/brokers/${broker.slug}` },
+          ]),
+          ...(faqs.length
+            ? [buildFAQPageJsonLd(faqs.map((faq) => ({ question: faq.q, answer: faq.a })))]
+            : []),
+        ]
+      : null,
+  );
   if (loading) return <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6"><div className="h-80 animate-pulse rounded-3xl border border-line bg-white" /></div>;
   if (!broker) return <div className="mx-auto max-w-5xl px-4 py-16 text-center"><h1 className="font-display text-3xl font-bold">Broker not found</h1><Link className="mt-4 inline-flex font-bold text-emerald-700" to="/brokers">Back to brokers</Link></div>;
   return (
-    <main className="bg-paper">
+    <main className="bg-paper pb-24">
       <section className="border-b border-line bg-ink-950 text-white">
         <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10">
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:gap-10">
@@ -82,6 +100,7 @@ export default function BrokerDetailNew() {
           <aside className="hidden lg:block"><div className="sticky top-24 space-y-4"><Anchors /><BrokerCard broker={broker} /></div></aside>
         </div>
       </div>
+      <BrokerStickyCTA broker={broker} />
     </main>
   );
 }
