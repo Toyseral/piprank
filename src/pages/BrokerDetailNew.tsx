@@ -4,7 +4,7 @@ import { BadgeCheck } from 'lucide-react';
 import type { Broker, BrokerContent, ContentDocument, Review } from '../lib/types';
 import type { PageBlock } from '../components/PageBuilder';
 import { fetchBroker, fetchBrokerContent, fetchContentDocument, fetchReviews } from '../lib/api';
-import { fmtHours, fmtMoney } from '../lib/format';
+import { fmtMoney } from '../lib/format';
 import { pipRankScore } from '../lib/score';
 import PageBlocksRenderer from '../components/PageBlocksRenderer';
 import PipRankVerdictCard from '../components/PipRankVerdictCard';
