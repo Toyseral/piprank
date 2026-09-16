@@ -36,3 +36,5 @@ export function fmtDate(iso: string): string {
   if (Number.isNaN(d.getTime())) return iso;
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
+
+export default fmtMoney;

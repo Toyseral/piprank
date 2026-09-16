@@ -7,12 +7,13 @@ interface Props {
   broker: Broker;
   compact?: boolean;
   className?: string;
-  /** Page type context passed through to /go/ for the click dashboard. Inferred from the URL if omitted. */
   context?: string;
-  /** Best-for category slug, when the CTA appears on a best-for page. */
   bestFor?: string;
-  /** Comparison pair slug (e.g. "vantage-vs-pepperstone"), when on a compare page. */
   pair?: string;
+  /** CTA wording for the placement. */
+  ctaVariant?: 'broker' | 'comparison';
+  /** Keep the compact button sizing while using the full broker-specific CTA label. */
+  compactLabel?: boolean;
 }
 
 function inferPageType(pathname: string): string {
@@ -25,15 +26,9 @@ function inferPageType(pathname: string): string {
   return 'other';
 }
 
-/**
- * Every outbound broker link routes through /go/{slug} — a real server-side
- * redirect that resolves the correct (country-specific or global) affiliate
- * URL and logs the click, rather than exposing a raw affiliate URL in the
- * page. See the affiliate disclosure and "how we make money" policy at /about.
- */
-export default function VisitButton({ broker, compact = false, className = '', context, bestFor, pair }: Props) {
+/** Every commercial broker CTA uses the server-side /go redirect. */
+export default function VisitButton({ broker, compact = false, className = '', context, bestFor, pair, ctaVariant = 'broker', compactLabel = true }: Props) {
   const pageType = context ?? inferPageType(window.location.pathname);
-
   const params = new URLSearchParams();
   params.set('src', window.location.pathname);
   params.set('page_type', pageType);
@@ -48,25 +43,20 @@ export default function VisitButton({ broker, compact = false, className = '', c
   const href = `/go/${broker.slug}?${params.toString()}`;
 
   const onClick = () => {
-    // Legacy client-side beacons, kept for the existing analytics dashboard.
-    // The authoritative click record is now logged server-side in /go/.
     track('affiliate_click', { broker: broker.slug, page: window.location.pathname });
-    track('cta_click', { broker: broker.slug, context: 'visit_cta', page: window.location.pathname });
+    track('cta_click', { broker: broker.slug, context: 'broker_cta', page: window.location.pathname });
   };
 
+  const label = ctaVariant === 'comparison'
+    ? `Open ${broker.name} Accounts`
+    : compact && compactLabel
+      ? 'Open Account'
+      : `Open ${broker.name} Account`;
+
   const button = (
-    <a
-      href={href}
-      target="_blank"
-      rel="nofollow sponsored noopener noreferrer"
-      onClick={onClick}
-      className={btnCls('primary', compact ? 'sm' : 'md', className)}
-    >
-      Open Account
-      <ArrowUpRight
-        size={compact ? 14 : 16}
-        className="transition-transform duration-200 group-hover/btn:-translate-y-0.5 group-hover/btn:translate-x-0.5"
-      />
+    <a href={href} target="_blank" rel="nofollow sponsored noopener noreferrer" onClick={onClick} className={btnCls('primary', compact ? 'sm' : 'md', className)}>
+      {label}
+      <ArrowUpRight size={compact ? 14 : 16} className="transition-transform duration-200 group-hover/btn:-translate-y-0.5 group-hover/btn:translate-x-0.5" />
     </a>
   );
 

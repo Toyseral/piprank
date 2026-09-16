@@ -2,12 +2,12 @@ import { CircleCheck, X } from 'lucide-react';
 import type { Broker } from '../lib/types';
 import type { ComparisonField } from './PageBuilder';
 import { fmtMoney } from '../lib/format';
+import VisitButton from './VisitButton';
 
 type Props = {
   brokers: Broker[];
   fields?: ComparisonField[];
   title?: string;
-  ctaLabel?: string;
   showCta?: boolean;
 };
 
@@ -37,11 +37,7 @@ function winnerIndex(field: ComparisonField, brokers: Broker[]) {
   return nums.findIndex((n) => n === best);
 }
 
-function visitHref(b: Broker) {
-  return `/go/${encodeURIComponent(b.slug)}?src=${encodeURIComponent(typeof window !== 'undefined' ? window.location.pathname : '')}&page_type=other`;
-}
-
-export default function PipRankComparisonTable({ brokers, fields, title = 'Broker comparison', ctaLabel = 'Open Account', showCta = false }: Props) {
+export default function PipRankComparisonTable({ brokers, fields, title = 'Broker comparison', showCta = false }: Props) {
   const rows: ComparisonField[] = fields?.length ? fields : ['rating', 'trust_score', 'min_deposit', 'spread_eurusd'];
   if (brokers.length < 2) return null;
 
@@ -65,7 +61,7 @@ export default function PipRankComparisonTable({ brokers, fields, title = 'Broke
           })}
           {showCta && <div className="grid items-center gap-2 border-t border-line bg-paper/60 px-4 py-4 sm:px-5" style={{ gridTemplateColumns: `1.2fr repeat(${brokers.length}, minmax(150px, 1fr))` }}>
             <span className="text-xs font-bold uppercase tracking-wide text-slate-500">Action</span>
-            {brokers.map((b) => <a key={b.id} href={visitHref(b)} target="_blank" rel="nofollow sponsored noopener noreferrer" className="inline-flex items-center justify-center rounded-xl bg-ink-950 px-3 py-2.5 text-xs font-bold text-white hover:bg-emerald-700">{ctaLabel}</a>)}
+            {brokers.map((b) => <div key={b.id} className="px-1"><VisitButton broker={b} ctaVariant="comparison" compact className="w-full justify-center" /></div>)}
           </div>}
         </div>
       </div>

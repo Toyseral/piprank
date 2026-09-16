@@ -20,12 +20,17 @@ const Tools = lazy(() => import('./pages/Tools'));
 
 function RouteLoader() { return <div className="flex min-h-[60vh] items-center justify-center"><div className="h-9 w-9 animate-spin rounded-full border-2 border-line border-t-emerald-500" /></div>; }
 
+function isBrokerPath(pathname: string) {
+  return /^\/brokers\/[^/]+\/?$/.test(pathname) || /^\/[^/]+\/brokers\/[^/]+\/?$/.test(pathname);
+}
+
 export function Shell() {
   const { pathname } = useLocation();
   const bare = pathname.startsWith('/archypage');
+  const brokerRoute = isBrokerPath(pathname);
   return <div className="flex min-h-screen flex-col bg-paper text-ink-900">
     {!bare && <Navbar />}
-    <main className={bare ? '' : 'flex-1'}>
+    <main className={bare ? '' : brokerRoute ? 'flex-1 pb-20 sm:pb-24' : 'flex-1'}>
       <Suspense fallback={<RouteLoader />}>
         <Routes>
           <Route path="/" element={<Home />} />
