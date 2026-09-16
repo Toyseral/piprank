@@ -34,7 +34,7 @@ export default function BrokerStickyCTA({ broker, onClose }: Props) {
               className={`inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-[11px] font-extrabold tracking-tight sm:text-xs ${tone.bg} ${tone.border} ${tone.text}`}
               aria-label={`PipRank score ${score} out of 100`}
             >
-              {score}
+              {score}/100
             </span>
           </div>
         </div>
