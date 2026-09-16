@@ -27,7 +27,7 @@ const anchors = [
 
 function Copy({ items }: { items?: string[] }) {
   const values = (items ?? []).filter(Boolean);
-  return values.length ? <div className="space-y-3 text-[15px] leading-7 text-slate-700">{values.map((x, i) => <p key={`${i}-${x.slice(0, 20)}`}>{x}</p>)}</div> : null;
+  return values.length ? <div className="space-y-4 text-[15px] leading-7 text-slate-700">{values.map((x, i) => <p key={`${i}-${x.slice(0, 20)}`}>{x}</p>)}</div> : null;
 }
 
 function Anchors({ mobile = false }: { mobile?: boolean }) {
@@ -81,22 +81,26 @@ export default function BrokerDetailNew() {
   return (
     <main className="bg-paper">
       <section className="border-b border-line bg-ink-950 text-white">
-        <div className="mx-auto max-w-7xl px-4 py-9 sm:px-6 sm:py-12">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:gap-8">
-            <Monogram name={broker.name} logoUrl={broker.logo_url} color={broker.brand_color} size={80} className="shrink-0 rounded-2xl ring-2 ring-white/20 shadow-lg shadow-black/30" />
-            <div className="min-w-0 flex-1">
-              <h1 className="font-display text-3xl font-bold tracking-tight sm:text-5xl">{broker.name}</h1>
-              <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-300 sm:text-base">{broker.tagline}</p>
-              <div className="mt-4 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-300"><BadgeCheck size={14} className="text-emerald-300" /><span>Regulation</span><span className="text-slate-500">·</span><span>{broker.regulations.length ? broker.regulations.slice(0, 2).map((r) => r.body).join(' · ') : 'Regulatory information available in this review'}</span></div>
-              <div className="mt-6 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10">
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:gap-10">
+            <div className="flex min-w-0 items-start gap-4 sm:gap-5">
+              <Monogram name={broker.name} logoUrl={broker.logo_url} color={broker.brand_color} size={76} className="shrink-0 rounded-2xl ring-2 ring-white/15" />
+              <div className="min-w-0">
+                <h1 className="font-display text-3xl font-bold tracking-tight sm:text-5xl">{broker.name}</h1>
+                <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-300 sm:text-base">{broker.tagline}</p>
+                <div className="mt-4 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-300"><BadgeCheck size={14} className="text-emerald-300" /><span>Regulation</span><span className="text-slate-500">·</span><span>{broker.regulations.length ? broker.regulations.slice(0, 2).map((r) => r.body).join(' · ') : 'Regulatory information available in this review'}</span></div>
+              </div>
+            </div>
+            <div className="w-full lg:w-[520px]">
+              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
                 {[
                   ['Platform', broker.platforms.slice(0, 2).join(' · ') || '—'],
                   ['Min deposit', fmtMoney(broker.min_deposit)],
-                  ['PipRank Score', `${score} / 100`],
+                  ['Founded', String(broker.founded || '—')],
                   ['EUR/USD spread', `${broker.spread_eurusd} pips`],
                 ].map(([label, value]) => <div key={label} className="rounded-2xl border border-white/10 bg-white/[0.05] px-3.5 py-3.5"><p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{label}</p><p className="tnum mt-1 font-display text-base font-bold text-white sm:text-lg">{value}</p></div>)}
               </div>
-              <div className="mt-5 sm:max-w-sm"><VisitButton broker={broker} className="w-full justify-center" /></div>
+              <div className="mt-4"><VisitButton broker={broker} className="w-full justify-center" /></div>
             </div>
           </div>
         </div>
@@ -106,19 +110,7 @@ export default function BrokerDetailNew() {
         <div className="lg:hidden"><Anchors mobile /></div>
         <div className="mt-7 grid gap-8 lg:grid-cols-[minmax(0,1fr)_300px]">
           <div className="min-w-0 space-y-8">
-            <Shell id="overview" eyebrow="Overview" title={`${broker.name} at a glance`}>
-              <Copy items={content?.overview ?? broker.review} />
-              <div className="mt-6 overflow-hidden rounded-2xl border border-line">
-                {[
-                  ['Minimum deposit', fmtMoney(broker.min_deposit)],
-                  ['EUR/USD spread', `${broker.spread_eurusd} pips`],
-                  ['Commission', broker.commission || '—'],
-                  ['Platforms', broker.platforms.join(' · ') || '—'],
-                  ['Founded', String(broker.founded || '—')],
-                  ['Headquarters', broker.headquarters || '—'],
-                ].map(([label, value], i) => <div key={label} className={`flex flex-col gap-1 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between ${i % 2 === 0 ? 'bg-paper/70' : 'bg-white'}`}><span className="text-sm font-medium text-slate-500">{label}</span><span className="text-sm font-bold text-ink-900">{value}</span></div>)}
-              </div>
-            </Shell>
+            <section id="overview" className="scroll-mt-28"><StructuredBrokerDataCard broker={broker} section="overview" editorial={<Copy items={content?.overview ?? broker.review} />} /></section>
 
             <section id="assessment" className="scroll-mt-28"><StructuredBrokerDataCard broker={broker} section="editorial" /></section>
 
