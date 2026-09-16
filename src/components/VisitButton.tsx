@@ -12,6 +12,8 @@ interface Props {
   pair?: string;
   /** CTA wording for the placement. */
   ctaVariant?: 'broker' | 'comparison';
+  /** Keep the compact button sizing while using the full broker-specific CTA label. */
+  compactLabel?: boolean;
 }
 
 function inferPageType(pathname: string): string {
@@ -25,7 +27,7 @@ function inferPageType(pathname: string): string {
 }
 
 /** Every commercial broker CTA uses the server-side /go redirect. */
-export default function VisitButton({ broker, compact = false, className = '', context, bestFor, pair, ctaVariant = 'broker' }: Props) {
+export default function VisitButton({ broker, compact = false, className = '', context, bestFor, pair, ctaVariant = 'broker', compactLabel = true }: Props) {
   const pageType = context ?? inferPageType(window.location.pathname);
   const params = new URLSearchParams();
   params.set('src', window.location.pathname);
@@ -47,7 +49,7 @@ export default function VisitButton({ broker, compact = false, className = '', c
 
   const label = ctaVariant === 'comparison'
     ? `Open ${broker.name} Accounts`
-    : compact
+    : compact && compactLabel
       ? 'Open Account'
       : `Open ${broker.name} Account`;
 
