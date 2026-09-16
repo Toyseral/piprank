@@ -49,22 +49,20 @@ export default function BrokerDetailNew() {
   const faqs = content?.faqs?.length ? content.faqs : broker?.faqs ?? [];
   const reviewer = reviewerFor(broker?.slug ?? slug);
   const seo = broker ? brokerSeo(broker) : null;
-  useSEO(
-    seo,
-    broker
-      ? [
-          buildWebPageJsonLd(seo),
-          buildBreadcrumbJsonLd([
-            { name: 'Home', path: '/' },
-            { name: 'Forex Brokers', path: '/brokers' },
-            { name: broker.name, path: `/brokers/${broker.slug}` },
-          ]),
-          ...(faqs.length
-            ? [buildFAQPageJsonLd(faqs.map((faq) => ({ question: faq.q, answer: faq.a })))]
-            : []),
-        ]
-      : null,
-  );
+  const jsonLd = seo && broker
+    ? [
+        buildWebPageJsonLd(seo),
+        buildBreadcrumbJsonLd([
+          { name: 'Home', path: '/' },
+          { name: 'Forex Brokers', path: '/brokers' },
+          { name: broker.name, path: `/brokers/${broker.slug}` },
+        ]),
+        ...(faqs.length
+          ? [buildFAQPageJsonLd(faqs.map((faq) => ({ question: faq.q, answer: faq.a })))]
+          : []),
+      ]
+    : undefined;
+  useSEO(seo, jsonLd);
   if (loading) return <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6"><div className="h-80 animate-pulse rounded-3xl border border-line bg-white" /></div>;
   if (!broker) return <div className="mx-auto max-w-5xl px-4 py-16 text-center"><h1 className="font-display text-3xl font-bold">Broker not found</h1><Link className="mt-4 inline-flex font-bold text-emerald-700" to="/brokers">Back to brokers</Link></div>;
   const heroRegulators = broker.regulations.filter((r) => HERO_REGULATORS.has(r.body)).map((r) => r.body).filter((name, i, all) => all.indexOf(name) === i);
