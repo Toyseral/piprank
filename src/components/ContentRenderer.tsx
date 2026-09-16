@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { Compass } from 'lucide-react';
 import type { Broker, ContentDocument, CountryPage, FAQ } from '../lib/types';
 import type { CanonicalRoute } from '../lib/canonicalHub/types';
-import { fetchBrokers, fetchCountry, fetchCountryIntentRankings, fetchPublishedContentDocument, fetchPublishedContentDocuments } from '../lib/api';
+import { fetchBrokers, fetchCountry, fetchCountryIntentRankings } from '../lib/api';
 import { fetchPublishedContentDocument as fetchCanonicalDocument, fetchPublishedContentDocuments as fetchCanonicalDocuments } from '../lib/canonicalContent';
 import PageBlocksRenderer from './PageBlocksRenderer';
 import BrokerCard from './BrokerCard';
