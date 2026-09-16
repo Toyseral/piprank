@@ -1,85 +1,136 @@
-# React + TypeScript + Vite
+# PipRank
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+PipRank is a React/Vite forex-broker comparison and affiliate platform focused on country-aware broker discovery, editorial broker reviews, SEO landing pages, and broker matching.
 
-Currently, two official plugins are available:
+## Current stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- React 19 + TypeScript
+- Vite 7
+- React Router DOM 7
+- Tailwind CSS 4
+- Supabase for PostgreSQL, Auth, and Storage
+- Vercel serverless API functions
+- Framer Motion
+- PageBuilder for reusable editorial content
 
-## React Compiler
+## Project architecture
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+PipRank uses a canonical page/content ownership model rather than separate content systems for each page type.
 
-## Expanding the ESLint configuration
+### Page types
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+- **Broker profiles** — `/brokers/{broker}`
+- **Country pages** — country-first SEO and discovery pages
+- **Best-For pages** — commercial intent pages such as beginner, low-spread, MT5, gold, and similar intents
+- **Guides** — editorial/knowledge content
+- **Tools** — matching, comparison, and other utility experiences
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+Canonical ownership is enforced by the application and build-time SEO validation. Do not create alternate page systems for content that already belongs to one of these canonical types.
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## Content architecture
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+The PageBuilder is the shared visual content system. It supports rich text and reusable broker/content blocks including:
+
+- Broker cards and broker grids
+- Comparison tables
+- Broker CTAs
+- PipRank Verdict blocks
+- Structured broker data
+- Images, tables, callouts, links, headings, and dividers
+
+Broker editorial content uses the same PageBuilder with section ownership. The broker editorial sections are:
+
+- `editorial`
+- `pricing`
+- `platforms`
+- `trust`
+- `accounts`
+- `funding`
+
+The BrokerEditor remains the source of truth for structured broker fields. The rich broker document is the source for authored editorial blocks. Do not introduce another broker content store or editor.
+
+## Broker page
+
+The current broker profile redesign is implemented in `BrokerDetailNew.tsx` and uses the existing structured broker components.
+
+The page order is:
+
+1. Broker hero
+2. Anchor navigation
+3. Broker at a glance
+4. Broker assessment
+5. Existing PipRank Verdict Card
+6. In-depth editorial analysis
+7. Fees & Commissions
+8. Trading Platforms
+9. Trust & Regulation
+10. Account Types
+11. Deposits & Withdrawals
+12. Additional editorial
+13. FAQ
+14. Open Account CTA
+15. Author bio
+
+The Trading Platforms card on the broker profile is intentionally locked to its established design. `StructuredBrokerDataCard` still has a generic platforms renderer because Guides and Best-For PageBuilder blocks require it. These are different rendering contexts and should not be consolidated blindly.
+
+## SEO and prerendering
+
+Production builds run the SEO and canonical validation pipeline after the Vite build. The pipeline includes:
+
+- Country SEO matrix validation
+- Robots/meta generation
+- Sitemap generation
+- Canonical prerendering
+- Broker prerender finalization
+- Removal of non-canonical/non-indexable prerenders
+- Canonical ownership validation
+- SEO validation
+
+Broker canonical URLs are `/brokers/{slug}`. Runtime and prerendered broker pages must agree on the H1, canonical URL, metadata, and major semantic sections.
+
+## API guardrail
+
+Vercel Hobby compatibility requires the top-level API function count to remain within the project's configured limit. `scripts/check-function-count.mjs` is part of the production build and must continue to pass.
+
+Affiliate clicks are routed through `/go/{broker}`. This is the authoritative broker click path.
+
+## Development
+
+Install dependencies and run the development server:
+
+```bash
+npm ci
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Useful checks:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run lint
+npx tsc -b
+npm run check:function-count
+npm run check:seo-matrix
+npm run check:retired-content
+npm run build
 ```
 
-## Phase 9 technical guardrails
+`npm run build` is the main production integrity check because it also runs the prerender and SEO validation pipeline.
 
-- Top-level `api/` routes are intentionally capped at 12 for Vercel Hobby compatibility.
-- `scripts/check-function-count.mjs` runs during production builds and fails if the count exceeds 12.
-- `/api/admin-users`, `/api/logo-upload`, `/api/newsletter`, and `/api/promotions` remain backward-compatible public paths but are internally rewritten to the consolidated `/api/site` function.
-- Affiliate routing uses ISO-2 country codes consistently; explicit PipRank country slugs are converted to ISO codes before country-specific affiliate lookup.
-- `/go/{broker}` is the authoritative affiliate-click logger; the legacy client-side `clicks` POST is no longer fired by broker CTAs.
+## Working rules
 
+1. Reuse existing canonical components before creating new ones.
+2. Do not reintroduce retired page/content systems.
+3. Do not change broker scoring as part of visual or editorial work unless explicitly required.
+4. Keep structured broker data separate from authored editorial content.
+5. Preserve PageBuilder support for Guides and Best-For pages.
+6. Keep canonical URL ownership explicit.
+7. Validate both runtime behavior and prerendered HTML for SEO-sensitive changes.
+8. Update this documentation when the architecture materially changes.
 
-## Phase 16
-Bulk country SEO draft generation is available from Admin → Page Manager → Bulk generate. See `PHASE-16-BULK-SEO-GENERATION.md`.
+## Documentation
+
+- `ARCHITECTURE.md` — system architecture and ownership rules
+- `BROKER-PAGE-ARCHITECTURE.md` — current broker profile structure and locked UI rules
+- `SEO-ARCHITECTURE.md` — canonical URLs, prerendering, and SEO validation
+- `DEVELOPMENT.md` — development workflow, checks, and change rules
+- `CURRENT-STATE.md` — current implementation state and immediate priorities
