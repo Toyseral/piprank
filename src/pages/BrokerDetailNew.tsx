@@ -8,6 +8,7 @@ import { fmtMoney } from '../lib/format';
 import PageBlocksRenderer from '../components/PageBlocksRenderer';
 import PipRankVerdictCard from '../components/PipRankVerdictCard';
 import StructuredBrokerDataCard from '../components/StructuredBrokerDataCard';
+import OriginalTradingPlatformsCard from '../components/OriginalTradingPlatformsCard';
 import VisitButton from '../components/VisitButton';
 import BrokerCard from '../components/BrokerCard';
 import Monogram from '../components/Monogram';
@@ -73,7 +74,7 @@ export default function BrokerDetailNew() {
             <section id="verdict" className="scroll-mt-28"><PipRankVerdictCard broker={broker} text={content?.verdict?.join(' ')} /></section>
             {blocks.length > 0 && <section className="rounded-3xl border border-line bg-white p-5 shadow-soft sm:p-7"><div className="border-b border-line pb-5"><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-700">Editorial</p><h2 className="mt-1 font-display text-2xl font-bold text-ink-950">In-depth {broker.name} analysis</h2></div><div className="pt-6"><PageBlocksRenderer blocks={blocks} brokers={[broker]} /></div></section>}
             <section id="fees" className="scroll-mt-28"><StructuredBrokerDataCard broker={broker} section="pricing" editorial={<Copy items={content?.fees_detail} />} /></section>
-            <section id="platforms" className="scroll-mt-28"><StructuredBrokerDataCard broker={broker} section="platforms" content={content} editorial={<Copy items={content?.platform_intro} />} /></section>
+            <section id="platforms" className="scroll-mt-28"><OriginalTradingPlatformsCard broker={broker} content={content} />{content?.platform_intro?.length ? <div className="mt-5 rounded-3xl border border-line bg-white p-5 shadow-soft sm:p-7"><Copy items={content.platform_intro} /></div> : null}</section>
             <section id="trust" className="scroll-mt-28"><StructuredBrokerDataCard broker={broker} section="trust" editorial={<Copy items={content?.regulation_detail} />} /></section>
             <section id="accounts" className="scroll-mt-28"><StructuredBrokerDataCard broker={broker} section="accounts" content={content} editorial={<Copy items={content?.accounts_intro} />} /></section>
             <section id="funding" className="scroll-mt-28"><StructuredBrokerDataCard broker={broker} section="funding" content={content} editorial={<Copy items={content?.funding_intro} />} /></section>
