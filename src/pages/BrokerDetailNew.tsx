@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { BadgeCheck } from 'lucide-react';
-import type { Broker, BrokerContent, ContentDocument, Review } from '../lib/types';
+import type { Broker, BrokerContent, ContentDocument } from '../lib/types';
 import type { PageBlock } from '../components/PageBuilder';
-import { fetchBroker, fetchBrokerContent, fetchContentDocument, fetchReviews } from '../lib/api';
+import { fetchBroker, fetchBrokerContent, fetchContentDocument } from '../lib/api';
 import { fmtMoney } from '../lib/format';
-import { pipRankScore } from '../lib/score';
 import PageBlocksRenderer from '../components/PageBlocksRenderer';
 import PipRankVerdictCard from '../components/PipRankVerdictCard';
 import StructuredBrokerDataCard from '../components/StructuredBrokerDataCard';
@@ -22,7 +21,7 @@ const anchors = [
 
 function Copy({ items }: { items?: string[] }) {
   const values = (items ?? []).filter(Boolean);
-  return values.length ? <div className="space-y-4 text-[15px] leading-7 text-slate-700">{values.map((x, i) => <p key={`${i}-${x.slice(0, 20)}`}>{x}</p>)}</div> : null;
+  return values.length ? <div className="space-y-6 text-[15px] leading-7 text-slate-700">{values.map((x, i) => <p key={`${i}-${x.slice(0, 20)}`}>{x}</p>)}</div> : null;
 }
 function Anchors({ mobile = false }: { mobile?: boolean }) {
   return <nav aria-label="On this page" className={mobile ? 'overflow-x-auto border-y border-line bg-paper py-3' : 'rounded-3xl border border-line bg-white p-5 shadow-soft'}><div className={mobile ? 'flex min-w-max gap-2' : 'space-y-1'}>{anchors.map(([id, label]) => <a key={id} href={`#${id}`} className={mobile ? 'rounded-full border border-line bg-white px-3 py-1.5 text-xs font-bold text-slate-600' : 'block rounded-xl px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-paper hover:text-emerald-700'}>{label}</a>)}</div></nav>;
@@ -36,19 +35,17 @@ export default function BrokerDetailNew() {
   const [broker, setBroker] = useState<Broker | null>(null);
   const [content, setContent] = useState<BrokerContent | null>(null);
   const [doc, setDoc] = useState<ContentDocument | null>(null);
-  const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
     let live = true; setLoading(true);
     fetchBroker(slug).then(async (b) => {
       if (!live) return; setBroker(b);
-      const [c, d, r] = await Promise.all([fetchBrokerContent(b.id).catch(() => null), fetchContentDocument(`broker:${b.slug}:main`).catch(() => null), fetchReviews(b.id).catch(() => [])]);
-      if (!live) return; setContent(c); setDoc(d); setReviews(r);
+      const [c, d] = await Promise.all([fetchBrokerContent(b.id).catch(() => null), fetchContentDocument(`broker:${b.slug}:main`).catch(() => null)]);
+      if (!live) return; setContent(c); setDoc(d);
     }).catch(() => live && setBroker(null)).finally(() => live && setLoading(false));
     return () => { live = false; };
   }, [slug]);
   const blocks = useMemo(() => (Array.isArray(doc?.blocks) ? (doc.blocks as PageBlock[]) : []), [doc]);
-  const score = broker ? pipRankScore(broker) : 0;
   const faqs = content?.faqs?.length ? content.faqs : broker?.faqs ?? [];
   const reviewer = useMemo(() => reviewerFor(broker?.slug ?? slug), [broker?.slug, slug]);
   useSEO(broker ? { title: `${broker.name} Review | PipRank`, description: broker.tagline || `Read the PipRank review of ${broker.name}.`, path: `/brokers/${broker.slug}`, type: 'article' } : null);
@@ -70,7 +67,7 @@ export default function BrokerDetailNew() {
           <div className="min-w-0 space-y-8">
             <Shell id="overview" eyebrow="Overview" title={`${broker.name} at a glance`}>
               <Copy items={content?.overview ?? broker.review} />
-              <div className="mt-6 overflow-hidden rounded-2xl border border-line">{[['Minimum deposit', fmtMoney(broker.min_deposit)], ['EUR/USD spread', `${broker.spread_eurusd} pips`], ['Commission', broker.commission || '—'], ['Platforms', broker.platforms.join(' · ') || '—'], ['Founded', String(broker.founded || '—')], ['Headquarters', broker.headquarters || '—']].map(([label, value], i) => <div key={label} className={`flex flex-col gap-1 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between ${i % 2 === 0 ? 'bg-paper/70' : 'bg-white'}`}><span className="text-sm font-medium text-slate-500">{label}</span><span className="text-sm font-bold text-ink-900">{value}</span></div>)}</div>
+              <div className="mt-8 overflow-hidden rounded-2xl border border-line">{[['Minimum deposit', fmtMoney(broker.min_deposit)], ['EUR/USD spread', `${broker.spread_eurusd} pips`], ['Commission', broker.commission || '—'], ['Platforms', broker.platforms.join(' · ') || '—'], ['Founded', String(broker.founded || '—')], ['Headquarters', broker.headquarters || '—']].map(([label, value], i) => <div key={label} className={`flex flex-col gap-1 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between ${i % 2 === 0 ? 'bg-paper/70' : 'bg-white'}`}><span className="text-sm font-medium text-slate-500">{label}</span><span className="text-sm font-bold text-ink-900">{value}</span></div>)}</div>
             </Shell>
             <section id="assessment" className="scroll-mt-28"><StructuredBrokerDataCard broker={broker} section="editorial" /></section>
             <section id="verdict" className="scroll-mt-28"><PipRankVerdictCard broker={broker} text={content?.verdict?.join(' ')} /></section>
