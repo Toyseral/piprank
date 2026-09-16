@@ -7,7 +7,7 @@ const GLOBAL = new Set(['forex-brokers-for-beginners','mt5-forex-brokers','gold-
 
 type Props = { token: string; brokers: Broker[]; countries: CountryPage[]; kind: 'global'|'country'; countrySlug?: string; topicSlug: string; onClose:()=>void; onSaved:()=>Promise<void>|void };
 
-export default function CanonicalEditorLauncher({ token, brokers, countries: _countries, kind, countrySlug, topicSlug, onClose, onSaved }: Props) {
+export default function CanonicalEditorLauncher({ token, brokers, countries, kind, countrySlug, topicSlug, onClose, onSaved }: Props) {
   const [doc,setDoc]=useState<ContentDocument|null>(null);
   const [loading,setLoading]=useState(true);
 
@@ -25,6 +25,7 @@ export default function CanonicalEditorLauncher({ token, brokers, countries: _co
     kind="best-for"
     document={doc}
     brokers={brokers}
+    countries={countries}
     token={token}
     onClose={onClose}
     onSave={async(d,isNew)=>{
