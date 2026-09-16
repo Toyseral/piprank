@@ -37,6 +37,7 @@ export default function BrokerDetailNew() {
   const [broker, setBroker] = useState<Broker | null>(null);
   const [content, setContent] = useState<BrokerContent | null>(null);
   const [loading, setLoading] = useState(true);
+  const [stickyCtaOpen, setStickyCtaOpen] = useState(true);
   useEffect(() => {
     let live = true; setLoading(true);
     fetchBroker(slug).then(async (b) => {
@@ -67,7 +68,7 @@ export default function BrokerDetailNew() {
   if (!broker) return <div className="mx-auto max-w-5xl px-4 py-16 text-center"><h1 className="font-display text-3xl font-bold">Broker not found</h1><Link className="mt-4 inline-flex font-bold text-emerald-700" to="/brokers">Back to brokers</Link></div>;
   const heroRegulators = broker.regulations.filter((r) => HERO_REGULATORS.has(r.body)).map((r) => r.body).filter((name, i, all) => all.indexOf(name) === i);
   return (
-    <main className="bg-paper pb-24">
+    <main className={`bg-paper ${stickyCtaOpen ? 'pb-24' : 'pb-8'}`}>
       <section className="border-b border-line bg-ink-950 text-white">
         <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10">
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:gap-10">
@@ -100,7 +101,7 @@ export default function BrokerDetailNew() {
           <aside className="hidden lg:block"><div className="sticky top-24 space-y-4"><Anchors /><BrokerCard broker={broker} /></div></aside>
         </div>
       </div>
-      <BrokerStickyCTA broker={broker} />
+      {stickyCtaOpen && <BrokerStickyCTA broker={broker} onClose={() => setStickyCtaOpen(false)} />}
     </main>
   );
 }
