@@ -28,6 +28,7 @@ function paragraphs(items) { return (Array.isArray(items) ? items : []).filter(B
 
 function brokerContentHtml(broker, content, faqs) {
   const overview = content?.overview?.length ? content.overview : [broker.tagline].filter(Boolean);
+  const h1 = `${broker.name} Forex Broker Review: Spreads, Fees & Regulation`;
   const sections = [
     overview.length ? `<section><h2>${esc(broker.name)} at a glance</h2>${paragraphs(overview)}</section>` : '',
     content?.verdict?.length ? `<section><h2>PipRank verdict</h2>${paragraphs(content.verdict)}</section>` : '',
@@ -38,7 +39,7 @@ function brokerContentHtml(broker, content, faqs) {
     content?.funding_intro?.length ? `<section><h2>Deposits & withdrawals</h2>${paragraphs(content.funding_intro)}</section>` : '',
     faqs.length ? `<section><h2>${esc(broker.name)} frequently asked questions</h2>${faqs.map((faq) => `<h3>${esc(faq.q)}</h3><p>${esc(faq.a)}</p>`).join('')}</section>` : '',
   ].filter(Boolean);
-  return `<main><nav aria-label="Breadcrumb"><a href="/">Home</a> › <a href="/brokers">Forex Brokers</a> › <span>${esc(broker.name)}</span></nav><h1>${esc(broker.name)}</h1><p>${esc(broker.tagline || '')}</p><ul><li>Minimum deposit: ${esc(broker.min_deposit ?? '—')}</li><li>EUR/USD spread: ${esc(broker.spread_eurusd ?? '—')}</li><li>Maximum leverage: ${esc(broker.max_leverage ?? '—')}</li><li>Platforms: ${esc((broker.platforms || []).join(', ') || '—')}</li></ul>${sections.join('')}<p><a href="/go/${encodeURIComponent(broker.slug)}">Open ${esc(broker.name)} Account</a></p></main>`;
+  return `<main><nav aria-label="Breadcrumb"><a href="/">Home</a> › <a href="/brokers">Forex Brokers</a> › <span>${esc(broker.name)}</span></nav><h1>${esc(h1)}</h1><p>${esc(broker.tagline || '')}</p><ul><li>Minimum deposit: ${esc(broker.min_deposit ?? '—')}</li><li>EUR/USD spread: ${esc(broker.spread_eurusd ?? '—')}</li><li>Maximum leverage: ${esc(broker.max_leverage ?? '—')}</li><li>Platforms: ${esc((broker.platforms || []).join(', ') || '—')}</li></ul>${sections.join('')}<p><a href="/go/${encodeURIComponent(broker.slug)}">Open ${esc(broker.name)} Account</a></p></main>`;
 }
 
 function replaceRootContent(html, content) {
