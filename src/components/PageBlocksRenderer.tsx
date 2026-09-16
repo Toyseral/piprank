@@ -50,12 +50,21 @@ function normalizeRichTextHtml(html: string) {
   return `<p>${trimmed}</p>`;
 }
 
+function isBrokerEditorialBlock(block: PageBlock) {
+  if (block.type !== 'structured_broker_data') return true;
+  return block.section === 'overview' || block.section === 'editorial';
+}
+
 export default function PageBlocksRenderer({ blocks, brokers, intent, countrySlug, className = '', zone, excludeZone }: Props) {
   const normalized = useMemo(
     () => (Array.isArray(blocks) ? blocks : []).filter((block: any) => {
       const blockZone = typeof block?.zone === 'string' ? block.zone : undefined;
       if (zone && blockZone !== zone) return false;
       if (excludeZone && blockZone === excludeZone) return false;
+      // Dedicated broker facts own overview/pricing/platform/trust/features sections.
+      // The broker editorial canvas may only contain overview/editorial structured blocks;
+      // pricing, platforms, trust and features belong to their page sections.
+      if (!isBrokerEditorialBlock(block)) return false;
       // Broker pros/cons belong to the dedicated Broker assessment, never the in-depth editorial section.
       if (block?.type === 'structured_broker_data' && block?.section === 'editorial') return false;
       return true;
