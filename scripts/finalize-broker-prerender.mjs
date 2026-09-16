@@ -41,6 +41,15 @@ function brokerContentHtml(broker, content, faqs) {
   return `<main><nav aria-label="Breadcrumb"><a href="/">Home</a> › <a href="/brokers">Forex Brokers</a> › <span>${esc(broker.name)}</span></nav><h1>${esc(broker.name)}</h1><p>${esc(broker.tagline || '')}</p><ul><li>Minimum deposit: ${esc(broker.min_deposit ?? '—')}</li><li>EUR/USD spread: ${esc(broker.spread_eurusd ?? '—')}</li><li>Maximum leverage: ${esc(broker.max_leverage ?? '—')}</li><li>Platforms: ${esc((broker.platforms || []).join(', ') || '—')}</li></ul>${sections.join('')}<p><a href="/go/${encodeURIComponent(broker.slug)}">Open ${esc(broker.name)} Account</a></p></main>`;
 }
 
+function replaceRootContent(html, content) {
+  const start = html.indexOf('<div id="root">');
+  if (start < 0) return html;
+  const contentStart = start + '<div id="root">'.length;
+  const end = html.lastIndexOf('</div>');
+  if (end < contentStart) return html;
+  return `${html.slice(0, contentStart)}${content}${html.slice(end)}`;
+}
+
 function replaceHead(html, seo, schemas) {
   let output = html
     .replace(/<title>[\s\S]*?<\/title>/i, `<title>${esc(seo.title)}</title>`)
@@ -86,7 +95,7 @@ async function main() {
     const html = readFileSync(file, 'utf8');
     const schemas = [articleSchema(seo), breadcrumbSchema(broker), ...(faqs.length ? [faqSchema(faqs)] : [])].map(jsonLd);
     const withHead = replaceHead(html, seo, schemas);
-    const finalHtml = withHead.replace(/<div id="root">[\s\S]*?<\/div>/i, `<div id="root">${brokerContentHtml(broker, content, faqs)}</div>`);
+    const finalHtml = replaceRootContent(withHead, brokerContentHtml(broker, content, faqs));
     writeFileSync(file, finalHtml, 'utf8');
     finalized++;
   }
