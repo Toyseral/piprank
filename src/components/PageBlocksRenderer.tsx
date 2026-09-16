@@ -42,19 +42,29 @@ function BrokerAtAGlance({ broker }: { broker: Broker }) {
   );
 }
 
+function normalizeRichTextHtml(html: string) {
+  const trimmed = html.trim();
+  if (!trimmed) return '';
+  const hasBlockMarkup = /<(p|h[1-6]|ul|ol|blockquote|table|figure|hr|div|section|aside)\b/i.test(trimmed);
+  if (hasBlockMarkup) return trimmed;
+  return `<p>${trimmed}</p>`;
+}
+
 export default function PageBlocksRenderer({ blocks, brokers, intent, countrySlug, className = '', zone, excludeZone }: Props) {
   const normalized = useMemo(
     () => (Array.isArray(blocks) ? blocks : []).filter((block: any) => {
       const blockZone = typeof block?.zone === 'string' ? block.zone : undefined;
       if (zone && blockZone !== zone) return false;
       if (excludeZone && blockZone === excludeZone) return false;
+      // Broker pros/cons belong to the dedicated Broker assessment, never the in-depth editorial section.
+      if (block?.type === 'structured_broker_data' && block?.section === 'editorial') return false;
       return true;
     }),
     [blocks, zone, excludeZone],
   );
 
   return (
-    <div className={className}>
+    <div className={`${className} space-y-7`}>
       {normalized.map((block, index) => {
         if (block.type === 'structured_broker_data') {
           const broker = brokers.find((b) => b.id === Number(block.brokerId));
@@ -82,11 +92,11 @@ export default function PageBlocksRenderer({ blocks, brokers, intent, countrySlu
           if (!broker) return null;
           return <PipRankVerdictCard key={block.id || index} broker={broker} headline={block.headline} text={block.html?.replace(/<[^>]+>/g, '').trim() || undefined} showCta={block.showCta !== false} />;
         }
-        const html = blocksToHtml([block], brokers);
+        const html = normalizeRichTextHtml(blocksToHtml([block], brokers));
         if (!html) return null;
         return (
           <Fragment key={block.id || index}>
-            <div className="prose prose-slate max-w-none text-[15px] leading-7 [&_p]:my-0 [&_p+p]:mt-5 [&_h2]:mt-8 [&_h2]:mb-3 [&_h3]:mt-6 [&_h3]:mb-2 [&_ul]:my-4 [&_ol]:my-4 [&_li]:my-1.5 [&_blockquote]:my-6 [&_table]:my-6" dangerouslySetInnerHTML={{ __html: html }} />
+            <div className="prose prose-slate max-w-none text-[15px] leading-7 [&_p]:my-0 [&_p+p]:mt-6 [&_h2]:mt-10 [&_h2]:mb-3 [&_h3]:mt-7 [&_h3]:mb-2 [&_ul]:my-5 [&_ol]:my-5 [&_li]:my-1.5 [&_blockquote]:my-7 [&_table]:my-7" dangerouslySetInnerHTML={{ __html: html }} />
           </Fragment>
         );
       })}
