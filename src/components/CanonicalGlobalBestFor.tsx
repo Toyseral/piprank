@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import { GraduationCap, MonitorSmartphone, Percent, Sparkles, Timer, Waves, Zap, Gauge, Copy } from 'lucide-react';
 import type { Broker, ContentDocument, Intent } from '../lib/types';
 import type { CanonicalRoute } from '../lib/canonicalHub/types';
 import { fetchBrokers, fetchIntents } from '../lib/api';
@@ -86,13 +85,3 @@ export default function CanonicalGlobalBestFor({ route }: Props) {
 
   return <BestForTemplate document={doc} brokers={ranked.map((broker) => ({ ...broker, tagline: intentNote(rankingSlug, broker) }))} ranked={ranked} intentSlug={rankingSlug} criteria={criteria} faqs={faqs} />;
 }
-
-void GraduationCap;
-void MonitorSmartphone;
-void Percent;
-void Sparkles;
-void Timer;
-void Waves;
-void Zap;
-void Gauge;
-void Copy;
