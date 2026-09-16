@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import type { Broker, ContentDocument } from '../lib/types';
 import { fetchContentDocument } from '../lib/api';
 import PageBlocksRenderer from './PageBlocksRenderer';
@@ -9,19 +9,26 @@ type Section = 'editorial' | 'pricing' | 'platforms' | 'trust' | 'accounts' | 'f
 type Props = {
   broker: Broker;
   section: Section;
+  fallback?: ReactNode;
 };
 
-export default function BrokerEditorialSection({ broker, section }: Props) {
+export default function BrokerEditorialSection({ broker, section, fallback }: Props) {
   const [document, setDocument] = useState<ContentDocument | null>(null);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     let active = true;
+    setLoaded(false);
     fetchContentDocument(`broker:${broker.slug}:main`)
       .then((doc) => {
-        if (active) setDocument(doc?.published ? doc : null);
+        if (!active) return;
+        setDocument(doc?.published ? doc : null);
+        setLoaded(true);
       })
       .catch(() => {
-        if (active) setDocument(null);
+        if (!active) return;
+        setDocument(null);
+        setLoaded(true);
       });
     return () => {
       active = false;
@@ -32,7 +39,7 @@ export default function BrokerEditorialSection({ broker, section }: Props) {
     ? (document.blocks as PageBlock[]).filter((block: any) => block?.type !== 'structured_broker_data')
     : [];
 
-  if (!blocks.length) return null;
+  if (!loaded || !blocks.length) return fallback ? <>{fallback}</> : null;
 
   return <PageBlocksRenderer blocks={blocks} brokers={[broker]} editorialSection={section} />;
 }
