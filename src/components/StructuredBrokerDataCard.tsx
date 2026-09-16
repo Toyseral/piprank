@@ -3,6 +3,7 @@ import type { Broker, BrokerContent } from '../lib/types';
 import { allInCost, tierLabel } from '../lib/score';
 import { fmtHours, fmtMoney } from '../lib/format';
 import { Check, FlaskConical, Landmark, X } from 'lucide-react';
+import BrokerEditorialSection from './BrokerEditorialSection';
 
 type Section = 'overview' | 'pricing' | 'trust' | 'platforms' | 'accounts' | 'features' | 'funding' | 'editorial';
 
@@ -15,7 +16,11 @@ function BoolIcon({ ok }: { ok: boolean }) { return ok ? <span className="inline
 export default function StructuredBrokerDataCard({ broker, section = 'overview', content, editorial, editorialHtml }: Props) {
   const extras = content ?? null;
   const accountRows = extras?.accounts?.length ? extras.accounts : broker.account_types.map((name) => ({ name, spread_from: `${broker.spread_eurusd} pips`, commission: broker.commission, min_deposit: fmtMoney(broker.min_deposit), best_for: 'Standard conditions' }));
-  const editorialContent = editorial ?? <EditorialHtml html={editorialHtml} />;
+  const legacyEditorial = editorial ?? <EditorialHtml html={editorialHtml} />;
+  const richSection = section === 'pricing' || section === 'trust' || section === 'accounts' || section === 'funding' ? section : null;
+  const editorialContent = richSection
+    ? <BrokerEditorialSection broker={broker} section={richSection} fallback={legacyEditorial} />
+    : legacyEditorial;
 
   if (section === 'editorial') return <Shell editorial={editorialContent}><p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Broker assessment</p><h2 className="mt-1 font-display text-2xl font-bold text-ink-900">What we like about {broker.name}</h2><div className="mt-5 grid gap-5 sm:grid-cols-2"><div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-5"><p className="text-xs font-bold uppercase tracking-widest text-emerald-700">What we like</p><ul className="mt-3 space-y-2.5">{broker.pros.map((p) => <li key={p} className="flex gap-2.5 text-sm text-slate-700"><Check size={16} className="mt-0.5 shrink-0 text-emerald-600" strokeWidth={3} />{p}</li>)}</ul></div><div className="rounded-2xl border border-rose-200 bg-rose-50/60 p-5"><p className="text-xs font-bold uppercase tracking-widest text-rose-600">Watch out for</p><ul className="mt-3 space-y-2.5">{broker.cons.map((c) => <li key={c} className="flex gap-2.5 text-sm text-slate-700"><X size={16} className="mt-0.5 shrink-0 text-rose-500" strokeWidth={3} />{c}</li>)}</ul></div></div></Shell>;
 

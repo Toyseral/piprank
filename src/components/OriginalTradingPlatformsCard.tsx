@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Check } from 'lucide-react';
 import type { Broker, BrokerContent } from '../lib/types';
+import BrokerEditorialSection from './BrokerEditorialSection';
 
 type Props = { broker: Broker; content?: BrokerContent | null };
 
@@ -47,6 +48,9 @@ export default function OriginalTradingPlatformsCard({ broker, content }: Props)
       </div>
       <div className="mt-6 space-y-3">
         {assetBars.map((bar) => <div key={bar.label} className="flex items-center gap-3"><span className="w-28 shrink-0 text-xs font-semibold text-slate-500">{bar.label}</span><div className="h-2.5 flex-1 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-400" style={{ width: `${Math.max(4, (bar.value / maxAsset) * 100)}%` }} /></div><span className="tnum w-12 text-right text-xs font-bold text-ink-900">{bar.value}</span></div>)}
+      </div>
+      <div className="mt-6 border-t border-line pt-6">
+        <BrokerEditorialSection broker={broker} section="platforms" />
       </div>
     </section>
   );

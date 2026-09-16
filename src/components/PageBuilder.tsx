@@ -11,6 +11,8 @@ export type StructuredBrokerSection = 'overview' | 'pricing' | 'trust' | 'platfo
 export type BrokerCardVariant = 'default' | 'compact' | 'featured';
 export type BrokerCtaVariant = 'primary' | 'dark' | 'soft';
 export type ComparisonField = 'rating' | 'trust_score' | 'min_deposit' | 'spread_eurusd' | 'commission' | 'max_leverage' | 'platforms' | 'payments' | 'regulations';
+export type BrokerEditorialSection = 'editorial' | 'pricing' | 'platforms' | 'trust' | 'accounts' | 'funding';
+export type PageBuilderContext = 'default' | 'guide' | 'best-for' | 'broker-editorial';
 
 export type PageBlock = {
   id: string;
@@ -25,6 +27,7 @@ export type PageBlock = {
   brokerId?: number;
   brokerIds?: number[];
   section?: StructuredBrokerSection;
+  editorialSection?: BrokerEditorialSection;
   variant?: BrokerCardVariant | BrokerCtaVariant;
   fields?: ComparisonField[];
   ctaLabel?: string;
@@ -34,7 +37,13 @@ export type PageBlock = {
   showCta?: boolean;
 };
 
-type Props = { value?: unknown[]; onChange: (blocks: PageBlock[]) => void; onUploadImage?: (file: File) => Promise<string> };
+type Props = {
+  value?: unknown[];
+  onChange: (blocks: PageBlock[]) => void;
+  onUploadImage?: (file: File) => Promise<string>;
+  context?: PageBuilderContext;
+  editorialSection?: BrokerEditorialSection;
+};
 
 const uid = () => `b_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 const esc = (v: unknown) => String(v ?? '').replace(/[&<>\"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', "'": '&#039;' }[c] as string));
@@ -118,7 +127,7 @@ function brokerCardHtml(b: Broker, variant: BrokerCardVariant = 'default') {
 function comparisonHtml(block: PageBlock, brokers: Broker[]) {
   const selected = (block.brokerIds || []).map(id => brokers.find(b => b.id === Number(id))).filter(Boolean) as Broker[];
   if (selected.length < 2) return '';
-  const fields = block.fields?.length ? block.fields : ['rating', 'trust_score', 'min_deposit', 'spread_eurusd'] as ComparisonField[];
+  const fields: ComparisonField[] = block.fields?.length ? block.fields : ['rating', 'trust_score', 'min_deposit', 'spread_eurusd'];
   const rows = fields.map(f => `<tr><th>${esc(fieldLabel(f))}</th>${selected.map(b => `<td>${esc(brokerField(b, f))}</td>`).join('')}</tr>`).join('');
   const showCta = block.showCta === true || Boolean(block.ctaLabel);
   const ctaRow = showCta ? `<tr class="piprank-comparison-cta-row"><th>Action</th>${selected.map(b => `<td><a href="${esc(visitHref(b))}" target="_blank" rel="nofollow sponsored noopener noreferrer" class="inline-flex w-full items-center justify-center rounded-xl bg-ink-950 px-3 py-2.5 text-xs font-bold text-white">${esc(block.ctaLabel || 'Open Account')}</a></td>`).join('')}</tr>` : '';
@@ -143,7 +152,11 @@ export function blocksToHtml(blocks: PageBlock[], brokers: Broker[] = []) {
     if (b.type === 'broker_grid') return `<div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">${(b.brokerIds || []).map(id => brokers.find(x => x.id === Number(id))).filter(Boolean).map(x => brokerCardHtml(x as Broker, (b.variant as BrokerCardVariant) || 'compact')).join('')}</div>`;
     if (b.type === 'comparison_table') return comparisonHtml(b, brokers);
     if (b.type === 'broker_cta') return ctaHtml(b, brokers);
-    if (b.type === 'piprank_verdict') { const bkr = brokers.find(x => x.id === Number(b.brokerId)); const text = b.html || ''; return bkr ? `<section class="piprank-verdict rounded-2xl border border-emerald-200 bg-white p-5 shadow-sm"><div class="flex items-center justify-between gap-3"><h3 class="font-display text-xl font-bold text-ink-950">${esc(b.headline || `PipRank Verdict: ${bkr.name}`)}</h3><span class="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">${pipRankScore(bkr)}/100</span></div>${text ? `<div class="mt-3 text-sm leading-7 text-slate-700">${text}</div>` : ''}${b.showCta !== false ? `<div class="mt-4"><a href="${esc(visitHref(bkr))}" target="_blank" rel="nofollow sponsored noopener noreferrer" class="inline-flex rounded-xl bg-ink-950 px-4 py-2.5 text-sm font-bold text-white">Open Account</a></div>` : ''}</section>` : ''; }
+    if (b.type === 'piprank_verdict') {
+      const bkr = brokers.find(x => x.id === Number(b.brokerId));
+      const text = b.html || '';
+      return bkr ? `<section class="piprank-verdict rounded-2xl border border-emerald-200 bg-white p-5 shadow-sm"><div class="flex items-center justify-between gap-3"><h3 class="font-display text-xl font-bold text-ink-950">${esc(b.headline || `PipRank Verdict: ${bkr.name}`)}</h3><span class="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">${pipRankScore(bkr)}/100</span></div>${text ? `<div class="mt-3 text-sm leading-7 text-slate-700">${text}</div>` : ''}${b.showCta !== false ? `<div class="mt-4"><a href="${esc(visitHref(bkr))}" target="_blank" rel="nofollow sponsored noopener noreferrer" class="inline-flex rounded-xl bg-ink-950 px-4 py-2.5 text-sm font-bold text-white">Open Account</a></div>` : ''}</section>` : '';
+    }
     if (b.type === 'heading') return `<h2 id="${slug(b.title || 'section-heading')}">${esc(b.title || 'Section heading')}</h2>`;
     if (b.type === 'image') return `<figure><img src="${esc(b.src || '')}" alt="${esc(b.alt || '')}" loading="lazy" /><figcaption>${esc(b.alt || '')}</figcaption></figure>`;
     if (b.type === 'table') { const r = b.rows || [['Feature', 'Details'], ['', '']]; return `<div class="overflow-x-auto"><table><thead><tr>${r[0].map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${r.slice(1).map(x => `<tr>${x.map(c => `<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`; }
@@ -158,6 +171,11 @@ const ALL_FIELDS: ComparisonField[] = ['rating', 'trust_score', 'min_deposit', '
 const INSERT_TYPES: { type: PageBlock['type']; label: string; icon: typeof Type }[] = [
   { type: 'richtext', label: 'Text', icon: Type }, { type: 'heading', label: 'Heading', icon: Type }, { type: 'structured_broker_data', label: 'Broker data', icon: Database }, { type: 'broker_card', label: 'Broker card', icon: Database }, { type: 'broker_grid', label: 'Broker grid', icon: Database }, { type: 'comparison_table', label: 'Compare', icon: Table2 }, { type: 'broker_cta', label: 'Broker CTA', icon: Link2 }, { type: 'piprank_verdict', label: 'PipRank Verdict', icon: Database }, { type: 'image', label: 'Image', icon: ImageIcon }, { type: 'table', label: 'Table', icon: Table2 }, { type: 'callout', label: 'Callout', icon: Quote }, { type: 'links', label: 'Links', icon: Link2 }, { type: 'divider', label: 'Divider', icon: Plus },
 ];
+
+function getInsertTypes(context: PageBuilderContext = 'default') {
+  if (context === 'broker-editorial') return INSERT_TYPES.filter(item => item.type !== 'structured_broker_data');
+  return INSERT_TYPES;
+}
 
 function makeBlock(type: PageBlock['type'], brokers: Broker[]): PageBlock {
   const first = brokers[0]?.id;
@@ -176,26 +194,52 @@ function makeBlock(type: PageBlock['type'], brokers: Broker[]): PageBlock {
   return { id: uid(), type: 'richtext', html: '<p>Start writing…</p>' };
 }
 
-export default function PageBuilder({ value, onChange, onUploadImage }: Props) {
-  const [blocks, setBlocks] = useState<PageBlock[]>(() => norm(value));
+function normalizeSection(value: unknown): BrokerEditorialSection {
+  return value === 'pricing' || value === 'platforms' || value === 'trust' || value === 'accounts' || value === 'funding' ? value : 'editorial';
+}
+
+export default function PageBuilder({ value, onChange, onUploadImage, context = 'default', editorialSection }: Props) {
+  const insertTypes = getInsertTypes(context);
+  const activeEditorialSection = context === 'broker-editorial' ? normalizeSection(editorialSection) : undefined;
+  const incoming = norm(value);
+  const initialBlocks = activeEditorialSection
+    ? incoming.filter(block => block.type !== 'structured_broker_data' && (!block.editorialSection || block.editorialSection === activeEditorialSection))
+    : incoming;
+  const [blocks, setBlocks] = useState<PageBlock[]>(() => initialBlocks);
   const [brokers, setBrokers] = useState<Broker[]>([]);
   const [preview, setPreview] = useState(false);
   const [insertAt, setInsertAt] = useState<number | null>(null);
+
   useEffect(() => { fetchBrokers().then(setBrokers).catch(() => setBrokers([])); }, []);
-  useEffect(() => { setBlocks(norm(value)); }, [value]);
-  const emit = (next: PageBlock[]) => { setBlocks(next); onChange(next); };
+
+  useEffect(() => {
+    const next = norm(value);
+    setBlocks(activeEditorialSection
+      ? next.filter(block => block.type !== 'structured_broker_data' && (!block.editorialSection || block.editorialSection === activeEditorialSection))
+      : next);
+  }, [value, activeEditorialSection]);
+
+  const emit = (next: PageBlock[]) => {
+    const filtered = context === 'broker-editorial' ? next.filter(block => block.type !== 'structured_broker_data') : next;
+    const owned = activeEditorialSection
+      ? filtered.map(block => ({ ...block, editorialSection: activeEditorialSection }))
+      : filtered;
+    setBlocks(owned);
+    onChange(owned);
+  };
   const update = (i: number, patch: Partial<PageBlock>) => emit(blocks.map((b, n) => n === i ? { ...b, ...patch } : b));
   const insert = (index: number, type: PageBlock['type']) => { const next = [...blocks]; next.splice(index, 0, makeBlock(type, brokers)); emit(next); setInsertAt(null); };
   const add = (type: PageBlock['type']) => insert(blocks.length, type);
   const move = (i: number, d: number) => { const j = i + d; if (j < 0 || j >= blocks.length) return; const next = [...blocks]; [next[i], next[j]] = [next[j], next[i]]; emit(next); };
   const duplicate = (i: number) => { const next = [...blocks]; next.splice(i + 1, 0, { ...blocks[i], id: uid() }); emit(next); };
   const remove = (i: number) => emit(blocks.filter((_, n) => n !== i));
+
   if (preview) return <div className="rounded-2xl border border-line bg-white"><div className="flex items-center justify-between border-b border-line p-3"><b className="text-sm">Page preview</b><button onClick={() => setPreview(false)} className="rounded-xl border border-line px-3 py-2 text-xs font-bold">Back to editor</button></div><div className="piprank-rich-content p-6 sm:p-10" dangerouslySetInnerHTML={{ __html: blocksToHtml(blocks, brokers) }} /></div>;
-  return <div className="rounded-2xl border border-line bg-slate-50 p-3 sm:p-4"><div className="sticky top-0 z-20 mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-line bg-white p-2 shadow-sm"><span className="mr-1 inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-slate-400"><GripVertical size={13}/> Page Builder</span>{INSERT_TYPES.map(({ type, label, icon: Icon }) => <button key={type} onClick={() => add(type)} className="tool"><Icon size={14}/>{label}</button>)}<span className="flex-1"/><button onClick={() => setPreview(true)} className="tool"><Eye size={14}/> Preview</button><span className="text-[10px] text-slate-400">{blocks.length} blocks</span></div><div className="rounded-xl border border-emerald-200 bg-emerald-50/70 px-3 py-2 text-[11px] font-medium text-emerald-900 mb-3">Continuous document: existing content stays in place. Use <b>+ Add Element</b> between any two blocks to insert new content exactly there.</div><div>{blocks.length === 0 && <div className="mb-2"><InsertBar onOpen={() => setInsertAt(insertAt === 0 ? null : 0)} /></div>}{blocks.map((b, i) => <div key={b.id}>{insertAt === i ? <InsertPicker onPick={type => insert(i, type)} onClose={() => setInsertAt(null)} /> : <InsertBar onOpen={() => setInsertAt(i)} />}<BlockEditor block={b} index={i} total={blocks.length} brokers={brokers} onChange={patch => update(i, patch)} onMove={move} onDuplicate={duplicate} onRemove={remove} onUploadImage={onUploadImage}/></div>)}{blocks.length > 0 && (insertAt === blocks.length ? <InsertPicker onPick={type => insert(blocks.length, type)} onClose={() => setInsertAt(null)} /> : <InsertBar onOpen={() => setInsertAt(blocks.length)} />)}</div><div className="mt-4 flex items-center justify-between rounded-xl bg-ink-950 px-3 py-2 text-white"><span className="text-[11px] text-slate-400">Blocks are saved in document order; broker blocks store broker IDs, not copied broker facts.</span><button onClick={() => onChange(blocks)} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-400 px-3 py-1.5 text-xs font-bold text-ink-950"><Save size={13}/> Save builder state</button></div><style>{`.tool{display:inline-flex;align-items:center;gap:.3rem;border:1px solid #e2e8f0;border-radius:.65rem;padding:.45rem .65rem;font-size:.7rem;font-weight:700;background:white;color:#0f172a}.iconbtn{padding:.35rem;border-radius:.5rem;color:#64748b}.iconbtn:disabled{opacity:.25}.label{display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#64748b;margin-bottom:.35rem}.input{width:100%;border:1px solid #e2e8f0;border-radius:.75rem;padding:.6rem .75rem;font-size:.8rem;color:#0f172a;background:white}.insert-row{display:flex;align-items:center;gap:8px;min-height:42px}.insert-row>span{height:1px;flex:1;background:#cbd5e1}.insert-button{display:inline-flex;align-items:center;gap:5px;border:1px solid #cbd5e1;border-radius:999px;background:white;padding:6px 11px;font-size:10px;font-weight:800;color:#475569;box-shadow:0 2px 8px rgba(15,23,42,.05)}.insert-button:hover{border-color:#10b981;color:#047857;background:#ecfdf5}.insert-picker{display:flex;flex-wrap:wrap;gap:5px;align-items:center;border:1px solid #a7f3d0;border-radius:14px;background:#f0fdf4;padding:8px;margin:3px 0}.insert-picker button{display:inline-flex;align-items:center;gap:4px;border:1px solid #d1fae5;border-radius:9px;background:white;padding:6px 8px;font-size:10px;font-weight:700;color:#334155}.insert-picker button:hover{background:#ecfdf5;color:#047857}.comparison-editor{border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc;padding:12px}`}</style></div>;
+  return <div className="rounded-2xl border border-line bg-slate-50 p-3 sm:p-4"><div className="sticky top-0 z-20 mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-line bg-white p-2 shadow-sm"><span className="mr-1 inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-slate-400"><GripVertical size={13}/> Page Builder</span>{insertTypes.map(({ type, label, icon: Icon }) => <button key={type} onClick={() => add(type)} className="tool"><Icon size={14}/>{label}</button>)}<span className="flex-1"/><button onClick={() => setPreview(true)} className="tool"><Eye size={14}/> Preview</button><span className="text-[10px] text-slate-400">{blocks.length} blocks</span></div><div className="rounded-xl border border-emerald-200 bg-emerald-50/70 px-3 py-2 text-[11px] font-medium text-emerald-900 mb-3">Continuous document: existing content stays in place. Use <b>+ Add Element</b> between any two blocks to insert new content exactly there.</div><div>{blocks.length === 0 && <div className="mb-2"><InsertBar onOpen={() => setInsertAt(insertAt === 0 ? null : 0)} /></div>}{blocks.map((b, i) => <div key={b.id}>{insertAt === i ? <InsertPicker types={insertTypes} onPick={type => insert(i, type)} onClose={() => setInsertAt(null)} /> : <InsertBar onOpen={() => setInsertAt(i)} />}<BlockEditor block={b} index={i} total={blocks.length} brokers={brokers} onChange={patch => update(i, patch)} onMove={move} onDuplicate={duplicate} onRemove={remove} onUploadImage={onUploadImage}/></div>)}{blocks.length > 0 && (insertAt === blocks.length ? <InsertPicker types={insertTypes} onPick={type => insert(blocks.length, type)} onClose={() => setInsertAt(null)} /> : <InsertBar onOpen={() => setInsertAt(blocks.length)} />)}</div><div className="mt-4 flex items-center justify-between rounded-xl bg-ink-950 px-3 py-2 text-white"><span className="text-[11px] text-slate-400">Blocks are saved in document order; broker blocks store broker IDs, not copied broker facts.</span><button onClick={() => emit(blocks)} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-400 px-3 py-1.5 text-xs font-bold text-ink-950"><Save size={13}/> Save builder state</button></div><style>{`.tool{display:inline-flex;align-items:center;gap:.3rem;border:1px solid #e2e8f0;border-radius:.65rem;padding:.45rem .65rem;font-size:.7rem;font-weight:700;background:white;color:#0f172a}.iconbtn{padding:.35rem;border-radius:.5rem;color:#64748b}.iconbtn:disabled{opacity:.25}.label{display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#64748b;margin-bottom:.35rem}.input{width:100%;border:1px solid #e2e8f0;border-radius:.75rem;padding:.6rem .75rem;font-size:.8rem;color:#0f172a;background:white}.insert-row{display:flex;align-items:center;gap:8px;min-height:42px}.insert-row>span{height:1px;flex:1;background:#cbd5e1}.insert-button{display:inline-flex;align-items:center;gap:5px;border:1px solid #cbd5e1;border-radius:999px;background:white;padding:6px 11px;font-size:10px;font-weight:800;color:#475569;box-shadow:0 2px 8px rgba(15,23,42,.05)}.insert-button:hover{border-color:#10b981;color:#047857;background:#ecfdf5}.insert-picker{display:flex;flex-wrap:wrap;gap:5px;align-items:center;border:1px solid #a7f3d0;border-radius:14px;background:#f0fdf4;padding:8px;margin:3px 0}.insert-picker button{display:inline-flex;align-items:center;gap:4px;border:1px solid #d1fae5;border-radius:9px;background:white;padding:6px 8px;font-size:10px;font-weight:700;color:#334155}.insert-picker button:hover{background:#ecfdf5;color:#047857}.comparison-editor{border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc;padding:12px}`}</style></div>;
 }
 
 function InsertBar({ onOpen }: { onOpen: () => void }) { return <div className="insert-row"><span/><button type="button" className="insert-button" onClick={onOpen}><Plus size={12}/> Add Element</button><span/></div>; }
-function InsertPicker({ onPick, onClose }: { onPick: (type: PageBlock['type']) => void; onClose: () => void }) { return <div className="insert-picker"><b className="mr-1 text-[10px] uppercase tracking-widest text-emerald-700">Insert here</b>{INSERT_TYPES.map(({ type, label, icon: Icon }) => <button key={type} onClick={() => onPick(type)}><Icon size={12}/>{label}</button>)}<button onClick={onClose} className="ml-auto">Cancel</button></div>; }
+function InsertPicker({ types, onPick, onClose }: { types: typeof INSERT_TYPES; onPick: (type: PageBlock['type']) => void; onClose: () => void }) { return <div className="insert-picker"><b className="mr-1 text-[10px] uppercase tracking-widest text-emerald-700">Insert here</b>{types.map(({ type, label, icon: Icon }) => <button key={type} onClick={() => onPick(type)}><Icon size={12}/>{label}</button>)}<button onClick={onClose} className="ml-auto">Cancel</button></div>; }
 function BrokerPicker({ value, brokers, onChange, multiple = false }: { value?: number | number[]; brokers: Broker[]; onChange: (value: any) => void; multiple?: boolean }) { const selected = multiple ? ((value as number[]) || []).map(Number) : []; if (multiple) return <div><select multiple value={selected.map(String)} onChange={e => onChange(Array.from(e.target.selectedOptions).map(o => Number(o.value)))} className="input min-h-28">{brokers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</select><p className="mt-1 text-[10px] text-slate-500">Ctrl/Cmd-click to select multiple brokers.</p></div>; return <select value={value == null ? '' : String(value)} onChange={e => onChange(e.target.value ? Number(e.target.value) : undefined)} className="input"><option value="">Select broker</option>{brokers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</select>; }
 function BrokerBlockEditor({ block, brokers, onChange }: { block: PageBlock; brokers: Broker[]; onChange: (p: Partial<PageBlock>) => void }) {
   if (block.type === 'structured_broker_data') return <div className="space-y-3"><div><label className="label">Broker</label><BrokerPicker value={block.brokerId} brokers={brokers} onChange={brokerId => onChange({ brokerId })}/></div><div><label className="label">Data category</label><select value={block.section || 'overview'} onChange={e => onChange({ section: e.target.value as StructuredBrokerSection })} className="input">{(['overview','pricing','trust','platforms','features','editorial'] as StructuredBrokerSection[]).map(s => <option key={s} value={s}>{sectionLabel(s)}</option>)}</select></div><p className="text-[10px] text-slate-500">Uses the live Broker Workspace record and the same visual data treatment as PipRank's broker cards.</p></div>;

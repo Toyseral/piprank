@@ -1,5 +1,5 @@
 // Production build validation. Catches missing or duplicated metadata, canonical drift,
-// thin prerenders, unsafe robots directives, and sitemap entries without generated pages.
+// thin prerenders, unsafe robots directives, broker ownership drift, and sitemap entries without generated pages.
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -34,6 +34,22 @@ for (const file of files) {
   if (jsonLdCount < 1) warnings.push(`${label}: no JSON-LD block found`); if (html.includes('mainpiprank.vercel.app') || html.includes('piprank-25sd.arcada.app')) errors.push(`${label}: contains hard-coded temporary domain`);
   if (/<meta\s+name="robots"\s+content="noindex/i.test(html)) errors.push(`${label}: production page contains noindex`);
   if (label !== '/' && /<title>PipRank\s*[—-]?\s*Best Forex Brokers 20\d{2}<\/title>/i.test(html)) errors.push(`${label}: retains homepage title after prerender`);
+
+  if (label.startsWith('/brokers/') && label !== '/brokers') {
+    const h1 = html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i)?.[1]?.replace(/<[^>]+>/g, '').trim() || '';
+    if (!/ Broker Review$/i.test(h1)) errors.push(`${label}: broker H1 must end with "Broker Review"; found "${h1}"`);
+    if (/Forex Broker Review/i.test(h1)) errors.push(`${label}: broker H1 still uses legacy "Forex Broker Review" wording`);
+    if (!/<h2[^>]*>[^<]*at a glance<\/h2>/i.test(html)) errors.push(`${label}: broker prerender is missing the at-a-glance section`);
+    if (/<h2[^>]*>Fees & commissions<\/h2>[\s\S]*?<h2[^>]*>In-depth/i.test(html)) errors.push(`${label}: section order places Fees content before the in-depth editorial section`);
+    if (/<h2[^>]*>In-depth[^<]*<\/h2>[\s\S]*?(Fees & commissions|Trading platforms|Trust & regulation|Account types|Deposits & withdrawals)/i.test(html)) {
+      const editorial = html.match(/<h2[^>]*>In-depth[^<]*<\/h2>([\s\S]*?)(?=<h2|<\/main>)/i)?.[1] || '';
+      if (/Fees & commissions|Trading platforms|Trust & regulation|Account types|Deposits & withdrawals/i.test(editorial)) {
+        errors.push(`${label}: section-specific editorial content is nested inside In-depth analysis`);
+      }
+    }
+    if (html.includes('Forex Broker Review: Spreads, Fees & Regulation')) errors.push(`${label}: prerender retains legacy broker H1 text`);
+  }
+
   if (title) { const previous = seenTitles.get(title); if (previous) errors.push(`${label}: duplicate title also used by ${previous}`); else seenTitles.set(title, label); }
   if (description) { const previous = seenDescriptions.get(description); if (previous && label !== '/') warnings.push(`${label}: duplicate description also used by ${previous}`); else seenDescriptions.set(description, label); }
 }

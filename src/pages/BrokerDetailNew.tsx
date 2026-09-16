@@ -89,7 +89,12 @@ export default function BrokerDetailNew() {
 
   const heroRegulators = broker.regulations.filter((r) => HERO_REGULATORS.has(r.body)).map((r) => r.body).filter((name, i, all) => all.indexOf(name) === i);
   const editorialBlocks = Array.isArray(richProfile?.blocks) ? richProfile.blocks as any[] : [];
-  const hasRichEditorial = Boolean(richProfile?.published && (editorialBlocks.length || richProfile?.html?.trim()));
+  const hasEditorialBlocks = editorialBlocks.some(
+    (block: any) =>
+      block?.type !== 'structured_broker_data' &&
+      (!block?.editorialSection || block.editorialSection === 'editorial')
+  );
+  const hasRichEditorial = Boolean(richProfile?.published && (hasEditorialBlocks || richProfile?.html?.trim()));
   const editorialBrokers = allBrokers.length ? allBrokers : [broker];
 
   return (
