@@ -15,6 +15,7 @@ type Props = {
   className?: string;
   zone?: string;
   excludeZone?: string;
+  editorialSection?: string;
 };
 
 function BrokerAtAGlance({ broker }: { broker: Broker }) {
@@ -50,15 +51,20 @@ function normalizeRichTextHtml(html: string) {
   return `<p>${trimmed}</p>`;
 }
 
-export default function PageBlocksRenderer({ blocks, brokers, intent, countrySlug, className = '', zone, excludeZone }: Props) {
+export default function PageBlocksRenderer({ blocks, brokers, intent, countrySlug, className = '', zone, excludeZone, editorialSection }: Props) {
   const normalized = useMemo(
     () => (Array.isArray(blocks) ? blocks : []).filter((block: any) => {
       const blockZone = typeof block?.zone === 'string' ? block.zone : undefined;
       if (zone && blockZone !== zone) return false;
       if (excludeZone && blockZone === excludeZone) return false;
-      return true;
+
+      const blockSection = typeof block?.editorialSection === 'string' ? block.editorialSection : undefined;
+      if (blockSection) {
+        return blockSection === (editorialSection ?? 'editorial');
+      }
+      return editorialSection === undefined || editorialSection === 'editorial';
     }),
-    [blocks, zone, excludeZone],
+    [blocks, zone, excludeZone, editorialSection],
   );
 
   return (
