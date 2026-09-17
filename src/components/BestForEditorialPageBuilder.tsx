@@ -15,25 +15,41 @@ const BASE_SECTIONS: { key: BestForSection; label: string; description: string }
   { key: 'methodology', label: 'Methodology Notes', description: 'Optional supporting notes. The canonical methodology page remains the source of truth.' },
 ];
 
-function sectionOf(block: ScopedBlock) { return block.editorialSection || 'introduction'; }
+const sectionOf = (block: ScopedBlock) => block.editorialSection || 'introduction';
+const isBrokerKey = (key: string) => key.startsWith('broker:');
+const brokerSlugFromKey = (key: string) => isBrokerKey(key) ? key.slice('broker:'.length) : '';
 
 export default function BestForEditorialPageBuilder({ value, onChange, onUploadImage, analysisBrokers = [] }: Props) {
   const allBlocks = useMemo(() => Array.isArray(value) ? value as ScopedBlock[] : [], [value]);
   const sections = useMemo(() => [
     ...BASE_SECTIONS,
-    ...analysisBrokers.slice(0, 9).map((broker, index) => ({ key: `broker_${index + 1}`, label: `${index + 1}. ${broker.name}`, description: `Editorial analysis displayed inside the ${broker.name} recommendation module.` })),
+    ...analysisBrokers.slice(0, 9).map((broker, index) => ({ key: `broker:${broker.slug}`, label: `${index + 1}. ${broker.name}`, description: `Editorial analysis displayed inside the ${broker.name} recommendation module.` })),
   ], [analysisBrokers]);
   const [activeSection, setActiveSection] = useState<string>('introduction');
   const active = sections.find((section) => section.key === activeSection) || sections[0];
-  const activeBlocks = allBlocks.filter((block) => sectionOf(block) === activeSection);
+  const activeBlocks = useMemo(() => {
+    if (isBrokerKey(activeSection)) {
+      const slug = brokerSlugFromKey(activeSection);
+      return allBlocks.filter((block) => block.editorialSection === 'detailed_analysis' && String(block.id || '').startsWith(`bestfor-broker:${slug}:`));
+    }
+    return allBlocks.filter((block) => sectionOf(block) === activeSection && !String(block.id || '').startsWith('bestfor-broker:'));
+  }, [activeSection, allBlocks]);
 
   const replaceActiveSection = (next: PageBlock[]) => {
+    if (isBrokerKey(activeSection)) {
+      const slug = brokerSlugFromKey(activeSection);
+      const prefix = `bestfor-broker:${slug}:`;
+      const preserved = allBlocks.filter((block) => !(block.editorialSection === 'detailed_analysis' && String(block.id || '').startsWith(prefix)));
+      const scoped = next.map((block) => {
+        const rawId = String((block as ScopedBlock).id || `b_${Date.now()}`);
+        const id = rawId.startsWith(prefix) ? rawId : `${prefix}${rawId}`;
+        return { ...block, id, editorialSection: 'detailed_analysis' } as ScopedBlock;
+      });
+      onChange([...preserved, ...scoped] as PageBlock[]);
+      return;
+    }
     const preserved = allBlocks.filter((block) => sectionOf(block) !== activeSection);
-    const scoped = next.map((block) => {
-      const existingId = String((block as ScopedBlock).id || `b_${Date.now()}`);
-      const id = activeSection.startsWith('broker_') && !existingId.startsWith('bestfor-broker:') ? `bestfor-broker:${analysisBrokers[Number(activeSection.slice(7)) - 1]?.slug || activeSection}:${existingId}` : existingId;
-      return { ...block, id, editorialSection: activeSection } as ScopedBlock;
-    });
+    const scoped = next.map((block) => ({ ...block, editorialSection: activeSection } as ScopedBlock));
     onChange([...preserved, ...scoped] as PageBlock[]);
   };
 
@@ -48,16 +64,18 @@ export default function BestForEditorialPageBuilder({ value, onChange, onUploadI
         <div className="border-b border-line bg-white p-2 sm:p-3">
           <div className="flex gap-1 overflow-x-auto pb-1">
             {sections.map((section) => {
-              const count = allBlocks.filter((block) => sectionOf(block) === section.key).length;
+              const count = isBrokerKey(section.key)
+                ? allBlocks.filter((block) => block.editorialSection === 'detailed_analysis' && String(block.id || '').startsWith(`bestfor-broker:${brokerSlugFromKey(section.key)}:`)).length
+                : allBlocks.filter((block) => sectionOf(block) === section.key && !String(block.id || '').startsWith('bestfor-broker:')).length;
               const selected = activeSection === section.key;
-              const isBroker = section.key.startsWith('broker_');
+              const isBroker = isBrokerKey(section.key);
               return <button key={section.key} type="button" onClick={() => setActiveSection(section.key)} className={`shrink-0 rounded-xl px-3 py-2.5 text-left transition ${selected ? 'bg-ink-950 text-white shadow-soft' : isBroker ? 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100' : 'text-slate-600 hover:bg-paper'}`}><span className="block text-xs font-bold">{section.label}</span><span className={`mt-0.5 block text-[10px] ${selected ? 'text-slate-300' : 'text-slate-400'}`}>{count} block{count === 1 ? '' : 's'}</span></button>;
             })}
           </div>
         </div>
       </div>
       <div className="rounded-2xl border border-line bg-white p-3 sm:p-4">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><div><p className="text-sm font-bold text-ink-900">{active.label}</p><p className="text-xs text-slate-500">{active.description}</p></div><span className="rounded-full border border-slate-200 bg-paper px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-500">{activeSection}</span></div>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><div><p className="text-sm font-bold text-ink-900">{active.label}</p><p className="text-xs text-slate-500">{active.description}</p></div><span className="rounded-full border border-slate-200 bg-paper px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-500">{isBrokerKey(activeSection) ? 'broker editorial' : activeSection}</span></div>
         <PageBuilder key={activeSection} value={activeBlocks} onChange={replaceActiveSection} onUploadImage={onUploadImage} context="best-for" />
       </div>
     </div>
