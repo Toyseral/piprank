@@ -12,7 +12,7 @@ export default function BestForQuickFacts({ broker }: { broker: Broker }) {
   ];
 
   return (
-    <section className="overflow-hidden rounded-2xl border border-white/10 bg-ink-950 text-white shadow-soft" aria-label={`${broker.name} quick facts`}>
+    <section className="w-full overflow-hidden border border-white/10 bg-ink-950 text-white shadow-soft sm:rounded-2xl" aria-label={`${broker.name} quick facts`}>
       <div className="border-b border-white/10 px-5 py-4 sm:px-6">
         <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-300">Quick facts</p>
         <p className="mt-1 text-sm font-semibold text-slate-300">Key trading conditions at a glance</p>
