@@ -1,17 +1,13 @@
 import { useState } from 'react';
 import { Check } from 'lucide-react';
-import type { Broker, BrokerContent } from '../lib/types';
+import type { Broker } from '../lib/types';
 import BrokerEditorialSection from './BrokerEditorialSection';
 
-type Props = { broker: Broker; content?: BrokerContent | null };
+type Props = { broker: Broker };
 
-export default function OriginalTradingPlatformsCard({ broker, content }: Props) {
+export default function OriginalTradingPlatformsCard({ broker }: Props) {
   const [platformTab, setPlatformTab] = useState(0);
-  const platformContent = broker.platforms.map((name) => content?.platforms?.find((p) => p.name === name) ?? {
-    name,
-    summary: `${name} is available at ${broker.name} with the broker's standard pricing and conditions.`,
-    features: [],
-  });
+  const platformContent = broker.platforms;
   const activePlatform = platformContent[Math.min(platformTab, platformContent.length - 1)] ?? platformContent[0];
   const assetBars = [
     { label: 'Forex pairs', value: broker.assets.forex },
