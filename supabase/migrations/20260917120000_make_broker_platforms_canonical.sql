@@ -16,10 +16,10 @@ BEGIN
         b2.id,
         jsonb_agg(
           jsonb_build_object(
-            'name', trim(p->>'name'),
-            'summary', coalesce(p->>'summary', ''),
-            'features', CASE WHEN jsonb_typeof(p->'features') = 'array' THEN p->'features' ELSE '[]'::jsonb END
-          ) ORDER BY ord
+            'name', trim(items.p->>'name'),
+            'summary', coalesce(items.p->>'summary', ''),
+            'features', CASE WHEN jsonb_typeof(items.p->'features') = 'array' THEN items.p->'features' ELSE '[]'::jsonb END
+          ) ORDER BY items.ord
         ) AS platforms
       FROM public.brokers b2
       JOIN public.broker_content bc ON bc.broker_id = b2.id
@@ -35,23 +35,30 @@ BEGIN
 END $$;
 
 -- Normalize any remaining legacy string arrays without overwriting migrated rich data.
-UPDATE public.brokers
-SET platforms = (
-  SELECT coalesce(
+-- Mixed arrays are handled element-by-element so malformed historical rows cannot abort the migration.
+UPDATE public.brokers b
+SET platforms = normalized.platforms
+FROM (
+  SELECT
+    id,
     jsonb_agg(
-      jsonb_build_object('name', trim(item), 'summary', '', 'features', '[]'::jsonb)
-      ORDER BY ord
-    ),
-    '[]'::jsonb
-  )
-  FROM jsonb_array_elements_text(platforms) WITH ORDINALITY AS items(item, ord)
-)
-WHERE jsonb_typeof(platforms) = 'array'
-  AND EXISTS (
-    SELECT 1
-    FROM jsonb_array_elements(platforms) AS raw(item)
-    WHERE jsonb_typeof(raw.item) = 'string'
-  );
+      CASE
+        WHEN jsonb_typeof(items.item) = 'string' THEN jsonb_build_object('name', trim(items.item #>> '{}'), 'summary', '', 'features', '[]'::jsonb)
+        ELSE items.item
+      END
+      ORDER BY items.ord
+    ) AS platforms
+  FROM public.brokers
+  CROSS JOIN LATERAL jsonb_array_elements(CASE WHEN jsonb_typeof(platforms) = 'array' THEN platforms ELSE '[]'::jsonb END) WITH ORDINALITY AS items(item, ord)
+  WHERE jsonb_typeof(platforms) = 'array'
+    AND EXISTS (
+      SELECT 1
+      FROM jsonb_array_elements(platforms) AS raw(item)
+      WHERE jsonb_typeof(raw.item) = 'string'
+    )
+  GROUP BY id
+) normalized
+WHERE b.id = normalized.id;
 
 -- Keep the column JSONB and make the new shape explicit for future writes.
 COMMENT ON COLUMN public.brokers.platforms IS 'Canonical structured trading platform data: [{"name": string, "summary": string, "features": string[]}].';
