@@ -28,6 +28,7 @@ export const fetchIntent = async (slug: string) => { const mapped = publicIntent
 export const fetchReviews = (brokerId: number) => get<Review[]>(`/api/reviews?broker_id=${brokerId}`);
 export const fetchBrokerContent = (brokerId: number) => get<BrokerContent | null>(`/api/broker-assets?resource=content&broker_id=${brokerId}`);
 export const fetchBrokerAvailability = (brokerId: number) => get<BrokerCountryAvailability[]>(`/api/broker-assets?resource=availability&broker_id=${brokerId}`);
+export const fetchCountryBrokerAvailability = (countrySlug: string) => get<BrokerCountryAvailability[]>(`/api/broker-assets?resource=availability&country_slug=${encodeURIComponent(countrySlug)}`);
 export const fetchBrokerVerification = (brokerId?: number, countrySlug?: string) => get<BrokerCountryVerification[]>(`/api/broker-assets?resource=verification${brokerId ? `&broker_id=${brokerId}` : ''}${countrySlug ? `&country_slug=${encodeURIComponent(countrySlug)}` : ''}`);
 export const saveBrokerVerification = (payload: Partial<BrokerCountryVerification>) => send<BrokerCountryVerification>('/api/broker-assets?resource=verification', 'PUT', payload);
 
