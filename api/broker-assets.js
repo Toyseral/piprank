@@ -20,8 +20,16 @@ async function handleContent(req, res) {
 
 async function handleAvailability(req, res) {
   if (req.method === 'GET') {
-    const { broker_id } = req.query; if (!broker_id) return res.status(400).json({ error: 'broker_id is required' });
-    const { data, error } = await supabase.from('broker_country_availability').select('id, broker_id, country_id, is_available, status, notes, note, source_url, verified, verified_at, priority, updated_at, countries!inner(slug, name)').eq('broker_id', Number(broker_id)).order('priority', { ascending: true }); if (error) throw error;
+    const { broker_id, country_slug } = req.query;
+    let query = supabase
+      .from('broker_country_availability')
+      .select('id, broker_id, country_id, is_available, status, notes, note, source_url, verified, verified_at, priority, updated_at, countries!inner(slug, name)')
+      .order('priority', { ascending: true });
+    if (broker_id) query = query.eq('broker_id', Number(broker_id));
+    if (country_slug) query = query.eq('countries.slug', String(country_slug));
+    if (!broker_id && !country_slug) return res.status(400).json({ error: 'broker_id or country_slug is required' });
+    const { data, error } = await query;
+    if (error) throw error;
     return res.status(200).json((data ?? []).map((row) => ({ ...row, note: row.note ?? row.notes ?? '', country_slug: row.countries?.slug, country_name: row.countries?.name, countries: undefined })));
   }
   if (!(await requireRole(req, res, CONTENT_WRITE))) return;
@@ -51,11 +59,7 @@ async function handleVerification(req, res) {
 async function handleMedia(req, res) {
   if (req.method === 'GET') { const { data, error } = await supabase.from('broker_media').select('broker_id, logo_url').order('broker_id', { ascending: true }); if (error) throw error; return res.status(200).json(data ?? []); }
   if (!(await requireRole(req, res, MEDIA_WRITE))) return;
-  if (req.method === 'PUT') {
-    const { broker_id, logo_url } = req.body ?? {}; if (!broker_id) return res.status(400).json({ error: 'broker_id is required' }); const { data: existing } = await supabase.from('broker_media').select('id').eq('broker_id', Number(broker_id)).limit(1);
-    if (existing?.length) { const { data, error } = await supabase.from('broker_media').update({ logo_url: logo_url ?? null, updated_at: new Date().toISOString() }).eq('id', existing[0].id).select().single(); if (error) throw error; return res.status(200).json(data); }
-    const { data, error } = await supabase.from('broker_media').insert({ broker_id: Number(broker_id), logo_url: logo_url ?? null }).select().single(); if (error) throw error; return res.status(201).json(data);
-  }
+  if (req.method === 'PUT') { const { broker_id, logo_url } = req.body ?? {}; if (!broker_id) return res.status(400).json({ error: 'broker_id is required' }); const { data: existing } = await supabase.from('broker_media').select('id').eq('broker_id', Number(broker_id)).limit(1); if (existing?.length) { const { data, error } = await supabase.from('broker_media').update({ logo_url: logo_url ?? null, updated_at: new Date().toISOString() }).eq('id', existing[0].id).select().single(); if (error) throw error; return res.status(200).json(data); } const { data, error } = await supabase.from('broker_media').insert({ broker_id: Number(broker_id), logo_url: logo_url ?? null }).select().single(); if (error) throw error; return res.status(201).json(data); }
   if (req.method === 'DELETE') { const { broker_id } = req.body ?? {}; if (!broker_id) return res.status(400).json({ error: 'broker_id is required' }); const { error } = await supabase.from('broker_media').delete().eq('broker_id', Number(broker_id)); if (error) throw error; return res.status(200).json({ ok: true }); }
   return res.status(405).json({ error: 'Method not allowed' });
 }
