@@ -1,4 +1,4 @@
-import type { Broker, BrokerContent, BrokerCountryAvailability, BrokerCountryVerification, CountryPage, Intent, Review, ContentDocument, CountryLanguage, CountryIntentBrokerRanking, BrokerPlatform, BrokerPlatforms } from './types';
+import type { Broker, BrokerCountryAvailability, BrokerCountryVerification, CountryPage, Intent, Review, ContentDocument, CountryLanguage, CountryIntentBrokerRanking, BrokerPlatform, BrokerPlatforms } from './types';
 
 async function get<T>(url: string, token?: string): Promise<T> {
   const res = await fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : undefined });
@@ -19,13 +19,7 @@ function normalizePlatforms(value: unknown): BrokerPlatforms {
     if (typeof platform === 'string') {
       const name = platform.trim();
       if (!name) return null;
-      return {
-        name,
-        summary: '',
-        features: [],
-        toString: () => name,
-        toLowerCase: () => name.toLowerCase(),
-      };
+      return { name, summary: '', features: [], toString: () => name, toLowerCase: () => name.toLowerCase() };
     }
     if (!platform || typeof platform !== 'object') return null;
     const candidate = platform as Record<string, unknown>;
@@ -70,70 +64,6 @@ export const fetchBroker = async (slug: string) => normalizeBroker(await get<Bro
 export const fetchIntents = () => get<Intent[]>('/api/intents');
 export const fetchIntent = async (slug: string) => { const mapped = publicIntentSlug(slug); try { return await get<Intent>(`/api/intents?slug=${encodeURIComponent(mapped)}`); } catch (e) { if (mapped === slug) throw e; return get<Intent>(`/api/intents?slug=${encodeURIComponent(slug)}`); } };
 export const fetchReviews = (brokerId: number) => get<Review[]>(`/api/reviews?broker_id=${brokerId}`);
-
-function htmlToParagraphs(html: string): string[] {
-  return String(html || '')
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/(p|li|div|h[1-6])>/gi, '\n')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/&amp;/gi, '&')
-    .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>')
-    .split(/\n+/)
-    .map((value) => value.trim())
-    .filter(Boolean);
-}
-
-const BROKER_EDITORIAL_HEADINGS: Record<string, keyof Omit<BrokerContent, 'broker_id' | 'faqs' | 'platforms' | 'accounts' | 'payments'>> = {
-  'overview': 'overview',
-  'our verdict': 'verdict',
-  'why we recommend this broker': 'why_recommend',
-  'best for': 'best_for_detail',
-  'consider avoiding if': 'avoid_if',
-  'regulation': 'regulation_detail',
-  'fees & costs': 'fees_detail',
-  'trading platforms': 'platform_intro',
-  'account types': 'accounts_intro',
-  'deposits & withdrawals': 'funding_intro',
-};
-
-/**
- * Compatibility adapter for callers that still consume the old BrokerContent
- * shape. The database source is now canonical content_documents; no
- * broker_content table read is performed here. This lets the public broker
- * page move off the legacy table without changing its rendering contract in
- * the same commit.
- */
-export const fetchBrokerContent = async (brokerId: number): Promise<BrokerContent | null> => {
-  const brokers = await fetchBrokers();
-  const broker = brokers.find((item) => Number(item.id) === Number(brokerId));
-  if (!broker?.slug) return null;
-
-  const document = await fetchContentDocument(`broker:${broker.slug}:main`);
-  if (!document) return null;
-
-  const result: BrokerContent = {
-    broker_id: Number(broker.id), overview: [], verdict: [], why_recommend: [], best_for_detail: [], avoid_if: [],
-    regulation_detail: [], fees_detail: [], platform_intro: [], accounts_intro: [], funding_intro: [], faqs: [],
-    platforms: [], accounts: [], payments: [],
-  };
-  let section: keyof typeof result = 'overview';
-  const blocks = Array.isArray(document.blocks) ? document.blocks : [];
-  for (const raw of blocks) {
-    const block = raw as Record<string, unknown>;
-    if (block.type === 'heading') {
-      const heading = String(block.title || '').trim().toLowerCase();
-      section = BROKER_EDITORIAL_HEADINGS[heading] ?? section;
-      continue;
-    }
-    if (block.type === 'richtext' && typeof block.html === 'string') {
-      const paragraphs = htmlToParagraphs(block.html);
-      if (section in result && Array.isArray(result[section])) (result[section] as string[]).push(...paragraphs);
-    }
-  }
-  return result;
-};
 
 export const fetchBrokerAvailability = (brokerId: number) => get<BrokerCountryAvailability[]>(`/api/broker-assets?resource=availability&broker_id=${brokerId}`);
 export const fetchCountryBrokerAvailability = (countrySlug: string) => get<BrokerCountryAvailability[]>(`/api/broker-assets?resource=availability&country_slug=${encodeURIComponent(countrySlug)}`);
