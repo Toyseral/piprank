@@ -815,63 +815,84 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
 
 /* ======================= BROKER CONTENT EDITOR ======================= */
 
-function BrokerContentEditor({ broker, token, onClose, onSave }: { broker: Broker; token: string; onClose: () => void; onSave: (content: BrokerContent) => Promise<void> }) {
+function BrokerContentEditor({ broker, token, onClose, onSave }: { broker: Broker; token: string; onClose: () => void; onSave: (document: ContentDocument) => Promise<void> }) {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [countries, setCountries] = useState<any[]>([]);
+  const [document, setDocument] = useState<ContentDocument | null>(null);
   const [availabilityRows, setAvailabilityRows] = useState<{ country_id: number; status: 'available' | 'restricted' | 'unavailable' | 'unknown'; note: string; priority: number }[]>([]);
+  const [countries, setCountries] = useState<CountryPage[]>([]);
   const [countrySearch, setCountrySearch] = useState('');
-  const [advanced, setAdvanced] = useState<Record<string,string>>({
-    overview:'[]', verdict:'[]', why_recommend:'[]', best_for_detail:'[]', avoid_if:'[]', regulation_detail:'[]', fees_detail:'[]', platform_intro:'[]', accounts_intro:'[]', funding_intro:'[]', faqs:'[]', platforms:'[]', accounts:'[]', payments:'[]'
-  });
-  const [richDocs, setRichDocs] = useState<ContentDocument[]>([]);
-  const [editingDoc, setEditingDoc] = useState<ContentDocument | null>(null);
-  const [newDoc, setNewDoc] = useState(false);
-  const [seedNewDoc, setSeedNewDoc] = useState(false);
-
-  const hasMainDoc = richDocs.some((d) => (d.slug || 'main') === 'main');
-  const legacySeedBlocks = useMemo(() => {
-    const parse = (k: string) => { try { const v = JSON.parse(advanced[k] ?? '[]'); return Array.isArray(v) ? v : []; } catch { return []; } };
-    const content: BrokerContent = {
-      broker_id: broker.id, overview: parse('overview'), verdict: parse('verdict'), why_recommend: parse('why_recommend'),
-      best_for_detail: parse('best_for_detail'), avoid_if: parse('avoid_if'), regulation_detail: parse('regulation_detail'),
-      fees_detail: parse('fees_detail'), platform_intro: parse('platform_intro'), accounts_intro: parse('accounts_intro'),
-      funding_intro: parse('funding_intro'), platforms: [], accounts: [], payments: [],
-    };
-    return [...legacySectionsToBlocks(brokerContentToLegacySections(content)), ...faqsToBlocks(parse('faqs'))];
-  }, [advanced, broker.id]);
+  const [blocks, setBlocks] = useState<PageBlock[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true); setError('');
     try {
-      const [data,av,c,docs] = await Promise.all([
-        fetch(`/api/broker-assets?resource=content&broker_id=${broker.id}`).then(r=>r.json()),
-        fetch(`/api/broker-assets?resource=availability&broker_id=${broker.id}`).then(r=>r.json()).catch(()=>[]),
-        fetch('/api/countries').then(r=>r.json()).catch(()=>[]),
-        fetch(`/api/content-documents?type=broker&slug=${encodeURIComponent(broker.slug)}`).then(r=>r.json()).catch(()=>[]),
+      const [docs, av, countryRows] = await Promise.all([
+        fetch(`/api/content-documents?type=broker&slug=${encodeURIComponent(broker.slug)}`).then((r) => r.json()),
+        fetch(`/api/broker-assets?resource=availability&broker_id=${broker.id}`).then((r) => r.json()).catch(() => []),
+        fetch('/api/countries').then((r) => r.json()).catch(() => []),
       ]);
-      const d=data??{};
-      setAdvanced(Object.fromEntries(['overview','verdict','why_recommend','best_for_detail','avoid_if','regulation_detail','fees_detail','platform_intro','accounts_intro','funding_intro','faqs','platforms','accounts','payments'].map((k)=>[k,JSON.stringify(d[k]??[],null,2)])));
-      setAvailabilityRows((Array.isArray(av)?av:[]).map((r:any)=>({country_id:Number(r.country_id),status:r.status || 'unknown',note:r.note??'',priority:Number(r.priority??0)})));
-      setCountries(Array.isArray(c)?c:[]);
-      setRichDocs(Array.isArray(docs)?docs:[]);
-    } catch(e) { setError(e instanceof Error?e.message:'Failed to load broker content'); }
-    finally { setLoading(false); }
+      const list = Array.isArray(docs) ? docs : [];
+      const main = list.find((d: ContentDocument) => d.content_key === `broker:${broker.slug}:main`) || list.find((d: ContentDocument) => d.slug === broker.slug || d.slug === 'main') || null;
+      setDocument(main);
+      setBlocks(Array.isArray(main?.blocks) ? main.blocks as PageBlock[] : []);
+      setAvailabilityRows((Array.isArray(av) ? av : []).map((r: any) => ({ country_id: Number(r.country_id), status: r.status || 'unknown', note: r.note ?? r.notes ?? '', priority: Number(r.priority ?? 0) })));
+      setCountries(Array.isArray(countryRows) ? countryRows : []);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load broker content');
+    } finally { setLoading(false); }
   }, [broker.id, broker.slug]);
 
-  useEffect(()=>{ load(); },[load]);
+  useEffect(() => { load(); }, [load]);
 
-  const saveAdvanced = async () => {
+  const uploadImage = async (file: File) => {
+    const reader = new FileReader();
+    const data = await new Promise<string>((resolve, reject) => { reader.onload = () => resolve(String(reader.result)); reader.onerror = reject; reader.readAsDataURL(file); });
+    const res = await fetch('/api/content-assets', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ filename: file.name, contentType: file.type, dataBase64: data }) });
+    const out = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(out.error || 'Image upload failed');
+    return out.url;
+  };
+
+  const saveAvailability = async () => {
+    const rows = availabilityRows.filter((row) => row.country_id).map((row) => ({ ...row, priority: Number(row.priority) || 0 }));
+    const res = await fetch('/api/broker-assets?resource=availability', { method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ broker_id: broker.id, rows }) });
+    const out = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(out.error || 'Could not save country availability');
+  };
+
+  const saveDocument = async () => {
+    setBusy(true); setError('');
     try {
-      const parse=(k:string)=>{ const v=JSON.parse(advanced[k]??'[]'); if(!Array.isArray(v)) throw new Error(`${k} must be a JSON array.`); return v; };
-      const content: BrokerContent = { broker_id: broker.id, overview:parse('overview'), verdict:parse('verdict'), why_recommend:parse('why_recommend'), best_for_detail:parse('best_for_detail'), avoid_if:parse('avoid_if'), regulation_detail:parse('regulation_detail'), fees_detail:parse('fees_detail'), platform_intro:parse('platform_intro'), accounts_intro:parse('accounts_intro'), funding_intro:parse('funding_intro'), faqs:parse('faqs'), platforms:parse('platforms'), accounts:parse('accounts'), payments:parse('payments') };
-      await onSave(content);
-      const rows=availabilityRows.filter((row)=>row.country_id).map((row)=>({ ...row, priority:Number(row.priority)||0 }));
-      const r=await fetch('/api/broker-assets?resource=availability',{method:'PUT',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({broker_id:broker.id,rows})});
-      const d=await r.json().catch(()=>({})); if(!r.ok) throw new Error(d.error||'Could not save country availability');
-      setError('');
-    } catch(e) { setError(e instanceof Error?e.message:'Could not save broker data'); }
+      const payload = {
+        ...(document || {}),
+        id: document?.id,
+        content_type: 'broker',
+        content_key: `broker:${broker.slug}:main`,
+        slug: broker.slug,
+        country_slug: null,
+        topic_slug: null,
+        title: document?.title || `${broker.name} review`,
+        excerpt: document?.excerpt || broker.tagline || '',
+        html: blocksToHtml(blocks),
+        blocks,
+        seo_title: document?.seo_title || `${broker.name} review`,
+        seo_description: document?.seo_description || broker.tagline || '',
+        indexable: document?.indexable ?? true,
+        published: document?.published ?? true,
+        settings: { ...(document?.settings || {}), brokerId: broker.id },
+      };
+      const res = await fetch('/api/content-documents', { method: document?.id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) });
+      const out = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(out.error || 'Could not save broker editorial content');
+      const saved = (out?.data || out) as ContentDocument;
+      setDocument(saved);
+      setBlocks(Array.isArray(saved.blocks) ? saved.blocks as PageBlock[] : blocks);
+      await saveAvailability();
+      await onSave(saved);
+    } catch (e) { setError(e instanceof Error ? e.message : 'Could not save broker content'); }
+    finally { setBusy(false); }
   };
 
   const availabilityByCountry = useMemo(() => new Map(availabilityRows.map((row) => [row.country_id, row])), [availabilityRows]);
@@ -884,49 +905,30 @@ function BrokerContentEditor({ broker, token, onClose, onSave }: { broker: Broke
     });
   };
 
-  const saveDoc = async (doc: any, isNew=false) => {
-    const payload = { ...doc, content_type:'broker', slug: broker.slug, content_key: doc.content_key || `broker:${broker.slug}:${doc.slug || 'main'}` };
-    const res = await fetch('/api/content-documents',{method:isNew?'POST':'PUT',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify(isNew?payload:{...payload,id:doc.id})});
-    const out=await res.json().catch(()=>({})); if(!res.ok) throw new Error(out.error||'Could not save broker rich content');
-    await load(); setEditingDoc(null); setNewDoc(false);
-  };
-
-  const deleteDoc = async (doc: ContentDocument) => {
-    if(!window.confirm(`Delete “${doc.title || doc.content_key}”?`)) return;
-    const res=await fetch('/api/content-documents',{method:'DELETE',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({id:doc.id})});
-    if(!res.ok){const d=await res.json().catch(()=>({})); setError(d.error||'Could not delete content'); return;}
-    await load();
-  };
-
   return <div className="fixed inset-0 z-[90]">
-    <div className="absolute inset-0 bg-ink-950/50 backdrop-blur-sm" onClick={onClose}/>
-    <div className="absolute inset-y-0 right-0 flex w-full flex-col bg-white shadow-soft-lg sm:max-w-5xl">
+    <div className="absolute inset-0 bg-ink-950/50 backdrop-blur-sm" onClick={onClose} />
+    <div className="absolute inset-y-0 right-0 flex w-full flex-col bg-white shadow-soft-lg sm:max-w-6xl">
       <div className="flex items-center gap-3 bg-ink-950 px-5 py-4 text-white">
-        <Monogram name={broker.name} logoUrl={broker.logo_url} color={broker.brand_color} size={38} className="rounded-xl"/>
-        <div className="min-w-0 flex-1"><p className="font-display text-lg font-bold">{broker.name} content CMS</p><p className="text-xs text-slate-400">Rich broker profile content, additional sections, trading data and country availability</p></div>
-        <button onClick={onClose} className="rounded-lg p-2 text-slate-400 hover:bg-white/10 hover:text-white"><X size={18}/></button>
+        <Monogram name={broker.name} logoUrl={broker.logo_url} color={broker.brand_color} size={38} className="rounded-xl" />
+        <div className="min-w-0 flex-1"><p className="font-display text-lg font-bold">{broker.name} content CMS</p><p className="text-xs text-slate-400">Canonical broker editorial document — structured broker facts remain in Broker Editor.</p></div>
+        <button onClick={onClose} className="rounded-lg p-2 text-slate-400 hover:bg-white/10 hover:text-white"><X size={18} /></button>
       </div>
       <div className="flex-1 overflow-y-auto p-5 sm:p-6">
-        {error&&<p className="mb-5 rounded-xl bg-rose-50 px-4 py-2.5 text-sm text-rose-600">{error}</p>}
-        {loading?<p className="text-sm text-slate-500">Loading…</p>:<div className="space-y-7">
+        {error && <p className="mb-5 rounded-xl bg-rose-50 px-4 py-2.5 text-sm text-rose-600">{error}</p>}
+        {loading ? <p className="text-sm text-slate-500">Loading…</p> : <div className="space-y-6">
           <section className="rounded-2xl border border-emerald-200 bg-emerald-50/50 p-5">
-            <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="font-display text-xl font-bold text-ink-900">Broker profile content</h2><p className="mt-1 text-xs leading-relaxed text-slate-500">Use the same rich editor as country SEO pages. Add headings, links, images and comparison tables. These documents render inside the public broker profile.</p></div><div className="flex shrink-0 flex-wrap gap-2">{!hasMainDoc && legacySeedBlocks.length > 0 && <button onClick={()=>{setSeedNewDoc(true);setNewDoc(true);}} className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3.5 py-2 text-xs font-bold text-white" title="Converts the existing overview, verdict, fees and other written content into editable builder sections"><Sparkles size={13}/> Load existing content into builder</button>}<button onClick={()=>{setSeedNewDoc(false);setNewDoc(true);}} className="inline-flex items-center gap-1.5 rounded-xl bg-ink-950 px-3.5 py-2 text-xs font-bold text-white"><Plus size={13}/> Add section</button></div></div>
-            <div className="mt-4 divide-y divide-line overflow-hidden rounded-xl border border-line bg-white">
-              {richDocs.map(d=><div key={d.id} className="flex items-center gap-3 px-4 py-3"><div className="min-w-0 flex-1"><p className="truncate text-sm font-bold text-ink-900">{d.title || d.content_key}</p><p className="truncate text-[11px] text-slate-400">{d.slug} · {d.published?'Published':'Draft'} · {d.indexable?'Indexable':'Noindex'}</p></div><Link to={`/brokers/${broker.slug}`} target="_blank" className="rounded-lg p-2 text-slate-400 hover:bg-paper hover:text-ink-900" title="View live"><Eye size={15}/></Link><button onClick={()=>setEditingDoc(d)} className="rounded-lg p-2 text-slate-400 hover:bg-emerald-50 hover:text-emerald-700" title="Edit"><Pencil size={15}/></button><button onClick={()=>deleteDoc(d)} className="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600" title="Delete"><Trash2 size={15}/></button></div>)}
-              {!richDocs.length&&<p className="p-5 text-sm text-slate-400">No rich broker sections yet. Add the main review first, then add sections such as Fees, Platforms, Safety, Best For or FAQs.</p>}
-            </div>
+            <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="font-display text-xl font-bold text-ink-900">Broker editorial content</h2><p className="mt-1 text-xs leading-relaxed text-slate-500">One canonical visual editor for headings, rich text, images, broker cards, broker grids, comparison tables, CTAs, verdicts and other editorial blocks.</p></div><span className="rounded-full border border-emerald-200 bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-emerald-700">content_documents</span></div>
+            <div className="mt-4"><BrokerEditorialPageBuilder value={blocks} onChange={setBlocks} onUploadImage={uploadImage} /></div>
           </section>
-
-          <section><div className="flex items-center justify-between"><div><h2 className="font-display text-xl font-bold text-ink-900">Structured broker data</h2><p className="mt-1 text-xs text-slate-400">Keep factual platform, account and payment data separate from editorial prose.</p></div><button onClick={saveAdvanced} className="rounded-xl bg-emerald-500 px-4 py-2 text-xs font-bold text-white">Save data</button></div>
-            {(['platforms','accounts','payments'] as const).map(k=><label key={k} className="mt-4 block"><FieldLabel>{k==='platforms'?'Platforms':k==='accounts'?'Account types':'Payment methods'}</FieldLabel><textarea value={advanced[k]} onChange={e=>setAdvanced(a=>({...a,[k]:e.target.value}))} rows={8} spellCheck={false} className="mt-1.5 w-full rounded-xl border border-line bg-paper px-3 py-3 font-mono text-xs leading-relaxed outline-none focus:border-emerald-500"/></label>)}
+          <section className="rounded-2xl border border-line bg-white p-5">
+            <div className="flex items-center justify-between gap-3"><div><h2 className="font-display text-xl font-bold text-ink-900">Country eligibility</h2><p className="mt-1 text-xs text-slate-400">Availability is operational data, not editorial content.</p></div><span className="rounded-full border border-slate-200 bg-paper px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-500">separate source</span></div>
+            <div className="mt-3 flex items-center gap-2 rounded-xl border border-line bg-paper px-3"><Search size={14} className="text-slate-400" /><input value={countrySearch} onChange={(e) => setCountrySearch(e.target.value)} placeholder="Search countries…" className="h-10 flex-1 bg-transparent text-sm outline-none" /></div>
+            <div className="mt-3 max-h-96 overflow-auto rounded-xl border border-line bg-white"><table className="w-full text-left text-xs"><thead className="sticky top-0 bg-paper text-slate-500"><tr><th className="px-3 py-2">Country</th><th className="px-3 py-2">Status</th><th className="px-3 py-2">Priority</th><th className="px-3 py-2">Note</th></tr></thead><tbody className="divide-y divide-line">{visibleCountries.map((c) => { const row = availabilityByCountry.get(c.id) ?? { country_id: c.id, status: 'unknown' as const, note: '', priority: 0 }; return <tr key={c.id}><td className="px-3 py-2 font-bold text-ink-900">{c.flag} {c.name}<span className="ml-1 font-normal text-slate-400">/{c.slug}</span></td><td className="px-3 py-2"><select value={row.status} onChange={(e) => updateAvailability(c.id, { status: e.target.value as any })} className="h-9 rounded-lg border border-line bg-paper px-2 text-xs font-bold outline-none"><option value="unknown">Unknown</option><option value="available">Available</option><option value="restricted">Restricted</option><option value="unavailable">Unavailable</option></select></td><td className="px-3 py-2"><input type="number" value={row.priority} onChange={(e) => updateAvailability(c.id, { priority: Number(e.target.value) || 0 })} className="h-9 w-20 rounded-lg border border-line bg-paper px-2 text-xs outline-none" /></td><td className="px-3 py-2"><input value={row.note} onChange={(e) => updateAvailability(c.id, { note: e.target.value })} placeholder="Eligibility, entity or affiliate note…" className="h-9 w-full min-w-56 rounded-lg border border-line bg-paper px-2 text-xs outline-none" /></td></tr>; })}</tbody></table></div>
           </section>
-
-          <section><div className="flex items-center justify-between gap-3"><div><h2 className="font-display text-xl font-bold text-ink-900">Country eligibility</h2><p className="mt-1 text-xs text-slate-400">Search countries and set whether this broker is available, restricted or unavailable. No raw JSON required.</p></div><button onClick={saveAdvanced} className="rounded-xl bg-emerald-500 px-4 py-2 text-xs font-bold text-white">Save eligibility</button></div><div className="mt-3 flex items-center gap-2 rounded-xl border border-line bg-paper px-3"><Search size={14} className="text-slate-400"/><input value={countrySearch} onChange={e=>setCountrySearch(e.target.value)} placeholder="Search countries…" className="h-10 flex-1 bg-transparent text-sm outline-none"/></div><div className="mt-3 max-h-96 overflow-auto rounded-xl border border-line bg-white"><table className="w-full text-left text-xs"><thead className="sticky top-0 bg-paper text-slate-500"><tr><th className="px-3 py-2">Country</th><th className="px-3 py-2">Status</th><th className="px-3 py-2">Priority</th><th className="px-3 py-2">Note</th></tr></thead><tbody className="divide-y divide-line">{visibleCountries.map((c)=>{const row=availabilityByCountry.get(c.id) ?? { country_id:c.id, status:'unknown' as const, note:'', priority:0 }; return <tr key={c.id}><td className="px-3 py-2 font-bold text-ink-900">{c.flag} {c.name}<span className="ml-1 font-normal text-slate-400">/{c.slug}</span></td><td className="px-3 py-2"><select value={row.status} onChange={(e)=>updateAvailability(c.id,{status:e.target.value as any})} className="h-9 rounded-lg border border-line bg-paper px-2 text-xs font-bold outline-none"><option value="unknown">Unknown</option><option value="available">Available</option><option value="restricted">Restricted</option><option value="unavailable">Unavailable</option></select></td><td className="px-3 py-2"><input type="number" value={row.priority} onChange={(e)=>updateAvailability(c.id,{priority:Number(e.target.value)||0})} className="h-9 w-20 rounded-lg border border-line bg-paper px-2 text-xs outline-none"/></td><td className="px-3 py-2"><input value={row.note} onChange={(e)=>updateAvailability(c.id,{note:e.target.value})} placeholder="Eligibility, entity or affiliate note…" className="h-9 w-full min-w-56 rounded-lg border border-line bg-paper px-2 text-xs outline-none"/></td></tr>})}</tbody></table></div></section>
         </div>}
       </div>
-      <div className="flex justify-end border-t border-line bg-white px-5 py-4"><button onClick={onClose} className="rounded-xl border border-line px-4 py-2 text-xs font-bold text-slate-600">Close</button></div>
+      <div className="flex justify-end gap-3 border-t border-line bg-white px-5 py-4"><button onClick={onClose} className="rounded-xl border border-line px-4 py-2 text-xs font-bold text-slate-600">Close</button><button onClick={saveDocument} disabled={loading || busy} className="inline-flex items-center gap-2 rounded-xl bg-ink-950 px-5 py-2.5 text-xs font-bold text-white disabled:opacity-50">{busy && <Loader2 size={14} className="animate-spin" />} Save broker page</button></div>
     </div>
-    {(editingDoc || newDoc) && <BrokerRichDocEditor broker={broker} token={token} document={editingDoc} seedBlocks={!editingDoc && seedNewDoc ? legacySeedBlocks : undefined} seedTitle={!editingDoc && seedNewDoc ? `${broker.name} — Full Profile` : undefined} onClose={()=>{setEditingDoc(null);setNewDoc(false);setSeedNewDoc(false)}} onSave={saveDoc}/>} 
   </div>;
 }
 
