@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, BadgeCheck } from 'lucide-react';
-import type { Broker } from '../lib/types';
+import type { Broker, BrokerPlatform } from '../lib/types';
 import Monogram from './Monogram';
 import Stars from './Stars';
 import VisitButton from './VisitButton';
@@ -19,10 +19,11 @@ interface Props {
   countrySlug?: string;
 }
 
-function shortList(values: string[], max = 3) {
+function shortList(values: Array<string | BrokerPlatform>, max = 3) {
   if (!values?.length) return '—';
-  const shown = values.slice(0, max);
-  return values.length > max ? `${shown.join(' · ')} +${values.length - max}` : shown.join(' · ');
+  const names = values.map((value) => typeof value === 'string' ? value : value.name);
+  const shown = names.slice(0, max);
+  return names.length > max ? `${shown.join(' · ')} +${names.length - max}` : shown.join(' · ');
 }
 
 function regulationLabel(broker: Broker) {
@@ -61,9 +62,6 @@ export default function BrokerCard({ broker, rank, note, intent: explicitIntent,
       { label: 'Max leverage', value: broker.max_leverage },
     ];
 
-    // The fourth metric is deliberately intent-aware: it answers the question
-    // behind the page instead of exposing a technical metric (execution ms)
-    // that is difficult for most users to interpret consistently.
     let contextual = { label: 'Platforms', value: shortList(broker.platforms) };
 
     if (isCountryContext) {
@@ -162,30 +160,18 @@ export default function BrokerCard({ broker, rank, note, intent: explicitIntent,
       </div>
 
       <div className="mt-3 flex flex-wrap gap-1.5">
-        <span
-          className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-bold ${tone.bg} ${tone.border} ${tone.text}`}
-        >
+        <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-bold ${tone.bg} ${tone.border} ${tone.text}`}>
           <BadgeCheck size={12} />
           Trust {broker.trust_score}
         </span>
         {broker.best_for.slice(0, 2).map((slug) => (
-          <span
-            key={slug}
-            className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600"
-          >
-            {INTENT_LABELS[slug] ?? slug}
-          </span>
+          <span key={slug} className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">{INTENT_LABELS[slug] ?? slug}</span>
         ))}
       </div>
 
-      {/* One commercial CTA. Review is intentionally secondary; comparison is removed from cards. */}
       <div className="mt-auto pt-4">
         <VisitButton broker={broker} compact={false} className="w-full" />
-        <Link
-          to={`/brokers/${broker.slug}`}
-          className="mt-3 inline-flex w-full items-center justify-center gap-1 text-xs font-bold text-slate-500 transition hover:text-emerald-700"
-          onClick={() => track('broker_click', { broker: broker.slug, source: 'card_review', page: window.location.pathname })}
-        >
+        <Link to={`/brokers/${broker.slug}`} className="mt-3 inline-flex w-full items-center justify-center gap-1 text-xs font-bold text-slate-500 transition hover:text-emerald-700" onClick={() => track('broker_click', { broker: broker.slug, source: 'card_review', page: window.location.pathname })}>
           Read full review
           <ArrowRight size={13} />
         </Link>
