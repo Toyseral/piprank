@@ -14,7 +14,7 @@ export default function PipRankVerdictCard({ broker, headline, text, showCta = t
   const score = pipRankScore(broker);
 
   return (
-    <section className="rounded-3xl border border-emerald-200 bg-emerald-50/50 p-6 sm:p-8" aria-label={`PipRank verdict for ${broker.name}`}>
+    <section className="-mx-5 w-[calc(100%+2.5rem)] rounded-none border-y border-emerald-200 bg-emerald-50/50 p-5 sm:mx-0 sm:w-full sm:rounded-3xl sm:border sm:p-8" aria-label={`PipRank verdict for ${broker.name}`}>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-700">PipRank verdict</p>
