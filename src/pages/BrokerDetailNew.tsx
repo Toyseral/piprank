@@ -1,8 +1,8 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { BadgeCheck, ShieldCheck } from 'lucide-react';
-import type { Broker, BrokerContent, ContentDocument } from '../lib/types';
-import { fetchBroker, fetchBrokerContent, fetchBrokers, fetchContentDocument } from '../lib/api';
+import type { Broker, ContentDocument } from '../lib/types';
+import { fetchBroker, fetchBrokers, fetchContentDocument } from '../lib/api';
 import fmtMoney from '../lib/format';
 import PipRankVerdictCard from '../components/PipRankVerdictCard';
 import StructuredBrokerDataCard from '../components/StructuredBrokerDataCard';
@@ -36,7 +36,6 @@ function Shell({ id, eyebrow, title, children }: { id: string; eyebrow: string; 
 export default function BrokerDetailNew() {
   const { slug = '' } = useParams<{ slug: string }>();
   const [broker, setBroker] = useState<Broker | null>(null);
-  const [content, setContent] = useState<BrokerContent | null>(null);
   const [richProfile, setRichProfile] = useState<ContentDocument | null>(null);
   const [allBrokers, setAllBrokers] = useState<Broker[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,20 +49,18 @@ export default function BrokerDetailNew() {
     fetchBroker(slug).then(async (b) => {
       if (!live) return;
       setBroker(b);
-      const [c, rich, brokers] = await Promise.all([
-        fetchBrokerContent(b.id).catch(() => null),
+      const [rich, brokers] = await Promise.all([
         fetchContentDocument(`broker:${b.slug}:main`).catch(() => null),
         fetchBrokers().catch(() => []),
       ]);
       if (!live) return;
-      setContent(c);
       setRichProfile(rich?.published ? rich : null);
       setAllBrokers(Array.isArray(brokers) && brokers.length ? brokers : [b]);
     }).catch(() => live && setBroker(null)).finally(() => live && setLoading(false));
     return () => { live = false; };
   }, [slug]);
 
-  const faqs = content?.faqs?.length ? content.faqs : broker?.faqs ?? [];
+  const faqs = broker?.faqs ?? [];
   const reviewer = reviewerFor(broker?.slug ?? slug);
   const baseSeo = broker ? brokerSeo(broker) : null;
   const seo = baseSeo
@@ -89,12 +86,6 @@ export default function BrokerDetailNew() {
 
   const heroRegulators = broker.regulations.filter((r) => HERO_REGULATORS.has(r.body)).map((r) => r.body).filter((name, i, all) => all.indexOf(name) === i);
   const editorialBlocks = Array.isArray(richProfile?.blocks) ? richProfile.blocks as any[] : [];
-  const hasEditorialBlocks = editorialBlocks.some(
-    (block: any) =>
-      block?.type !== 'structured_broker_data' &&
-      (!block?.editorialSection || block.editorialSection === 'editorial')
-  );
-  const hasRichEditorial = Boolean(richProfile?.published && (hasEditorialBlocks || richProfile?.html?.trim()));
   const editorialBrokers = allBrokers.length ? allBrokers : [broker];
 
   return (
@@ -112,18 +103,16 @@ export default function BrokerDetailNew() {
         <div className="mt-7 grid gap-8 lg:grid-cols-[minmax(0,1fr)_300px]">
           <div className="min-w-0 space-y-8">
             <Shell id="overview" eyebrow="Overview" title={`${broker.name} at a glance`}>
-              <Copy items={content?.overview ?? broker.review} />
-              <div className="mt-8 overflow-hidden rounded-2xl border border-line">{[['Minimum deposit', fmtMoney(broker.min_deposit)], ['EUR/USD spread', `${broker.spread_eurusd} pips`], ['Commission', broker.commission || '—'], ['Platforms', broker.platforms.join(' · ') || '—'], ['Founded', String(broker.founded || '—')], ['Headquarters', broker.headquarters || '—']].map(([label, value], i) => <div key={label} className={`flex flex-col gap-1 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between ${i % 2 === 0 ? 'bg-paper/70' : 'bg-white'}`}><span className="text-sm font-medium text-slate-500">{label}</span><span className="text-sm font-bold text-ink-900">{value}</span></div>)}</div>
+              <div className="overflow-hidden rounded-2xl border border-line">{[['Minimum deposit', fmtMoney(broker.min_deposit)], ['EUR/USD spread', `${broker.spread_eurusd} pips`], ['Commission', broker.commission || '—'], ['Platforms', broker.platforms.join(' · ') || '—'], ['Founded', String(broker.founded || '—')], ['Headquarters', broker.headquarters || '—']].map(([label, value], i) => <div key={label} className={`flex flex-col gap-1 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between ${i % 2 === 0 ? 'bg-paper/70' : 'bg-white'}`}><span className="text-sm font-medium text-slate-500">{label}</span><span className="text-sm font-bold text-ink-900">{value}</span></div>)}</div>
             </Shell>
             <section id="assessment" className="scroll-mt-28"><StructuredBrokerDataCard broker={broker} section="editorial" /></section>
-            <section id="verdict" className="scroll-mt-28"><PipRankVerdictCard broker={broker} text={content?.verdict?.join(' ')} /></section>
-            <section id="editorial" className="scroll-mt-28 rounded-3xl border border-line bg-white p-5 shadow-soft sm:p-7"><div className="border-b border-line pb-5"><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-700">Editorial</p><h2 className="mt-1 font-display text-2xl font-bold text-ink-950">In-depth {broker.name} analysis</h2></div><div className="pt-6">{hasRichEditorial ? <PageBlocksRenderer blocks={editorialBlocks as any} brokers={editorialBrokers} /> : <Copy items={broker.review} />}</div></section>
-            <section id="fees" className="scroll-mt-28"><StructuredBrokerDataCard broker={broker} section="pricing" editorial={<Copy items={content?.fees_detail} />} /></section>
-            <section id="platforms" className="scroll-mt-28"><OriginalTradingPlatformsCard broker={broker} />{content?.platform_intro?.length ? <div className="mt-5 rounded-3xl border border-line bg-white p-5 shadow-soft sm:p-7"><Copy items={content.platform_intro} /></div> : null}</section>
-            <section id="trust" className="scroll-mt-28"><StructuredBrokerDataCard broker={broker} section="trust" editorial={<Copy items={content?.regulation_detail} />} /></section>
-            <section id="accounts" className="scroll-mt-28"><StructuredBrokerDataCard broker={broker} section="accounts" content={content} editorial={<Copy items={content?.accounts_intro} />} /></section>
-            <section id="funding" className="scroll-mt-28"><StructuredBrokerDataCard broker={broker} section="funding" content={content} editorial={<Copy items={content?.funding_intro} />} /></section>
-            {(content?.why_recommend?.length || content?.avoid_if?.length) ? <section className="rounded-3xl border border-line bg-white p-5 shadow-soft sm:p-7"><div className="border-b border-line pb-5"><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-700">Additional editorial</p><h2 className="mt-1 font-display text-2xl font-bold text-ink-950">More from the PipRank review</h2></div><div className="grid gap-5 pt-6 md:grid-cols-2">{content?.why_recommend?.length ? <div><h3 className="font-display text-lg font-bold text-ink-950">Why PipRank recommends {broker.name}</h3><Copy items={content.why_recommend} /></div> : null}{content?.avoid_if?.length ? <div><h3 className="font-display text-lg font-bold text-ink-950">Consider alternatives if…</h3><Copy items={content.avoid_if} /></div> : null}</div></section> : null}
+            <section id="verdict" className="scroll-mt-28"><PipRankVerdictCard broker={broker} /></section>
+            <section id="editorial" className="scroll-mt-28 rounded-3xl border border-line bg-white p-5 shadow-soft sm:p-7"><div className="border-b border-line pb-5"><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-700">Editorial</p><h2 className="mt-1 font-display text-2xl font-bold text-ink-950">In-depth {broker.name} analysis</h2></div><div className="pt-6">{richProfile?.published && editorialBlocks.length ? <PageBlocksRenderer blocks={editorialBlocks} brokers={editorialBrokers} /> : <Copy items={broker.review} />}</div></section>
+            <section id="fees" className="scroll-mt-28"><StructuredBrokerDataCard broker={broker} section="pricing" /></section>
+            <section id="platforms" className="scroll-mt-28"><OriginalTradingPlatformsCard broker={broker} /></section>
+            <section id="trust" className="scroll-mt-28"><StructuredBrokerDataCard broker={broker} section="trust" /></section>
+            <section id="accounts" className="scroll-mt-28"><StructuredBrokerDataCard broker={broker} section="accounts" /></section>
+            <section id="funding" className="scroll-mt-28"><StructuredBrokerDataCard broker={broker} section="funding" /></section>
             {faqs.length > 0 && <section id="faq" className="scroll-mt-28 rounded-3xl border border-line bg-white p-5 shadow-soft sm:p-7"><p className="text-xs font-bold tracking-wider text-emerald-700">FAQ</p><h2 className="mt-1 font-display text-2xl font-bold">{broker.name} frequently asked questions</h2><div className="mt-6 space-y-3">{faqs.map((faq, i) => <details key={`${i}-${faq.q}`} className="rounded-2xl border border-line bg-paper p-4"><summary className="cursor-pointer font-bold">{faq.q}</summary><p className="mt-3 text-sm leading-6 text-slate-600">{faq.a}</p></details>)}</div></section>}
             <section className="rounded-3xl bg-ink-950 p-6 text-white sm:p-8" aria-label={`Open ${broker.name} account`}><h2 className="font-display text-2xl font-bold">Open {broker.name} Account</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">Review the broker details above and open an account directly with {broker.name} if it fits your trading needs.</p><div className="mt-5"><VisitButton broker={broker} /></div></section>
             <section className="rounded-3xl border border-line bg-white p-6 shadow-soft sm:p-8" aria-labelledby="broker-author-bio"><div className="flex flex-col gap-5 sm:flex-row sm:items-start"><div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-paper font-display text-xl font-bold text-ink-950 ring-1 ring-line">{reviewer.penName.slice(0, 1)}</div><div><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Reviewed by</p><h2 id="broker-author-bio" className="mt-1 font-display text-xl font-bold text-ink-950">{reviewer.penName}</h2><p className="mt-0.5 text-sm font-semibold text-emerald-700">{reviewer.role}</p><p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">{reviewer.bio}</p><Link to={`/authors#${reviewer.slug}`} className="mt-3 inline-flex text-xs font-bold text-emerald-700 hover:text-emerald-800">View editorial profile →</Link></div></div></section>
