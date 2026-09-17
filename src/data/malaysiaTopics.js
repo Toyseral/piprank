@@ -2,7 +2,7 @@
 // (how something works, how to evaluate it, what a regulation means).
 //
 // These pages must NEVER contain a ranked "best brokers for X" list — that
-// shape of page belongs to the country-topic matrix (src/data/countrySeoMatrix.js,
+// shape of page belongs to the canonical country SEO matrix (src/data/countrySeoMatrix.js,
 // rendered at /malaysia/:topicSlug), which already owns broker ranking and
 // eligibility for this market. If a new guide topic here starts wanting a
 // ranked broker list, that's the signal to add it to the matrix instead of

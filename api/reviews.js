@@ -36,7 +36,7 @@ export default async function handler(req, res) {
     if (req.method === 'GET') {
       const { broker_id } = req.query;
       if (broker_id) {
-        const { data, error } = await supabase.from('reviews').select('*').eq('broker_id', Number(broker_id)).order('created_at', { ascending: false });
+        const { data, error } = await supabase.from('reviews').select('*').eq('broker_id', Number(broker_id)).eq('verified', true).order('created_at', { ascending: false });
         if (error) throw error;
         return res.status(200).json(data);
       }

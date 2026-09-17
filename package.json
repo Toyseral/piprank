@@ -11,7 +11,8 @@
     "preview": "vite preview",
     "check:function-count": "node scripts/check-function-count.mjs",
     "check:seo-matrix": "node scripts/validate-country-seo-matrix.mjs",
-    "check:retired-content": "node scripts/validate-retired-content-references.mjs"
+    "check:retired-content": "node scripts/validate-retired-content-references.mjs",
+    "migrate:broker-content": "node scripts/migrate-broker-content-to-content-documents.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.4",

@@ -1,13 +1,12 @@
 import type { PageBlock } from '../components/PageBuilder';
-import type { BrokerContent, FAQ } from './types';
+import type { FAQ } from './types';
 
 /**
  * A generic "legacy section" shape that every content type's own structured
- * fields (broker overview/verdict/etc, guide sections, best-for sections)
- * can be normalized into before converting to PageBuilder blocks. This is
- * the one shared intermediate format the rest of the admin editors convert
- * through, so there's a single conversion function instead of one per
- * content type.
+ * fields can be normalized into before converting to PageBuilder blocks. This
+ * is the one shared intermediate format the rest of the admin editors convert
+ * through, so there's a single conversion function instead of one per content
+ * type.
  */
 export interface LegacySection {
   heading?: string;
@@ -79,9 +78,8 @@ export function faqsToBlocks(faqs: FAQ[], headingTitle = 'Frequently asked quest
 
 /**
  * True if a set of blocks looks meaningfully non-empty — used to decide
- * whether an existing content_documents record already has real edits
- * (leave it alone) vs. is still an empty shell that should be seeded from
- * legacy fields.
+ * whether an existing content_documents record already has real edits (leave
+ * it alone) vs. is still an empty shell that should be seeded.
  */
 export function blocksHaveContent(blocks: unknown[] | undefined | null): boolean {
   if (!Array.isArray(blocks) || blocks.length === 0) return false;
@@ -89,38 +87,9 @@ export function blocksHaveContent(blocks: unknown[] | undefined | null): boolean
     const block = raw as Partial<PageBlock>;
     if (block.type === 'richtext') return Boolean(block.html && block.html.replace(/<[^>]+>/g, '').trim());
     if (block.type === 'heading') return Boolean(block.title && block.title.trim());
-    return true; // image / table / callout / links / divider blocks count once added
+    return true;
   });
 }
-
-/* ============================ PER-TYPE ADAPTERS ============================ */
-// Each adapter maps one content type's own structured fields into the
-// shared LegacySection[] shape above. Adding a new content type to the
-// seed-on-first-open system only requires one small adapter like these.
-
-const BROKER_FIELD_HEADINGS: [keyof BrokerContent, string][] = [
-  ['overview', 'Overview'],
-  ['verdict', 'Our verdict'],
-  ['why_recommend', 'Why we recommend this broker'],
-  ['best_for_detail', 'Best for'],
-  ['avoid_if', 'Consider avoiding if'],
-  ['regulation_detail', 'Regulation'],
-  ['fees_detail', 'Fees & costs'],
-  ['platform_intro', 'Trading platforms'],
-  ['accounts_intro', 'Account types'],
-  ['funding_intro', 'Deposits & withdrawals'],
-];
-
-export function brokerContentToLegacySections(content: BrokerContent | null | undefined): LegacySection[] {
-  if (!content) return [];
-  const sections: LegacySection[] = [];
-  for (const [field, heading] of BROKER_FIELD_HEADINGS) {
-    const paragraphs = (content[field] as string[] | undefined) ?? [];
-    if (paragraphs.some((p) => p && p.trim())) sections.push({ heading, paragraphs });
-  }
-  return sections;
-}
-
 
 export function introCriteriaToLegacySections(
   intro: string[] | undefined,
