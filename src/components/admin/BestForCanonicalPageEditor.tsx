@@ -1,0 +1,75 @@
+import { useEffect, useMemo, useState } from 'react';
+import { Save, X } from 'lucide-react';
+import type { Broker, ContentDocument, CountryPage } from '../../lib/types';
+import { blocksToHtml, type PageBlock } from '../PageBuilder';
+import BestForEditorialPageBuilder from '../BestForEditorialPageBuilder';
+import ManualBrokerOrder from '../ManualBrokerOrder';
+import { getCountrySeoTopic, rankCountryTopicBrokers } from '../../data/countrySeoTopics';
+
+type Kind = 'global' | 'country' | 'localized';
+type Props = { kind: Kind; document: ContentDocument | null; brokers: Broker[]; countries: CountryPage[]; token: string; countrySlug?: string; topicSlug: string; locale?: string; onClose: () => void; onSave: (document: ContentDocument, isNew: boolean) => Promise<void> };
+
+const settingsOf = (doc: ContentDocument | null) => (doc?.settings ?? {}) as Record<string, any>;
+function blank(kind: Kind, countrySlug?: string, topicSlug?: string, locale?: string): ContentDocument {
+  const content_type = kind === 'global' ? 'global-best-for' : kind === 'country' ? 'country-best-for' : 'localized-best-for';
+  const content_key = kind === 'global' ? `best-for:${topicSlug || 'new'}` : kind === 'country' ? `country-best-for:${countrySlug || 'new'}:${topicSlug || 'new'}` : `localized-best-for:${countrySlug || 'new'}:${locale || 'en'}:${topicSlug || 'new'}`;
+  return { id: 0, content_key, content_type, country_slug: countrySlug || null, topic_slug: topicSlug || null, slug: topicSlug || '', title: '', excerpt: '', html: '', blocks: [], seo_title: null, seo_description: null, indexable: true, published: false, updated_by: null, created_at: '', updated_at: '', settings: kind === 'localized' ? { locale: locale || 'en' } : {} };
+}
+
+export default function BestForCanonicalPageEditor({ kind, document, brokers, countries, token, countrySlug, topicSlug, locale, onClose, onSave }: Props) {
+  const [form, setForm] = useState<ContentDocument>(() => document ? { ...document, settings: document.settings ?? {} } : blank(kind, countrySlug, topicSlug, locale));
+  const [blocks, setBlocks] = useState<PageBlock[]>(Array.isArray(document?.blocks) ? document!.blocks as PageBlock[] : []);
+  const [rankingMode, setRankingMode] = useState<'auto' | 'manual'>(() => settingsOf(document).rankingMode === 'manual' ? 'manual' : 'auto');
+  const [pinned, setPinned] = useState<string[]>(() => Array.isArray(settingsOf(document).pinnedBrokerSlugs) ? settingsOf(document).pinnedBrokerSlugs : []);
+  const excluded = useMemo(() => Array.isArray(settingsOf(document).excludedBrokerSlugs) ? settingsOf(document).excludedBrokerSlugs : [], [document]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => { setForm(document ? { ...document, settings: document.settings ?? {} } : blank(kind, countrySlug, topicSlug, locale)); setBlocks(Array.isArray(document?.blocks) ? document!.blocks as PageBlock[] : []); const s = settingsOf(document); setRankingMode(s.rankingMode === 'manual' ? 'manual' : 'auto'); setPinned(Array.isArray(s.pinnedBrokerSlugs) ? s.pinnedBrokerSlugs : []); }, [document?.id, kind, countrySlug, topicSlug, locale]);
+
+  const manualPool = useMemo(() => {
+    const topic = String(form.topic_slug || topicSlug || '').trim().toLowerCase();
+    const excludedSet = new Set(excluded);
+    if (!topic) return [] as Broker[];
+    if (kind !== 'country') return brokers.filter(b => b.best_for.includes(topic) && !excludedSet.has(b.slug));
+    const country = countries.find(c => c.slug === (form.country_slug || countrySlug));
+    const countryTopic = getCountrySeoTopic(topic);
+    if (!country || !countryTopic) return [] as Broker[];
+    return rankCountryTopicBrokers(brokers, country, countryTopic).filter(b => !excludedSet.has(b.slug));
+  }, [brokers, countries, countrySlug, excluded, form.country_slug, form.topic_slug, kind, topicSlug]);
+  const unavailablePinned = pinned.filter(slug => !manualPool.some(b => b.slug === slug));
+
+  const uploadImage = async (file: File) => {
+    const reader = new FileReader();
+    const data = await new Promise<string>((resolve, reject) => { reader.onload = () => resolve(String(reader.result)); reader.onerror = reject; reader.readAsDataURL(file); });
+    const res = await fetch('/api/content-assets', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ filename: file.name, contentType: file.type, dataBase64: data }) });
+    const out = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(out.error || 'Image upload failed');
+    return out.url as string;
+  };
+
+  const save = async () => {
+    try {
+      setBusy(true); setError('');
+      if (rankingMode === 'manual' && pinned.length === 0) throw new Error('Manual ranking requires at least one selected broker.');
+      const settings = (form.settings ?? {}) as Record<string, any>;
+      const payload = { ...form, settings: { ...settings, ...(kind === 'localized' ? { locale: String(settings.locale || locale || '').trim().slice(0, 40) } : {}), rankingMode, pinnedBrokerSlugs: Array.from(new Set(pinned)), excludedBrokerSlugs: Array.from(new Set(excluded)) }, blocks, html: blocksToHtml(blocks, brokers) } as ContentDocument;
+      await onSave(payload, !document);
+    } catch (e) { setError(e instanceof Error ? e.message : 'Could not save Best-For page'); } finally { setBusy(false); }
+  };
+
+  return <div className="fixed inset-0 z-[130] flex items-center justify-center bg-ink-950/60 p-3 backdrop-blur-sm"><div className="flex max-h-[96vh] w-full max-w-7xl flex-col overflow-hidden rounded-3xl bg-white shadow-soft-lg">
+    <header className="flex items-center gap-3 bg-ink-950 px-5 py-4 text-white"><div className="min-w-0 flex-1"><p className="font-display text-lg font-bold">{document ? 'Edit' : 'Create'} Best-For page</p><p className="text-xs text-slate-400">PageBuilder controls editorial content. Ranking and eligibility remain data-controlled.</p></div><button type="button" onClick={onClose}><X size={18} /></button></header>
+    <main className="flex-1 overflow-y-auto p-5 sm:p-7">
+      {error && <p className="mb-5 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-600">{error}</p>}
+      <div className="grid gap-4 sm:grid-cols-2"><label><span className="text-xs font-bold">Title</span><input value={form.title || ''} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} className="mt-1.5 w-full rounded-xl border border-line px-3 py-2.5 text-sm" /></label><label><span className="text-xs font-bold">Slug</span><input value={form.slug || ''} disabled className="mt-1.5 w-full rounded-xl border border-line bg-paper px-3 py-2.5 text-sm" /></label></div>
+      {kind === 'localized' && <label className="mt-4 block"><span className="text-xs font-bold">Locale</span><input value={String(form.settings?.locale || locale || '')} onChange={e => setForm(f => ({ ...f, settings: { ...(f.settings || {}), locale: e.target.value } }))} className="mt-1.5 w-full rounded-xl border border-line px-3 py-2.5 text-sm" /></label>}
+      <label className="mt-4 block"><span className="text-xs font-bold">Excerpt</span><textarea value={form.excerpt || ''} onChange={e => setForm(f => ({ ...f, excerpt: e.target.value }))} rows={2} className="mt-1.5 w-full rounded-xl border border-line px-3 py-2.5 text-sm" /></label>
+      <div className="mt-6"><BestForEditorialPageBuilder value={blocks} onChange={setBlocks} onUploadImage={uploadImage} /></div>
+      <section className="mt-6 rounded-2xl border border-line bg-paper p-4"><p className="font-display text-sm font-bold">Broker ranking</p><p className="mt-1 text-xs text-slate-500">Automatic uses the existing rules. Manual chooses the exact eligible brokers and their order.</p><select value={rankingMode} onChange={e => setRankingMode(e.target.value as 'auto' | 'manual')} className="mt-3 h-10 rounded-xl border border-line bg-white px-3 text-xs font-bold"><option value="auto">Automatic ranking</option><option value="manual">Manual broker order</option></select>{rankingMode === 'manual' && <div className="mt-4 max-w-xl"><ManualBrokerOrder brokers={manualPool} value={pinned.filter(s => manualPool.some(b => b.slug === s))} onChange={setPinned} />{unavailablePinned.length > 0 && <p className="mt-3 rounded-xl bg-amber-50 p-3 text-xs text-amber-800">{unavailablePinned.length} saved broker selection(s) are currently ineligible and will not render publicly.</p>}</div>}</section>
+      <div className="mt-6 grid gap-4 sm:grid-cols-2"><label><span className="text-xs font-bold">SEO title</span><input value={form.seo_title || ''} onChange={e => setForm(f => ({ ...f, seo_title: e.target.value }))} className="mt-1.5 w-full rounded-xl border border-line px-3 py-2.5 text-sm" /></label><label><span className="text-xs font-bold">SEO description</span><textarea value={form.seo_description || ''} onChange={e => setForm(f => ({ ...f, seo_description: e.target.value }))} rows={2} className="mt-1.5 w-full rounded-xl border border-line px-3 py-2.5 text-sm" /></label></div>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2"><label className="flex items-center justify-between rounded-xl border border-line bg-paper p-4"><span className="text-sm font-bold">Publish</span><input type="checkbox" checked={!!form.published} onChange={e => setForm(f => ({ ...f, published: e.target.checked }))} /></label><label className="flex items-center justify-between rounded-xl border border-line bg-paper p-4"><span className="text-sm font-bold">Index</span><input type="checkbox" checked={!!form.indexable} onChange={e => setForm(f => ({ ...f, indexable: e.target.checked }))} /></label></div>
+    </main>
+    <footer className="flex justify-end gap-2 border-t border-line px-5 py-4"><button type="button" onClick={onClose} className="rounded-xl border border-line px-4 py-2.5 text-xs font-bold">Cancel</button><button type="button" disabled={busy} onClick={save} className="inline-flex items-center gap-2 rounded-xl bg-ink-950 px-5 py-2.5 text-xs font-bold text-white"><Save size={14} />{busy ? 'Saving…' : 'Save Best-For page'}</button></footer>
+  </div></div>;
+}
