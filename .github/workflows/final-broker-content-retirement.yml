@@ -3,6 +3,8 @@ name: Final broker content retirement
 on:
   push:
     branches: [fix/batch-3-broker-content-cutover]
+  pull_request:
+    branches: [develop]
 
 jobs:
   retire:
@@ -40,14 +42,12 @@ jobs:
           s = re.sub(r"\{extras\?\.avoid_if\?\.length&&<section.*?</section>\}", "", s, flags=re.S)
           s = re.sub(r"\{extras\?\.payments\?\.length\?<div className=\"mt-3 overflow-x-auto overflow-y-hidden rounded-2xl border border-line\">.*?</div>:<div className=\"mt-2\.5 flex flex-wrap gap-2\">\{broker\.payments\.map", "<div className=\"mt-2.5 flex flex-wrap gap-2\">{broker.payments.map", s, flags=re.S)
           p.write_text(s)
-
           p = Path('src/lib/api.ts')
           s = p.read_text().replace('Broker, BrokerContent, BrokerCountryAvailability', 'Broker, BrokerCountryAvailability')
           start = s.find('function htmlToParagraphs(html: string): string[]')
           end = s.find('export const fetchBrokerAvailability =')
           if start != -1 and end != -1: s = s[:start] + s[end:]
           p.write_text(s)
-
           p = Path('api/broker-assets.js')
           s = p.read_text()
           start = s.find('const CONTENT_WRITE =')
@@ -56,7 +56,6 @@ jobs:
           s = s.replace("if (resource === 'content') return await handleContent(req, res); ", "")
           s = s.replace("Missing or unknown 'resource' query param (expected 'content', 'availability', 'verification' or 'media')", "Missing or unknown 'resource' query param (expected 'availability', 'verification' or 'media')")
           p.write_text(s)
-
           p = Path('src/pages/Admin.tsx')
           p.write_text(p.read_text().replace('Broker, BrokerContent, CountryBestFor', 'Broker, CountryBestFor'))
           PY
