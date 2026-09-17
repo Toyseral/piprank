@@ -6,14 +6,20 @@ on:
   pull_request:
     branches: [develop]
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
+      - run: node scripts/apply-batch3-admin-cutover.mjs
       - run: npm ci
       - run: npm run build
