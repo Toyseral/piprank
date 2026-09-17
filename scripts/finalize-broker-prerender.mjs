@@ -3,6 +3,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { requireSiteUrlForProduction } from './seo-config.mjs';
+import { sanitizeBlocks, sanitizePublicSettings } from '../api/_lib/content-sanitizer.js';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const DIST = join(ROOT, 'dist');
@@ -91,6 +92,15 @@ function replaceHead(html, seo, schemas) {
   return output.replace('</head>', `${head}</head>`);
 }
 
+function normalizeDocument(document) {
+  if (!document) return null;
+  return {
+    ...document,
+    blocks: sanitizeBlocks(document.blocks),
+    settings: sanitizePublicSettings(document.settings),
+  };
+}
+
 async function main() {
   if (!existsSync(DIST)) throw new Error('dist/ does not exist. Run vite build first.');
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -112,7 +122,7 @@ async function main() {
   if (brokerError) throw brokerError;
   if (documentError) throw documentError;
 
-  const documentByKey = new Map((brokerDocuments || []).map((row) => [String(row.content_key), row]));
+  const documentByKey = new Map((brokerDocuments || []).map((row) => [String(row.content_key), normalizeDocument(row)]));
   let finalized = 0;
   for (const broker of brokers || []) {
     const path = `/brokers/${broker.slug}`;
