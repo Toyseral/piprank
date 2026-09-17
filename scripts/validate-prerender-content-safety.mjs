@@ -2,15 +2,19 @@ import { readFileSync } from 'node:fs';
 import { sanitizeBlocks, sanitizeHtml, sanitizePublicSettings } from '../api/_lib/content-sanitizer.js';
 
 const prerenderSource = readFileSync(new URL('./prerender-canonical.mjs', import.meta.url), 'utf8');
+const brokerFinalizeSource = readFileSync(new URL('./finalize-broker-prerender.mjs', import.meta.url), 'utf8');
 
 function assert(condition, message) {
   if (!condition) throw new Error(`Prerender content safety check failed: ${message}`);
 }
 
-assert(prerenderSource.includes("../api/_lib/content-sanitizer.js"), 'prerender must import the shared content sanitizer');
-assert(prerenderSource.includes('sanitizeBlocks'), 'prerender must sanitize document blocks');
-assert(prerenderSource.includes('sanitizeHtml'), 'prerender must sanitize document HTML');
-assert(prerenderSource.includes('sanitizePublicSettings'), 'prerender must sanitize public settings before FAQ/schema rendering');
+assert(prerenderSource.includes("../api/_lib/content-sanitizer.js"), 'canonical prerender must import the shared content sanitizer');
+assert(prerenderSource.includes('sanitizeBlocks'), 'canonical prerender must sanitize document blocks');
+assert(prerenderSource.includes('sanitizeHtml'), 'canonical prerender must sanitize document HTML');
+assert(prerenderSource.includes('sanitizePublicSettings'), 'canonical prerender must sanitize public settings before FAQ/schema rendering');
+assert(brokerFinalizeSource.includes("../api/_lib/content-sanitizer.js"), 'broker finalizer must import the shared content sanitizer');
+assert(brokerFinalizeSource.includes('sanitizeBlocks'), 'broker finalizer must sanitize document blocks');
+assert(brokerFinalizeSource.includes('sanitizePublicSettings'), 'broker finalizer must sanitize document settings before FAQ/schema rendering');
 
 const html = sanitizeHtml('<p>Hello</p><script>alert(1)</script><img src="x" onerror="alert(2)"><a href="javascript:alert(3)">bad</a>');
 assert(html.includes('<p>Hello</p>'), 'safe HTML should survive');
