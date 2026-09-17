@@ -18,11 +18,21 @@ const EDITORIAL_FIELDS = [
   ['funding_intro', 'Deposits & withdrawals'],
 ];
 
+const LEGACY_BLOCK_PREFIX = 'legacy-';
+
 function escapeHtml(value) {
-  return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;');
 }
 function paragraphsToHtml(values) {
   return (Array.isArray(values) ? values : []).filter((value) => String(value ?? '').trim()).map((value) => `<p>${escapeHtml(value)}</p>`).join('\n');
+}
+function editorialSectionFor(field) {
+  if (['overview', 'verdict', 'why_recommend', 'best_for_detail', 'avoid_if'].includes(field)) return 'editorial';
+  if (field === 'regulation_detail') return 'trust';
+  if (field === 'fees_detail') return 'pricing';
+  if (field === 'platform_intro') return 'platforms';
+  if (field === 'accounts_intro') return 'accounts';
+  return 'funding';
 }
 function legacyContentFromDocument(document, broker) {
   const result = { broker_id: Number(broker.id), overview: [], verdict: [], why_recommend: [], best_for_detail: [], avoid_if: [], regulation_detail: [], fees_detail: [], platform_intro: [], accounts_intro: [], funding_intro: [], faqs: Array.isArray(broker.faqs) ? broker.faqs : [], platforms: Array.isArray(broker.platforms) ? broker.platforms.map((name) => ({ name })) : [], accounts: Array.isArray(broker.account_types) ? broker.account_types.map((name) => ({ name })) : [], payments: Array.isArray(broker.payments) ? broker.payments : [] };
@@ -48,6 +58,34 @@ async function getBrokerWithDocument(brokerId) {
   return { broker, document };
 }
 
+function buildCompatibilityBlocks(existingBlocks, body) {
+  const legacyIds = new Set();
+  for (const [field] of EDITORIAL_FIELDS) {
+    legacyIds.add(`legacy-${field}`);
+    legacyIds.add(`legacy-${field}-body`);
+  }
+
+  // Compatibility saves are allowed to update only the old generated blocks.
+  // Preserve every canonical block created by the visual PageBuilder, including
+  // broker cards, comparison tables, CTAs, verdicts, images and custom rich text.
+  const preserved = (Array.isArray(existingBlocks) ? existingBlocks : []).filter((block) => {
+    const id = String(block?.id ?? '');
+    return !legacyIds.has(id) && !id.startsWith(LEGACY_BLOCK_PREFIX);
+  });
+
+  const generated = [];
+  for (const [field, heading] of EDITORIAL_FIELDS) {
+    const html = paragraphsToHtml(body[field]);
+    if (!html) continue;
+    generated.push(
+      { id: `legacy-${field}`, type: 'heading', title: heading, editorialSection: editorialSectionFor(field) },
+      { id: `legacy-${field}-body`, type: 'richtext', html, editorialSection: editorialSectionFor(field) },
+    );
+  }
+
+  return sanitizeBlocks([...preserved, ...generated]);
+}
+
 async function handleContent(req, res) {
   if (req.method === 'GET') {
     const brokerId = Number(req.query?.broker_id);
@@ -63,18 +101,9 @@ async function handleContent(req, res) {
     if (!Number.isInteger(brokerId) || brokerId <= 0) return res.status(400).json({ error: 'broker_id is required' });
     const record = await getBrokerWithDocument(brokerId);
     if (!record) return res.status(404).json({ error: 'Broker not found' });
-    const blocks = [];
-    const existingBlocks = Array.isArray(record.document?.blocks) ? record.document.blocks : [];
-    const structured = existingBlocks.find((block) => block?.type === 'structured_broker_data');
-    if (structured) blocks.push(structured);
-    for (const [field, heading] of EDITORIAL_FIELDS) {
-      const html = paragraphsToHtml(body[field]);
-      if (!html) continue;
-      blocks.push({ id: `legacy-${field}`, type: 'heading', title: heading, editorialSection: field === 'overview' || field === 'verdict' || field === 'why_recommend' || field === 'best_for_detail' || field === 'avoid_if' ? 'editorial' : field === 'regulation_detail' ? 'trust' : field === 'fees_detail' ? 'pricing' : field === 'platform_intro' ? 'platforms' : field === 'accounts_intro' ? 'accounts' : 'funding' });
-      blocks.push({ id: `legacy-${field}-body`, type: 'richtext', html, editorialSection: field === 'overview' || field === 'verdict' || field === 'why_recommend' || field === 'best_for_detail' || field === 'avoid_if' ? 'editorial' : field === 'regulation_detail' ? 'trust' : field === 'fees_detail' ? 'pricing' : field === 'platform_intro' ? 'platforms' : field === 'accounts_intro' ? 'accounts' : 'funding' });
-    }
-    const sanitized = sanitizeBlocks(blocks);
-    const payload = { title: record.document?.title || `${record.broker.name} review`, excerpt: record.document?.excerpt || record.broker.tagline || '', html: record.document?.html || '', blocks: sanitized, settings: record.document?.settings || { brokerId: brokerId }, seo_title: record.document?.seo_title || `${record.broker.name} review`, seo_description: record.document?.seo_description || record.broker.tagline || '', indexable: record.document?.indexable ?? true, published: record.document?.published ?? true };
+
+    const blocks = buildCompatibilityBlocks(record.document?.blocks, body);
+    const payload = { title: record.document?.title || `${record.broker.name} review`, excerpt: record.document?.excerpt || record.broker.tagline || '', html: record.document?.html || '', blocks, settings: record.document?.settings || { brokerId: brokerId }, seo_title: record.document?.seo_title || `${record.broker.name} review`, seo_description: record.document?.seo_description || record.broker.tagline || '', indexable: record.document?.indexable ?? true, published: record.document?.published ?? true };
     let document = record.document;
     if (document?.id) {
       const { data, error } = await supabase.from('content_documents').update(payload).eq('id', document.id).select().single();
