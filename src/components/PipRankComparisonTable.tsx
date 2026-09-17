@@ -1,4 +1,4 @@
-import { CircleCheck, X } from 'lucide-react';
+import { CircleCheck } from 'lucide-react';
 import type { Broker } from '../lib/types';
 import type { ComparisonField } from './PageBuilder';
 import { fmtMoney } from '../lib/format';
@@ -30,11 +30,11 @@ function value(b: Broker, field: ComparisonField) {
   }
 }
 
-function winnerIndex(field: ComparisonField, brokers: Broker[]) {
+function winner(field: ComparisonField, brokers: Broker[]) {
   if (brokers.length < 2 || !['rating', 'trust_score', 'min_deposit', 'spread_eurusd'].includes(field)) return null;
   const nums = brokers.map((b) => field === 'rating' ? Number(b.rating) : field === 'trust_score' ? Number(b.trust_score) : field === 'min_deposit' ? Number(b.min_deposit) : Number(b.spread_eurusd));
   const best = field === 'min_deposit' || field === 'spread_eurusd' ? Math.min(...nums) : Math.max(...nums);
-  return nums.findIndex((n) => n === best);
+  return nums.map((n, i) => n === best ? i : -1).filter((i) => i >= 0);
 }
 
 export default function PipRankComparisonTable({ brokers, fields, title = 'Broker comparison', showCta = false }: Props) {
@@ -42,29 +42,60 @@ export default function PipRankComparisonTable({ brokers, fields, title = 'Broke
   if (brokers.length < 2) return null;
 
   return (
-    <section className="mt-7 overflow-hidden rounded-2xl border border-line bg-white shadow-soft" aria-label={title}>
+    <section className="mt-7 overflow-hidden rounded-[24px] border border-line bg-white shadow-soft" aria-label={title}>
       <div className="border-b border-line bg-ink-950 px-4 py-4 sm:px-5">
-        <h2 className="font-display text-xl font-bold text-white">{title}</h2>
+        <h2 className="font-display text-xl font-bold text-white sm:text-2xl">{title}</h2>
       </div>
       <div className="overflow-x-auto">
-        <div className="min-w-[680px]">
-          <div className="grid border-b border-line bg-ink-950 px-4 py-3 text-[10px] font-bold uppercase tracking-widest sm:px-5" style={{ gridTemplateColumns: `1.2fr repeat(${brokers.length}, minmax(150px, 1fr))` }}>
-            <span className="text-slate-400">Metric</span>
-            {brokers.map((b) => <span key={b.id} className="text-center text-emerald-300">{b.name}</span>)}
+        <div className="min-w-[900px]">
+          <div className="grid border-b border-line bg-paper px-4 py-3 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500 sm:px-5" style={{ gridTemplateColumns: `minmax(190px, 240px) repeat(${rows.length}, minmax(150px, 1fr))` }}>
+            <span className="sticky left-0 z-10 bg-paper pr-4">Broker</span>
+            {rows.map((field) => <span key={field} className="text-center">{label[field]}</span>)}
           </div>
-          {rows.map((field, i) => {
-            const win = winnerIndex(field, brokers);
-            return <div key={field} className={`grid items-center gap-2 px-4 py-3.5 sm:px-5 ${i % 2 === 0 ? 'bg-paper/60' : 'bg-white'}`} style={{ gridTemplateColumns: `1.2fr repeat(${brokers.length}, minmax(150px, 1fr))` }}>
-              <span className="text-xs font-bold text-slate-500">{label[field]}</span>
-              {brokers.map((b, index) => <span key={b.id} className={`tnum flex items-center justify-center gap-1.5 text-center text-sm font-semibold ${win === index ? 'text-emerald-700' : 'text-slate-600'}`}>{value(b, field)}{win === index && <CircleCheck size={13} className="text-emerald-600"/>}{win !== null && win !== index && <X size={13} className="text-slate-300"/>}</span>)}
-            </div>;
+
+          {brokers.map((broker, index) => {
+            const winners = rows.map((field) => winner(field, brokers));
+            return (
+              <div
+                key={broker.id}
+                className={`grid items-stretch border-b border-line last:border-b-0 ${index % 2 === 0 ? 'bg-white' : 'bg-paper/50'}`}
+                style={{ gridTemplateColumns: `minmax(190px, 240px) repeat(${rows.length}, minmax(150px, 1fr))` }}
+              >
+                <div className={`sticky left-0 z-10 flex min-w-0 items-center gap-3 border-r border-line px-4 py-4 sm:px-5 ${index % 2 === 0 ? 'bg-white' : 'bg-paper'}`}>
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-ink-950 font-display text-xs font-bold text-white">{index + 1}</span>
+                  <div className="min-w-0">
+                    <a href={`#bestfor-${broker.slug}`} className="block truncate font-display text-sm font-bold text-ink-950 hover:text-emerald-700 sm:text-base">{broker.name}</a>
+                    <span className="tnum text-[11px] font-semibold text-emerald-700">{Number(pipRankScoreSafe(broker)).toFixed(0)}/100</span>
+                  </div>
+                </div>
+                {rows.map((field, fieldIndex) => {
+                  const isWinner = winners[fieldIndex]?.includes(index);
+                  return (
+                    <div key={field} className={`flex min-w-0 items-center justify-center px-3 py-4 text-center ${isWinner ? 'bg-emerald-50/70' : ''}`}>
+                      <span className={`tnum text-sm font-semibold ${isWinner ? 'text-emerald-700' : 'text-slate-600'}`}>{value(broker, field)}</span>
+                      {isWinner && <CircleCheck size={14} className="ml-1.5 shrink-0 text-emerald-600" />}
+                    </div>
+                  );
+                })}
+              </div>
+            );
           })}
-          {showCta && <div className="grid items-center gap-2 border-t border-line bg-paper/60 px-4 py-4 sm:px-5" style={{ gridTemplateColumns: `1.2fr repeat(${brokers.length}, minmax(150px, 1fr))` }}>
-            <span className="text-xs font-bold uppercase tracking-wide text-slate-500">Action</span>
-            {brokers.map((b) => <div key={b.id} className="px-1"><VisitButton broker={b} ctaVariant="comparison" compact className="w-full justify-center" /></div>)}
-          </div>}
+
+          {showCta && (
+            <div className="border-t border-line bg-paper p-4 sm:p-5">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {brokers.map((broker) => <VisitButton key={broker.id} broker={broker} ctaVariant="comparison" compact className="w-full justify-center" />)}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </section>
   );
+}
+
+function pipRankScoreSafe(broker: Broker) {
+  const rating = Number(broker.rating ?? 0);
+  const trust = Number(broker.trust_score ?? 0);
+  return Math.round(Math.max(0, Math.min(100, rating * 20 * 0.5 + trust * 0.5)));
 }
