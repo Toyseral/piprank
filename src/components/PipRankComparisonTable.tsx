@@ -13,9 +13,22 @@ type Props = {
 };
 
 const label: Record<ComparisonField, string> = {
-  rating: 'PipRank rating', trust_score: 'Trust score', min_deposit: 'Minimum deposit', spread_eurusd: 'EUR/USD spread',
+  rating: 'Rating', trust_score: 'Trust score', min_deposit: 'Minimum deposit', spread_eurusd: 'EUR/USD spread',
   commission: 'Commission', max_leverage: 'Max leverage', platforms: 'Platforms', payments: 'Payment methods', regulations: 'Regulation',
 };
+
+// PipRank Score is the only score users should see in comparison tables.
+// Rating and Trust Score remain in the shared PageBuilder type for backwards compatibility,
+// but comparison tables deliberately filter them out.
+const allowedMetricFields: ComparisonField[] = [
+  'min_deposit',
+  'spread_eurusd',
+  'commission',
+  'max_leverage',
+  'platforms',
+  'payments',
+  'regulations',
+];
 
 function value(b: Broker, field: ComparisonField) {
   switch (field) {
@@ -32,14 +45,15 @@ function value(b: Broker, field: ComparisonField) {
 }
 
 function winner(field: ComparisonField, brokers: Broker[]) {
-  if (brokers.length < 2 || !['rating', 'trust_score', 'min_deposit', 'spread_eurusd'].includes(field)) return null;
-  const nums = brokers.map((b) => field === 'rating' ? Number(b.rating) : field === 'trust_score' ? Number(b.trust_score) : field === 'min_deposit' ? Number(b.min_deposit) : Number(b.spread_eurusd));
-  const best = field === 'min_deposit' || field === 'spread_eurusd' ? Math.min(...nums) : Math.max(...nums);
+  if (brokers.length < 2 || !['min_deposit', 'spread_eurusd'].includes(field)) return null;
+  const nums = brokers.map((b) => field === 'min_deposit' ? Number(b.min_deposit) : Number(b.spread_eurusd));
+  const best = Math.min(...nums);
   return nums.map((n, i) => n === best ? i : -1).filter((i) => i >= 0);
 }
 
 export default function PipRankComparisonTable({ brokers, fields, title = 'Broker comparison', showCta = false }: Props) {
-  const rows: ComparisonField[] = fields?.length ? fields : ['rating', 'trust_score', 'min_deposit', 'spread_eurusd'];
+  const requested = fields?.length ? fields : ['min_deposit', 'spread_eurusd', 'commission', 'max_leverage'];
+  const rows = requested.filter((field): field is ComparisonField => allowedMetricFields.includes(field));
   if (brokers.length < 2) return null;
 
   return (
@@ -48,8 +62,8 @@ export default function PipRankComparisonTable({ brokers, fields, title = 'Broke
         <h2 className="font-display text-xl font-bold text-white sm:text-2xl">{title}</h2>
       </div>
       <div className="overflow-x-auto overscroll-x-contain">
-        <div className="min-w-[760px] sm:min-w-[980px]">
-          <div className="grid border-b border-line bg-paper px-2 py-3 text-[9px] font-bold uppercase tracking-[0.12em] text-slate-500 sm:px-5 sm:text-[10px] sm:tracking-[0.16em]" style={{ gridTemplateColumns: `minmax(120px, 145px) repeat(${rows.length}, minmax(125px, 1fr))` }}>
+        <div className="min-w-[760px] sm:min-w-[1120px]">
+          <div className="grid border-b border-line bg-paper px-2 py-3 text-[9px] font-bold uppercase tracking-[0.12em] text-slate-500 sm:px-5 sm:text-[10px] sm:tracking-[0.16em]" style={{ gridTemplateColumns: `minmax(150px, 1fr) repeat(${rows.length}, minmax(125px, 1fr))` }}>
             <span className="sticky left-0 z-10 bg-paper pr-2 sm:pr-4">Broker</span>
             {rows.map((field) => <span key={field} className="px-1 text-center">{label[field]}</span>)}
           </div>
@@ -60,13 +74,13 @@ export default function PipRankComparisonTable({ brokers, fields, title = 'Broke
               <div
                 key={broker.id}
                 className={`${index >= 5 ? 'hidden sm:grid' : 'grid'} items-stretch border-b border-line last:border-b-0 ${index % 2 === 0 ? 'bg-white' : 'bg-paper/50'}`}
-                style={{ gridTemplateColumns: `minmax(120px, 145px) repeat(${rows.length}, minmax(125px, 1fr))` }}
+                style={{ gridTemplateColumns: `minmax(150px, 1fr) repeat(${rows.length}, minmax(125px, 1fr))` }}
               >
                 <div className={`sticky left-0 z-10 flex min-w-0 items-center gap-2 border-r border-line px-2.5 py-3 sm:gap-3 sm:px-5 sm:py-4 ${index % 2 === 0 ? 'bg-white' : 'bg-paper'}`}>
                   <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-ink-950 font-display text-[10px] font-bold text-white sm:h-8 sm:w-8 sm:text-xs">{index + 1}</span>
                   <div className="min-w-0">
-                    <a href={`#bestfor-${broker.slug}`} className="block truncate font-display text-[11px] font-bold leading-tight text-ink-950 hover:text-emerald-700 sm:text-base">{broker.name}</a>
-                    <span className="tnum text-[9px] font-semibold text-emerald-700 sm:text-[11px]">{pipRankScore(broker)}/100</span>
+                    <a href={`#bestfor-${broker.slug}`} className="block whitespace-normal break-words font-display text-[11px] font-bold leading-tight text-ink-950 hover:text-emerald-700 sm:text-base">{broker.name}</a>
+                    <span className="tnum text-[9px] font-semibold text-emerald-700 sm:text-[11px]">{pipRankScore(broker)}/100 PipRank</span>
                   </div>
                 </div>
                 {rows.map((field, fieldIndex) => {
