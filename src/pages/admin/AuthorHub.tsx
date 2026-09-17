@@ -24,8 +24,9 @@ export default function AuthorHub({ authors, allContent, onRefresh }: AuthorHubP
       const { data: sessionData } = await supabase.auth.getSession(); const token = sessionData.session?.access_token;
       if (!token) throw new Error('Your admin session has expired. Please sign in again.');
       const settings = { ...(editing.settings || {}), role: String(editing.settings?.role || 'Author').trim(), short_bio: String(editing.settings?.short_bio || '').trim(), expertise: asList(editing.settings?.expertise), credentials: asList(editing.settings?.credentials), links: Array.isArray(editing.settings?.links) ? editing.settings?.links : [], photo_url: String(editing.settings?.photo_url || '').trim(), display_order: Number(editing.settings?.display_order || 0) };
-      const payload = { ...editing, title: name, slug, content_type: 'author', country_slug: null, topic_slug: null, excerpt: settings.short_bio, html: '', blocks: [], settings, indexable: false, published: editing.published !== false };
-      const response = await fetch('/api/content-documents', { method: editing.id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(editing.id ? { ...payload, id: editing.id } : payload) });
+      const payload = { content_type: 'author', country_slug: null, topic_slug: null, slug, title: name, excerpt: settings.short_bio, html: '', blocks: [], settings, indexable: false, published: editing.published !== false };
+      const requestBody = editing.id ? { ...payload, id: editing.id } : payload;
+      const response = await fetch('/api/content-documents', { method: editing.id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(requestBody) });
       const data = await response.json().catch(() => ({})); if (!response.ok) throw new Error(data.error || 'Could not save author profile');
       setEditing(null); if (onRefresh) await onRefresh();
     } catch (e) { setError(e instanceof Error ? e.message : 'Could not save author profile'); } finally { setBusy(false); }
