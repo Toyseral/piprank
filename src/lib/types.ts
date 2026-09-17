@@ -8,6 +8,7 @@ export interface BrokerAssets { forex: number; indices: number; commodities: num
 export interface TestResult { label: string; result: string; detail: string; }
 export interface FAQ { q: string; a: string; }
 export interface BrokerPlatform { name: string; summary: string; features: string[]; }
+export const platformNames = (platforms: BrokerPlatform[] = []): string[] => platforms.map((platform) => platform.name);
 export interface Broker {
   id: number; name: string; slug: string; tagline: string; brand_color: string; logo_url?: string | null; rating: number; trust_score: number; founded: number; headquarters: string; website: string; affiliate_url?: string | null; min_deposit: number; spread_eurusd: number; commission: string; commission_value: number; max_leverage: string; leverage_value: number; execution_ms: number; withdrawal_hours: number; deposit_time: string; uptime: number; withdrawal_fee: number; inactivity_fee: string; demo_account: boolean; islamic_account: boolean; copy_trading: boolean; scalping: boolean; hedging: boolean; nbp: boolean; segregated: boolean; bonus: string | null; support_channels: string[]; support_score: number; regulations: Regulation[]; platforms: BrokerPlatform[]; payments: string[]; account_types: string[]; assets: BrokerAssets; best_for: string[]; pros: string[]; cons: string[]; review: string[]; testing: TestResult[]; faqs: FAQ[]; health: HealthFactors; featured: boolean; updated_at?: string | null; risk_warning?: string | null;
 }
