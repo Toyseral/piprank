@@ -70,7 +70,7 @@ export default function PipRankComparisonTable({ brokers, fields, title = 'Broke
             return (
               <div
                 key={broker.id}
-                className={`${index >= 5 ? 'hidden sm:grid' : 'grid'} items-stretch border-b border-line last:border-b-0 ${index % 2 === 0 ? 'bg-white' : 'bg-paper/50'}`}
+                className="grid items-stretch border-b border-line last:border-b-0"
                 style={{ gridTemplateColumns: `minmax(150px, 1fr) repeat(${rows.length}, minmax(125px, 1fr))` }}
               >
                 <div className={`sticky left-0 z-10 flex min-w-0 items-center gap-2 border-r border-line px-2.5 py-3 sm:gap-3 sm:px-5 sm:py-4 ${index % 2 === 0 ? 'bg-white' : 'bg-paper'}`}>
