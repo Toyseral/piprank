@@ -4,6 +4,7 @@ import PageBlocksRenderer from './PageBlocksRenderer';
 import PipRankComparisonTable from './PipRankComparisonTable';
 import StructuredBrokerDataCard from './StructuredBrokerDataCard';
 import PipRankVerdictCard from './PipRankVerdictCard';
+import BestForQuickFacts from './BestForQuickFacts';
 import Monogram from './Monogram';
 import VisitButton from './VisitButton';
 import { ButtonLink } from './Button';
@@ -27,7 +28,7 @@ const blocksFor = (blocks: unknown, section: string, brokerSlug?: string) => {
 function EditorialZone({ blocks, brokers, intentSlug, countrySlug, section }: { blocks: unknown; brokers: Broker[]; intentSlug: string; countrySlug?: string; section: string }) {
   const scoped = blocksFor(blocks, section);
   return scoped.length ? (
-    <PageBlocksRenderer blocks={scoped as any} brokers={brokers} intent={intentSlug} countrySlug={countrySlug} className="piprank-rich-content" />
+    <PageBlocksRenderer blocks={scoped as any} brokers={brokers} intent={intentSlug} countrySlug={countrySlug} className="piprank-rich-content" editorialSection={section} />
   ) : null;
 }
 
@@ -43,23 +44,16 @@ function SectionIntro({ eyebrow, title, copy }: { eyebrow: string; title: string
 
 function RankingList({ ranked }: { ranked: Broker[] }) {
   return (
-    <div className="overflow-hidden rounded-[24px] border border-line bg-white shadow-soft">
+    <div className="-mx-5 overflow-hidden rounded-none border-y border-line bg-white shadow-soft sm:mx-0 sm:rounded-[24px] sm:border">
       {ranked.slice(0, 9).map((broker, index) => (
-        <a
-          key={broker.id}
-          href={`#bestfor-${broker.slug}`}
-          className="group flex min-w-0 items-center gap-3 border-b border-line px-4 py-4 transition last:border-b-0 hover:bg-paper sm:gap-4 sm:px-6 sm:py-5"
-        >
+        <a key={broker.id} href={`#bestfor-${broker.slug}`} className="group flex min-w-0 items-center gap-3 border-b border-line px-5 py-4 transition last:border-b-0 hover:bg-paper sm:gap-4 sm:px-6 sm:py-5">
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-ink-950 font-display text-sm font-bold text-white sm:h-9 sm:w-9">{index + 1}</span>
           <Monogram name={broker.name} color={broker.brand_color} logoUrl={broker.logo_url} size={44} className="shrink-0 rounded-xl" />
           <span className="min-w-0 flex-1">
             <span className="block truncate font-display text-[15px] font-bold text-ink-950 group-hover:text-emerald-700 sm:text-base">{broker.name}</span>
             <span className="mt-0.5 hidden truncate text-xs text-slate-500 sm:block sm:text-sm">{broker.tagline}</span>
           </span>
-          <span className="shrink-0 text-right">
-            <span className="tnum block font-display text-base font-bold text-emerald-700 sm:text-lg">{pipRankScore(broker)}</span>
-            <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">score</span>
-          </span>
+          <span className="shrink-0 text-right"><span className="tnum block font-display text-base font-bold text-emerald-700 sm:text-lg">{pipRankScore(broker)}</span><span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">score</span></span>
         </a>
       ))}
     </div>
@@ -69,38 +63,24 @@ function RankingList({ ranked }: { ranked: Broker[] }) {
 function BrokerModule({ broker, rank, blocks, brokers, intentSlug, countrySlug }: { broker: Broker; rank: number; blocks: unknown; brokers: Broker[]; intentSlug: string; countrySlug?: string }) {
   const editorial = blocksFor(blocks, 'detailed_analysis', broker.slug);
   return (
-    <article id={`bestfor-${broker.slug}`} className="scroll-mt-28 overflow-hidden rounded-[28px] border border-line bg-white shadow-soft-lg">
-      <header className="relative overflow-hidden bg-ink-950 px-4 py-5 text-white sm:px-7 sm:py-6 lg:px-8">
+    <article id={`bestfor-${broker.slug}`} className="scroll-mt-28 -mx-5 overflow-hidden rounded-none border-y border-line bg-white shadow-soft-lg sm:mx-0 sm:rounded-[28px] sm:border">
+      <header className="relative overflow-hidden bg-ink-950 px-5 py-5 text-white sm:px-7 sm:py-6 lg:px-8">
         <div className="absolute right-0 top-0 h-40 w-40 translate-x-1/3 -translate-y-1/3 rounded-full bg-emerald-400/10 blur-2xl" />
         <div className="relative flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center">
           <div className="flex min-w-0 items-center gap-3 sm:gap-4">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/10 font-display text-sm font-bold">{rank}</span>
             <Monogram name={broker.name} color={broker.brand_color} logoUrl={broker.logo_url} size={52} className="shrink-0 rounded-2xl" />
-            <div className="min-w-0">
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-300">Broker {rank}</p>
-              <h3 className="mt-1 truncate font-display text-xl font-bold tracking-tight sm:text-2xl">{broker.name}</h3>
-              <p className="mt-1 truncate text-sm text-slate-300">{broker.tagline}</p>
-            </div>
+            <div className="min-w-0"><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-300">Broker {rank}</p><h3 className="mt-1 truncate font-display text-xl font-bold tracking-tight sm:text-2xl">{broker.name}</h3><p className="mt-1 truncate text-sm text-slate-300">{broker.tagline}</p></div>
           </div>
-          <div className="flex shrink-0 items-center justify-between rounded-2xl border border-white/10 bg-white/[0.07] px-4 py-3 sm:ml-auto sm:min-w-[96px] sm:flex-col sm:items-center sm:justify-center">
-            <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">PipRank</p>
-            <p className="tnum font-display text-2xl font-bold text-white">{pipRankScore(broker)}<span className="text-xs font-semibold text-slate-400">/100</span></p>
-          </div>
+          <div className="flex shrink-0 items-center justify-between rounded-2xl border border-white/10 bg-white/[0.07] px-4 py-3 sm:ml-auto sm:min-w-[96px] sm:flex-col sm:items-center sm:justify-center"><p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">PipRank</p><p className="tnum font-display text-2xl font-bold text-white">{pipRankScore(broker)}<span className="text-xs font-semibold text-slate-400">/100</span></p></div>
         </div>
       </header>
 
-      <div className="space-y-7 p-4 sm:p-7 lg:p-8">
+      <div className="space-y-7 p-5 sm:p-7 lg:p-8">
+        <BestForQuickFacts broker={broker} />
         <StructuredBrokerDataCard broker={broker} section="editorial" />
-        {editorial.length ? (
-          <section className="border-t border-line pt-7">
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-700">Editorial analysis</p>
-            <h4 className="mt-2 font-display text-xl font-bold tracking-tight text-ink-950 sm:text-2xl">Why {broker.name} fits this category</h4>
-            <div className="mt-5 max-w-4xl">
-              <PageBlocksRenderer blocks={editorial as any} brokers={brokers} intent={intentSlug} countrySlug={countrySlug} className="piprank-rich-content" editorialSection="detailed_analysis" />
-            </div>
-          </section>
-        ) : null}
-        <PipRankVerdictCard broker={broker} headline={`${broker.name} for this category`} />
+        {editorial.length ? <section className="border-t border-line pt-7"><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-700">Editorial analysis</p><h4 className="mt-2 font-display text-xl font-bold tracking-tight text-ink-950 sm:text-2xl">Why {broker.name} fits this category</h4><div className="mt-5 max-w-4xl"><PageBlocksRenderer blocks={editorial as any} brokers={brokers} intent={intentSlug} countrySlug={countrySlug} className="piprank-rich-content" editorialSection="detailed_analysis" /></div></section> : null}
+        <PipRankVerdictCard broker={broker} headline={`Is ${broker.name} right for ${intentSlug.replace(/-/g, ' ')}?`} />
       </div>
     </article>
   );
@@ -118,215 +98,47 @@ export default function BestForTemplate({ document, brokers, ranked, intentSlug,
 
   return (
     <main className="w-full overflow-x-clip bg-paper">
-      <nav aria-label="Breadcrumb" className="w-full bg-ink-950 text-slate-400">
-        <div className="mx-auto flex w-full max-w-[1440px] items-center gap-2 overflow-x-auto whitespace-nowrap px-4 py-3.5 text-xs sm:px-8 lg:px-12 xl:px-16">
-          <Link to="/" className="transition hover:text-white">Home</Link>
-          <span className="text-slate-600">/</span>
-          {countrySlug && <><Link to={`/${countrySlug}`} className="transition hover:text-white">{countryName || countrySlug}</Link><span className="text-slate-600">/</span></>}
-          <span className="font-semibold text-white">{document.title}</span>
-        </div>
-      </nav>
+      <nav aria-label="Breadcrumb" className="w-full bg-ink-950 text-slate-400"><div className="mx-auto flex w-full max-w-[1440px] items-center gap-2 overflow-x-auto whitespace-nowrap px-4 py-3.5 text-xs sm:px-8 lg:px-12 xl:px-16"><Link to="/" className="transition hover:text-white">Home</Link><span className="text-slate-600">/</span>{countrySlug && <><Link to={`/${countrySlug}`} className="transition hover:text-white">{countryName || countrySlug}</Link><span className="text-slate-600">/</span></>}<span className="font-semibold text-white">{document.title}</span></div></nav>
 
       <header className="w-full bg-ink-950 text-white">
-        <div className="mx-auto grid w-full max-w-[1440px] gap-10 px-5 pb-14 pt-10 sm:px-8 sm:pb-18 sm:pt-14 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-center lg:px-12 lg:pb-20 lg:pt-16 xl:px-16">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-3 text-[10px] font-bold uppercase tracking-[0.22em]">
-              <span className="text-emerald-300">{heroEyebrow}</span>
-              <span className="h-1 w-1 rounded-full bg-slate-600" />
-              <span className="text-slate-500">Updated {updated}</span>
-            </div>
-            <h1 className="mt-5 max-w-4xl font-display text-[clamp(2.5rem,6vw,5.5rem)] font-bold leading-[0.96] tracking-[-0.045em]">{document.title}</h1>
-            {document.excerpt && <p className="mt-6 max-w-2xl text-[15px] leading-7 text-slate-300 sm:text-lg sm:leading-8">{document.excerpt}</p>}
-            <div className="mt-7">
-              {top && <a href="#bestfor-brokers" className="inline-flex items-center rounded-xl border border-white/15 bg-white/[0.06] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/10">Explore the rankings <span className="ml-2" aria-hidden="true">↓</span></a>}
-            </div>
-          </div>
-
-          <div className="rounded-[28px] border border-white/10 bg-white/[0.045] p-5 shadow-2xl sm:p-6">
-            <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-500">Top match</p>
-            <div className="mt-4 flex items-center gap-4">
-              {top && <Monogram name={top.name} color={top.brand_color} logoUrl={top.logo_url} size={58} className="shrink-0 rounded-2xl" />}
-              <div className="min-w-0">
-                <p className="truncate font-display text-xl font-bold text-white">{top?.name || '—'}</p>
-                {top && <p className="mt-1 text-sm font-semibold text-emerald-300">{pipRankScore(top)}/100 PipRank score</p>}
-              </div>
-            </div>
-            <p className="mt-5 border-t border-white/10 pt-4 text-sm leading-6 text-slate-400">The highest-ranked eligible broker for this category.</p>
-          </div>
+        <div className="mx-auto grid w-full max-w-[1440px] gap-8 px-5 pb-12 pt-10 sm:px-8 sm:pb-16 sm:pt-14 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-center lg:px-12 lg:pb-20 lg:pt-16 xl:px-16">
+          <div className="min-w-0"><div className="flex flex-wrap items-center gap-3 text-[10px] font-bold uppercase tracking-[0.22em]"><span className="text-emerald-300">{heroEyebrow}</span><span className="h-1 w-1 rounded-full bg-slate-600" /><span className="text-slate-500">Updated {updated}</span></div><h1 className="mt-5 max-w-4xl font-display text-[clamp(2.5rem,6vw,5.5rem)] font-bold leading-[0.96] tracking-[-0.045em]">{document.title}</h1>{document.excerpt && <p className="mt-6 max-w-2xl text-[15px] leading-7 text-slate-300 sm:text-lg sm:leading-8">{document.excerpt}</p>}</div>
+          <div className="order-last rounded-none border border-white/10 bg-white/[0.045] p-5 shadow-2xl sm:order-none sm:rounded-[28px] sm:p-6"><p className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-500">Top match</p><div className="mt-4 flex items-center gap-4">{top && <Monogram name={top.name} color={top.brand_color} logoUrl={top.logo_url} size={58} className="shrink-0 rounded-2xl" />}<div className="min-w-0"><p className="truncate font-display text-xl font-bold text-white">{top?.name || '—'}</p>{top && <p className="mt-1 text-sm font-semibold text-emerald-300">{pipRankScore(top)}/100 PipRank score</p>}</div></div><p className="mt-5 border-t border-white/10 pt-4 text-sm leading-6 text-slate-400">The highest-ranked eligible broker for this category.</p></div>
+          {top && <a href="#bestfor-brokers" className="order-last -mt-3 inline-flex w-full items-center justify-center rounded-none border border-white/15 bg-white/[0.06] px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/10 sm:order-none sm:mt-0 sm:w-auto sm:justify-self-start sm:rounded-xl lg:col-start-1">Explore the rankings <span className="ml-2" aria-hidden="true">↓</span></a>}
         </div>
       </header>
 
-      <section className="w-full bg-white">
-        <div className="mx-auto w-full max-w-[1440px] px-5 py-10 sm:px-8 sm:py-14 lg:px-12 xl:px-16">
-          <div className="max-w-4xl">
-            <EditorialZone blocks={document.blocks} brokers={brokers} intentSlug={intentSlug} countrySlug={countrySlug} section="introduction" />
-          </div>
-        </div>
-      </section>
+      <section className="w-full bg-white"><div className="mx-auto w-full max-w-[1440px] px-5 py-10 sm:px-8 sm:py-14 lg:px-12 xl:px-16"><div className="max-w-4xl"><EditorialZone blocks={document.blocks} brokers={brokers} intentSlug={intentSlug} countrySlug={countrySlug} section="introduction" /></div></div></section>
 
-      {top && (
-        <section className="w-full border-y border-line bg-paper">
-          <div className="mx-auto w-full max-w-[1440px] px-5 py-12 sm:px-8 sm:py-16 lg:px-12 xl:px-16">
-            <SectionIntro eyebrow="PipRank top broker" title={`${top.name} is our top match for ${categoryLabel}`} copy="The broker at the top of this shortlist based on eligibility, category fit and PipRank's ranking rules." />
-            <article className="overflow-hidden rounded-[30px] border border-line bg-ink-950 text-white shadow-soft-lg">
-              <div className="grid lg:grid-cols-[minmax(0,1fr)_360px]">
-                <div className="p-6 sm:p-8 lg:p-10">
-                  <div className="flex items-start gap-4 sm:gap-5">
-                    <Monogram name={top.name} color={top.brand_color} logoUrl={top.logo_url} size={72} className="shrink-0 rounded-2xl bg-white" />
-                    <div className="min-w-0">
-                      <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-300">#1 for {categoryLabel}</p>
-                      <h2 className="mt-1 truncate font-display text-3xl font-bold tracking-tight sm:text-4xl">{top.name}</h2>
-                      <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">{top.tagline}</p>
-                    </div>
-                  </div>
-                  <div className="mt-7 grid gap-4 sm:grid-cols-[auto_1fr] sm:items-end">
-                    <div>
-                      <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-500">PipRank score</p>
-                      <p className="tnum mt-1 font-display text-5xl font-bold">{pipRankScore(top)}<span className="text-base font-semibold text-slate-500">/100</span></p>
-                    </div>
-                    <p className="max-w-xl text-sm leading-6 text-slate-400">See why {top.name} ranks first for this category, then compare the other eligible brokers below.</p>
-                  </div>
-                  <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-                    <VisitButton broker={top} className="w-full sm:w-auto" />
-                    <a href="#bestfor-brokers" className="inline-flex min-h-11 items-center justify-center rounded-xl border border-white/15 px-5 text-sm font-bold text-white transition hover:bg-white/10 sm:w-auto">See other brokers</a>
-                  </div>
-                </div>
-                <div className="border-t border-white/10 bg-white/[0.04] p-6 sm:p-8 lg:border-l lg:border-t-0 lg:p-10">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-300">Why it is here</p>
-                  <p className="mt-3 text-sm leading-7 text-slate-300">{top.name} is currently the highest-ranked eligible broker in this category. The detailed analysis below shows the assessment, editorial reasoning and verdict.</p>
-                  <a href={`#bestfor-${top.slug}`} className="mt-6 inline-flex text-sm font-bold text-white hover:text-emerald-300">Read the full analysis →</a>
-                </div>
-              </div>
-            </article>
-          </div>
-        </section>
-      )}
+      {top && <section className="w-full border-y border-line bg-paper"><div className="mx-auto w-full max-w-[1440px] px-5 py-12 sm:px-8 sm:py-16 lg:px-12 xl:px-16"><SectionIntro eyebrow="PipRank top broker" title={`${top.name} is our top match for ${categoryLabel}`} copy="The broker at the top of this shortlist based on eligibility, category fit and PipRank's ranking rules." /><article className="-mx-5 overflow-hidden rounded-none border-y border-line bg-ink-950 text-white shadow-soft-lg sm:mx-0 sm:rounded-[30px] sm:border"><div className="p-5 sm:p-8 lg:p-10"><div className="flex items-start gap-4 sm:gap-5"><Monogram name={top.name} color={top.brand_color} logoUrl={top.logo_url} size={72} className="shrink-0 rounded-2xl bg-white" /><div className="min-w-0"><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-300">#1 for {categoryLabel}</p><h2 className="mt-1 truncate font-display text-3xl font-bold tracking-tight sm:text-4xl">{top.name}</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">{top.tagline}</p></div></div><div className="mt-7 grid gap-4 sm:grid-cols-[auto_1fr] sm:items-end"><div><p className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-500">PipRank score</p><p className="tnum mt-1 font-display text-5xl font-bold">{pipRankScore(top)}<span className="text-base font-semibold text-slate-500">/100</span></p></div><p className="max-w-xl text-sm leading-6 text-slate-400">See why {top.name} ranks first for this category, then compare the other eligible brokers below.</p></div><div className="mt-7"><BestForQuickFacts broker={top} /></div><div className="mt-6 flex flex-col gap-3 sm:flex-row"><VisitButton broker={top} className="w-full sm:w-auto" /><a href="#bestfor-brokers" className="inline-flex min-h-11 items-center justify-center rounded-xl border border-white/15 px-5 text-sm font-bold text-white transition hover:bg-white/10 sm:w-auto">See other brokers</a></div></div></article></div></section>}
 
-      {top9.length > 0 && (
-        <section id="bestfor-brokers" className="w-full bg-white">
-          <div className="mx-auto w-full max-w-[1440px] px-5 py-12 sm:px-8 sm:py-16 lg:px-12 xl:px-16">
-            <SectionIntro eyebrow="Ranked shortlist" title={`Best 9 forex brokers for ${categoryLabel}`} copy="Explore the nine eligible brokers selected for this category. Each result links directly to its full analysis below." />
-            <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start">
-              <RankingList ranked={top9} />
-              <aside className="hidden rounded-[24px] bg-paper p-6 lg:block">
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">How to use this list</p>
-                <p className="mt-3 text-sm leading-6 text-slate-600">Start with the ranking, then jump to any broker below for the assessment, editorial analysis and verdict.</p>
-                <a href="#bestfor-detail" className="mt-5 inline-flex text-sm font-bold text-emerald-700">Jump to broker analysis →</a>
-              </aside>
-            </div>
-          </div>
-        </section>
-      )}
+{top9.length > 0 && <section id="bestfor-brokers" className="w-full bg-white"><div className="mx-auto w-full max-w-[1440px] px-5 py-12 sm:px-8 sm:py-16 lg:px-12 xl:px-16"><SectionIntro eyebrow="Ranked shortlist" title={`Best 9 forex brokers for ${categoryLabel}`} copy="Explore the nine eligible brokers selected for this category. Each result links directly to its full analysis below." /><div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start"><RankingList ranked={top9} /><aside className="hidden rounded-[24px] bg-paper p-6 lg:block"><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">How to use this list</p><p className="mt-3 text-sm leading-6 text-slate-600">Start with the ranking, then jump to any broker below for the assessment, editorial analysis and verdict.</p><a href="#bestfor-detail" className="mt-5 inline-flex text-sm font-bold text-emerald-700">Jump to broker analysis →</a></aside></div></div></section>}
 
-      {top9.length > 1 && (
-        <section className="w-full bg-paper">
-          <div className="mx-auto w-full max-w-[1440px] px-5 py-12 sm:px-8 sm:py-16 lg:px-12 xl:px-16">
-            <SectionIntro eyebrow="Quick comparison" title={`Compare the best ${top9.length} forex brokers for ${categoryLabel}`} copy="Keep the broker names fixed on the left while you scroll across the metrics. On smaller screens, the first five brokers remain visible." />
-            <PipRankComparisonTable brokers={top9} title={`Best ${top9.length} forex brokers compared`} showCta={false} />
-          </div>
-        </section>
-      )}
+{top9.length > 1 && <section className="w-full bg-paper"><div className="mx-auto w-full max-w-[1440px] px-5 py-12 sm:px-8 sm:py-16 lg:px-12 xl:px-16"><SectionIntro eyebrow="Quick comparison" title={`Compare the best ${top9.length} forex brokers for ${categoryLabel}`} copy="The broker identity stays fixed while the metrics scroll horizontally. On mobile, five broker rows remain available without letting the identity column consume the viewport." /><PipRankComparisonTable brokers={top9} title={`Compare the best ${top9.length} forex brokers for ${categoryLabel}`} showCta={false} /></div></section>}
 
-      <section id="bestfor-detail" className="w-full bg-[#f7f7f5]">
-        <div className="mx-auto w-full max-w-[1440px] px-5 py-14 sm:px-8 sm:py-20 lg:px-12 xl:px-16">
-          <SectionIntro eyebrow="Detailed broker analysis" title={`Best forex broker for ${categoryLabel}`} copy="A closer look at each broker in the shortlist, with the same structured assessment and verdict used across PipRank." />
-          <div className="space-y-8">{top9.map((broker, index) => <BrokerModule key={broker.id} broker={broker} rank={index + 1} blocks={document.blocks} brokers={brokers} intentSlug={intentSlug} countrySlug={countrySlug} />)}</div>
-        </div>
-      </section>
+<section id="bestfor-detail" className="w-full bg-[#f7f7f5]"><div className="mx-auto w-full max-w-[1440px] px-5 py-14 sm:px-8 sm:py-20 lg:px-12 xl:px-16"><SectionIntro eyebrow="Detailed broker analysis" title={`Best forex broker for ${categoryLabel}`} copy="Each broker is presented as one complete body: quick facts, structured assessment, editorial analysis and the original PipRank verdict." /><div className="space-y-8">{top9.map((broker, index) => <BrokerModule key={broker.id} broker={broker} rank={index + 1} blocks={document.blocks} brokers={brokers} intentSlug={intentSlug} countrySlug={countrySlug} />)}</div></div></section>
 
-      {(blocksFor(document.blocks, 'why_these_brokers').length || blocksFor(document.blocks, 'who_its_for').length || blocksFor(document.blocks, 'who_its_not_for').length) ? (
-        <section className="w-full bg-white">
-          <div className="mx-auto w-full max-w-[1440px] px-5 py-14 sm:px-8 lg:px-12 xl:px-16">
-            <div className="max-w-4xl space-y-12">
-              <SectionIntro eyebrow="Editorial content" title="More about these recommendations" />
-              <EditorialZone blocks={document.blocks} brokers={brokers} intentSlug={intentSlug} countrySlug={countrySlug} section="why_these_brokers" />
-              <EditorialZone blocks={document.blocks} brokers={brokers} intentSlug={intentSlug} countrySlug={countrySlug} section="who_its_for" />
-              <EditorialZone blocks={document.blocks} brokers={brokers} intentSlug={intentSlug} countrySlug={countrySlug} section="who_its_not_for" />
-            </div>
-          </div>
-        </section>
-      ) : null}
+{(blocksFor(document.blocks, 'why_these_brokers').length || blocksFor(document.blocks, 'who_its_for').length || blocksFor(document.blocks, 'who_its_not_for').length) ? <section className="w-full bg-white"><div className="mx-auto w-full max-w-[1440px] px-5 py-14 sm:px-8 lg:px-12 xl:px-16"><div className="max-w-4xl space-y-12"><SectionIntro eyebrow="Editorial content" title="More about these recommendations" /><EditorialZone blocks={document.blocks} brokers={brokers} intentSlug={intentSlug} countrySlug={countrySlug} section="why_these_brokers" /><EditorialZone blocks={document.blocks} brokers={brokers} intentSlug={intentSlug} countrySlug={countrySlug} section="who_its_for" /><EditorialZone blocks={document.blocks} brokers={brokers} intentSlug={intentSlug} countrySlug={countrySlug} section="who_its_not_for" /></div></div></section> : null}
 
-      {additional.length > 0 && (
-        <section className="w-full bg-paper">
-          <div className="mx-auto w-full max-w-[1440px] px-5 py-14 sm:px-8 lg:px-12 xl:px-16">
-            <SectionIntro eyebrow="Other relevant content" title={`More on ${categoryLabel}`} />
-            <div className="grid gap-5 md:grid-cols-2">{additional.map((section, index) => section.title || section.html ? (
-              <article key={`${section.title}-${index}`} className="rounded-[24px] bg-white p-6 shadow-soft sm:p-8">
-                {section.title && <h3 className="font-display text-xl font-bold text-ink-950">{section.title}</h3>}
-                {section.html && <div className="piprank-rich-content mt-4" dangerouslySetInnerHTML={{ __html: section.html }} />}
-              </article>
-            ) : null)}</div>
-          </div>
-        </section>
-      )}
+{additional.length > 0 && <section className="w-full bg-paper"><div className="mx-auto w-full max-w-[1440px] px-5 py-14 sm:px-8 lg:px-12 xl:px-16"><SectionIntro eyebrow="Other relevant content" title={`More on ${categoryLabel}`} /><div className="grid gap-5 md:grid-cols-2">{additional.map((section, index) => section.title || section.html ? <article key={`${section.title}-${index}`} className="rounded-[24px] bg-white p-6 shadow-soft sm:p-8">{section.title && <h3 className="font-display text-xl font-bold text-ink-950">{section.title}</h3>}{section.html && <div className="piprank-rich-content mt-4" dangerouslySetInnerHTML={{ __html: section.html }} />}</article> : null)}</div></div></section>}
 
-      <section className="w-full bg-white">
-        <div className="mx-auto w-full max-w-[1440px] px-5 py-14 sm:px-8 lg:px-12 xl:px-16">
-          <div className="max-w-4xl">
-            <EditorialZone blocks={document.blocks} brokers={brokers} intentSlug={intentSlug} countrySlug={countrySlug} section="detailed_analysis" />
-          </div>
-        </div>
-      </section>
+<SectionEditorial blocks={document.blocks} brokers={brokers} intentSlug={intentSlug} countrySlug={countrySlug} />
 
-      {faqs.length > 0 && (
-        <section className="w-full bg-paper">
-          <div className="mx-auto w-full max-w-[1440px] px-5 py-14 sm:px-8 lg:px-12 xl:px-16">
-            <div className="max-w-4xl">
-              <SectionIntro eyebrow="FAQ" title="Frequently asked questions" />
-              <div className="divide-y divide-line overflow-hidden rounded-[24px] border border-line bg-white">{faqs.map((faq) => <details key={faq.q} className="group px-5 py-5 sm:px-7"><summary className="flex cursor-pointer list-none items-center justify-between gap-6 font-display text-base font-bold text-ink-950 sm:text-lg"><span>{faq.q}</span><span className="text-xl font-normal text-slate-400 transition group-open:rotate-45">+</span></summary><p className="mt-3 max-w-3xl pr-8 text-sm leading-7 text-slate-600">{faq.a}</p></details>)}</div>
-            </div>
-          </div>
-        </section>
-      )}
+{faqs.length > 0 && <section className="w-full bg-paper"><div className="mx-auto w-full max-w-[1440px] px-5 py-14 sm:px-8 lg:px-12 xl:px-16"><div className="max-w-4xl"><SectionIntro eyebrow="FAQ" title="Frequently asked questions" /><div className="divide-y divide-line overflow-hidden rounded-[24px] border border-line bg-white">{faqs.map((faq) => <details key={faq.q} className="group px-5 py-5 sm:px-7"><summary className="flex cursor-pointer list-none items-center justify-between gap-6 font-display text-base font-bold text-ink-950 sm:text-lg"><span>{faq.q}</span><span className="text-xl font-normal text-slate-400 transition group-open:rotate-45">+</span></summary><p className="mt-3 max-w-3xl pr-8 text-sm leading-7 text-slate-600">{faq.a}</p></details>)}</div></div></div></section>}
 
-      {criteria.length > 0 && (
-        <section className="w-full bg-white">
-          <div className="mx-auto w-full max-w-[1440px] px-5 py-14 sm:px-8 lg:px-12 xl:px-16">
-            <div className="max-w-4xl">
-              <SectionIntro eyebrow="Criteria" title="What we considered" />
-              <div className="grid gap-px overflow-hidden rounded-[24px] border border-line bg-line sm:grid-cols-2">{criteria.map((criterion) => <div key={criterion} className="bg-paper p-5 text-sm leading-6 text-slate-600 sm:p-6">{criterion}</div>)}</div>
-            </div>
-          </div>
-        </section>
-      )}
+{criteria.length > 0 && <section className="w-full bg-white"><div className="mx-auto w-full max-w-[1440px] px-5 py-14 sm:px-8 lg:px-12 xl:px-16"><div className="max-w-4xl"><SectionIntro eyebrow="Criteria" title="What we considered" /><div className="grid gap-px overflow-hidden rounded-[24px] border border-line bg-line sm:grid-cols-2">{criteria.map((criterion) => <div key={criterion} className="bg-paper p-5 text-sm leading-6 text-slate-600 sm:p-6">{criterion}</div>)}</div></div></div></section>}
 
-      <section className="w-full bg-ink-950 text-white">
-        <div className="mx-auto grid w-full max-w-[1440px] gap-8 px-5 py-14 sm:px-8 lg:grid-cols-[1fr_auto] lg:items-center lg:px-12 xl:px-16">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-emerald-300">Methodology</p>
-            <h2 className="mt-2 font-display text-3xl font-bold tracking-tight sm:text-4xl">How PipRank ranks brokers</h2>
-            <p className="mt-3 max-w-2xl text-[15px] leading-7 text-slate-300">See the factors, scoring approach and review process used to evaluate brokers.</p>
-          </div>
-          <ButtonLink variant="white" size="md" to="/methodology">See our methodology</ButtonLink>
-        </div>
-      </section>
+<section className="w-full bg-ink-950 text-white"><div className="mx-auto w-full max-w-[1440px] px-5 py-14 sm:px-8 lg:px-12 xl:px-16"><div className="grid gap-8 lg:grid-cols-[1fr_auto] lg:items-center"><div><p className="text-[10px] font-bold uppercase tracking-[0.22em] text-emerald-300">Methodology</p><h2 className="mt-2 font-display text-3xl font-bold tracking-tight sm:text-4xl">How PipRank ranks brokers</h2><EditorialZone blocks={document.blocks} brokers={brokers} intentSlug={intentSlug} countrySlug={countrySlug} section="methodology" /><p className="mt-3 max-w-2xl text-[15px] leading-7 text-slate-300">See the factors, scoring approach and review process used to evaluate brokers.</p></div><ButtonLink variant="white" size="md" to="/methodology">See our methodology</ButtonLink></div></div></section>
 
-      <section className="w-full bg-white">
-        <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-6 px-5 py-14 sm:px-8 lg:flex-row lg:items-center lg:justify-between lg:px-12 xl:px-16">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-emerald-700">Personalized matching</p>
-            <h2 className="mt-2 font-display text-3xl font-bold tracking-tight text-ink-950 sm:text-4xl">Get matched with a broker that fits you</h2>
-            <p className="mt-3 max-w-2xl text-[15px] leading-7 text-slate-600">Tell us where you live, what you trade and what matters most. We’ll narrow down the brokers available to you.</p>
-          </div>
-          <ButtonLink variant="dark" size="md" to="/find-my-broker">Match Me With a Broker</ButtonLink>
-        </div>
-      </section>
+<section className="w-full bg-white"><div className="mx-auto flex w-full max-w-[1440px] flex-col gap-6 px-5 py-14 sm:px-8 lg:flex-row lg:items-center lg:justify-between lg:px-12 xl:px-16"><div><p className="text-[10px] font-bold uppercase tracking-[0.22em] text-emerald-700">Personalized matching</p><h2 className="mt-2 font-display text-3xl font-bold tracking-tight text-ink-950 sm:text-4xl">Get matched with a broker that fits you</h2><p className="mt-3 max-w-2xl text-[15px] leading-7 text-slate-600">Tell us where you live, what you trade and what matters most. We’ll narrow down the brokers available to you.</p></div><ButtonLink variant="dark" size="md" to="/find-my-broker">Match Me With a Broker</ButtonLink></div></section>
 
-      <section className="w-full border-t border-line bg-paper">
-        <div className="mx-auto w-full max-w-[1440px] px-5 py-12 sm:px-8 sm:py-14 lg:px-12 xl:px-16">
-          <div className="flex max-w-4xl flex-col gap-5 sm:flex-row sm:items-start">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-sm font-black text-white" style={{ backgroundColor: author.color }}>{author.penName.split(' ').map((part) => part[0]).join('').slice(0, 2)}</div>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-700">Author & reviewer</p>
-              <h2 className="mt-1 font-display text-xl font-bold text-ink-950">Written & reviewed by {author.penName}</h2>
-              <p className="mt-1 text-sm font-semibold text-slate-600">{author.role}</p>
-              <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600">{author.bio}</p>
-              <Link to={`/authors#${author.slug}`} className="mt-4 inline-flex text-xs font-bold text-emerald-700 hover:text-emerald-800">View author profile →</Link>
-            </div>
-          </div>
-        </div>
-      </section>
+<section className="w-full border-t border-line bg-paper"><div className="mx-auto w-full max-w-[1440px] px-5 py-12 sm:px-8 sm:py-14 lg:px-12 xl:px-16"><div className="flex max-w-4xl flex-col gap-5 sm:flex-row sm:items-start"><div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-sm font-black text-white" style={{ backgroundColor: author.color }}>{author.penName.split(' ').map((part) => part[0]).join('').slice(0, 2)}</div><div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-700">Author & reviewer</p><h2 className="mt-1 font-display text-xl font-bold text-ink-950">Written & reviewed by {author.penName}</h2><p className="mt-1 text-sm font-semibold text-slate-600">{author.role}</p><p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600">{author.bio}</p><Link to={`/authors#${author.slug}`} className="mt-4 inline-flex text-xs font-bold text-emerald-700 hover:text-emerald-800">View author profile →</Link></div></div></div></section>
     </main>
   );
+}
+
+function SectionEditorial({ blocks, brokers, intentSlug, countrySlug }: { blocks: unknown; brokers: Broker[]; intentSlug: string; countrySlug?: string }) {
+  const has = blocksFor(blocks, 'detailed_analysis').length > 0;
+  if (!has) return null;
+  return <section className="w-full bg-white"><div className="mx-auto w-full max-w-[1440px] px-5 py-14 sm:px-8 lg:px-12 xl:px-16"><div className="max-w-4xl"><SectionIntro eyebrow="Editorial content" title="Additional analysis" /><EditorialZone blocks={blocks} brokers={brokers} intentSlug={intentSlug} countrySlug={countrySlug} section="detailed_analysis" /></div></div></section>;
 }
