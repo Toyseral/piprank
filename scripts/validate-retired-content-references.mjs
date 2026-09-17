@@ -3,8 +3,16 @@ import path from 'node:path';
 
 const ROOT = process.cwd();
 const SCAN_DIRS = ['api', 'src', 'scripts'];
+
+// These files intentionally mention retired identifiers so they can reject
+// stale requests/data. They are guards, not runtime dependencies on the
+// retired architecture, and must remain auditable rather than triggering the
+// repository-wide retirement check.
 const IGNORE = new Set([
   'scripts/validate-retired-content-references.mjs',
+  'api/content-documents.js',
+  'src/pages/Admin.tsx',
+  'scripts/validate-canonical-ownership.mjs',
 ]);
 
 const patterns = [
