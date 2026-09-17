@@ -2,6 +2,7 @@ import { CircleCheck } from 'lucide-react';
 import type { Broker } from '../lib/types';
 import type { ComparisonField } from './PageBuilder';
 import { fmtMoney } from '../lib/format';
+import { pipRankScore } from '../lib/score';
 import VisitButton from './VisitButton';
 
 type Props = {
@@ -58,14 +59,14 @@ export default function PipRankComparisonTable({ brokers, fields, title = 'Broke
             return (
               <div
                 key={broker.id}
-                className={`grid items-stretch border-b border-line last:border-b-0 ${index % 2 === 0 ? 'bg-white' : 'bg-paper/50'}`}
+                className={`${index >= 5 ? 'hidden sm:grid' : 'grid'} items-stretch border-b border-line last:border-b-0 ${index % 2 === 0 ? 'bg-white' : 'bg-paper/50'}`}
                 style={{ gridTemplateColumns: `minmax(190px, 240px) repeat(${rows.length}, minmax(150px, 1fr))` }}
               >
                 <div className={`sticky left-0 z-10 flex min-w-0 items-center gap-3 border-r border-line px-4 py-4 sm:px-5 ${index % 2 === 0 ? 'bg-white' : 'bg-paper'}`}>
                   <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-ink-950 font-display text-xs font-bold text-white">{index + 1}</span>
                   <div className="min-w-0">
                     <a href={`#bestfor-${broker.slug}`} className="block truncate font-display text-sm font-bold text-ink-950 hover:text-emerald-700 sm:text-base">{broker.name}</a>
-                    <span className="tnum text-[11px] font-semibold text-emerald-700">{Number(pipRankScoreSafe(broker)).toFixed(0)}/100</span>
+                    <span className="tnum text-[11px] font-semibold text-emerald-700">{pipRankScore(broker)}/100</span>
                   </div>
                 </div>
                 {rows.map((field, fieldIndex) => {
@@ -92,10 +93,4 @@ export default function PipRankComparisonTable({ brokers, fields, title = 'Broke
       </div>
     </section>
   );
-}
-
-function pipRankScoreSafe(broker: Broker) {
-  const rating = Number(broker.rating ?? 0);
-  const trust = Number(broker.trust_score ?? 0);
-  return Math.round(Math.max(0, Math.min(100, rating * 20 * 0.5 + trust * 0.5)));
 }
