@@ -47,14 +47,15 @@ function RankingList({ ranked }: { ranked: Broker[] }) {
     <div className="-mx-5 overflow-hidden rounded-none border-y border-line bg-white shadow-soft sm:mx-0 sm:rounded-[24px] sm:border">
       {ranked.slice(0, 9).map((broker, index) => (
         <a key={broker.id} href={`#bestfor-${broker.slug}`} className="group relative flex min-w-0 items-start gap-3 border-b border-line px-4 py-4 transition last:border-b-0 hover:bg-paper sm:items-center sm:gap-4 sm:px-6 sm:py-5">
-          <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-ink-950 font-display text-sm font-bold text-white sm:mt-0 sm:h-9 sm:w-9">{index + 1}</span>
-          <Monogram name={broker.name} color={broker.brand_color} logoUrl={broker.logo_url} size={44} className="mt-0.5 shrink-0 rounded-xl sm:mt-0" />
-          <span className="min-w-0 flex-1 pr-2">
+          <div className="relative shrink-0 pt-1 sm:pt-0">
+            <Monogram name={broker.name} color={broker.brand_color} logoUrl={broker.logo_url} size={48} className="rounded-xl" />
+            <span className="absolute -left-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-ink-950 font-display text-[10px] font-bold text-white shadow-sm sm:-left-1.5 sm:-top-1.5 sm:h-7 sm:w-7 sm:text-[11px]">{index + 1}</span>
+          </div>
+          <span className="min-w-0 flex-1 pr-1">
             <span className="block font-display text-[15px] font-bold leading-tight text-ink-950 group-hover:text-emerald-700 sm:text-base">{broker.name}</span>
             {broker.tagline && <span className="mt-1 block text-xs leading-5 text-slate-500 sm:text-sm">{broker.tagline}</span>}
-            <span className="mt-2 flex flex-wrap gap-1.5">
-              {(broker.best_for || []).slice(0, 2).map((item) => <span key={item} className="rounded-full bg-paper px-2 py-1 text-[9px] font-bold uppercase tracking-wide text-slate-500 sm:text-[10px]">{item.replace(/-/g, ' ')}</span>)}
-              <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-[9px] font-bold uppercase tracking-wide text-emerald-700 sm:hidden">View analysis</span>
+            <span className="mt-2 flex max-w-full flex-nowrap gap-1.5 overflow-x-auto pb-0.5 sm:flex-wrap sm:overflow-visible">
+              {(broker.best_for || []).slice(0, 2).map((item) => <span key={item} className="shrink-0 rounded-full bg-paper px-2 py-1 text-[9px] font-bold uppercase tracking-wide text-slate-500 sm:text-[10px]">{item.replace(/-/g, ' ')}</span>)}
             </span>
           </span>
           <span className="flex shrink-0 flex-col items-end gap-1 text-right">
@@ -123,7 +124,7 @@ export default function BestForTemplate({ document, brokers, ranked, intentSlug,
 
 {top9.length > 0 && <section id="bestfor-brokers" className="w-full bg-white"><div className="mx-auto w-full max-w-[1440px] px-5 py-12 sm:px-8 sm:py-16 lg:px-12 xl:px-16"><SectionIntro eyebrow="Ranked shortlist" title={`Best 9 forex brokers for ${categoryLabel}`} copy="Explore the nine eligible brokers selected for this category. Each result links directly to its full analysis below." /><div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start"><RankingList ranked={top9} /><aside className="hidden rounded-[24px] bg-paper p-6 lg:block"><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">How to use this list</p><p className="mt-3 text-sm leading-6 text-slate-600">Start with the ranking, then jump to any broker below for the assessment, editorial analysis and verdict.</p><a href="#bestfor-detail" className="mt-5 inline-flex text-sm font-bold text-emerald-700">Jump to broker analysis →</a></aside></div></div></section>}
 
-{top9.length > 1 && <section className="w-full bg-paper"><div className="mx-auto w-full max-w-[1440px] px-5 py-12 sm:px-8 sm:py-16 lg:px-12 xl:px-16"><SectionIntro eyebrow="Quick comparison" title={`Compare the best ${top9.length} forex brokers for ${categoryLabel}`} copy="The broker identity stays fixed while the metrics scroll horizontally. On mobile, five broker rows remain available without letting the identity column consume the viewport." /><PipRankComparisonTable brokers={top9} fields={comparisonFields as any} title={`Compare the best ${top9.length} forex brokers for ${categoryLabel}`} showCta={false} /></div></section>}
+{top9.length > 1 && <section className="w-full bg-paper"><div className="mx-auto w-full max-w-[1440px] px-5 py-12 sm:px-8 sm:py-16 lg:px-12 xl:px-16"><SectionIntro eyebrow="Quick comparison" title={`Compare the best ${top9.length} forex brokers for ${categoryLabel}`} copy="Compare all eligible brokers in this category. On smaller screens, the table remains horizontally scrollable so all nine broker rows are available." /><PipRankComparisonTable brokers={top9} fields={comparisonFields as any} title={`Compare the best ${top9.length} forex brokers for ${categoryLabel}`} showCta={false} /></div></section>}
 
 <section id="bestfor-detail" className="w-full bg-[#f7f7f5]"><div className="mx-auto w-full max-w-[1440px] px-5 py-14 sm:px-8 sm:py-20 lg:px-12 xl:px-16"><SectionIntro eyebrow="Detailed broker analysis" title={`Best forex broker for ${categoryLabel}`} copy="Each broker is presented as one complete body: quick facts, structured assessment, editorial analysis and the original PipRank verdict." /><div className="space-y-8">{top9.map((broker, index) => <BrokerModule key={broker.id} broker={broker} rank={index + 1} blocks={document.blocks} brokers={brokers} intentSlug={intentSlug} countrySlug={countrySlug} />)}</div></div></section>
 
