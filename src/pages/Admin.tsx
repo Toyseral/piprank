@@ -734,18 +734,7 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
           broker={editingBrokerContent}
           token={session.access_token}
           onClose={() => setEditingBrokerContent(null)}
-          onSave={async (content) => {
-            const res = await fetch('/api/broker-assets?resource=content', {
-              method: 'PUT',
-              headers: headers(),
-              body: JSON.stringify({ ...content, broker_id: editingBrokerContent.id }),
-            });
-            const data = await res.json().catch(() => ({}));
-            if (!res.ok) throw new Error(data.error || 'Could not save broker content');
-            notify('Broker detailed content saved');
-            setEditingBrokerContent(null);
-          }}
-        />
+          onSave={async () => {}} />
       )}
       {editingCountryBestFor && (
         <CountryBestForEditor
