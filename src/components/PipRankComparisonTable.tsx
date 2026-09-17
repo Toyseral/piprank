@@ -43,15 +43,15 @@ export default function PipRankComparisonTable({ brokers, fields, title = 'Broke
   if (brokers.length < 2) return null;
 
   return (
-    <section className="mt-7 overflow-hidden rounded-[24px] border border-line bg-white shadow-soft" aria-label={title}>
+    <section className="mt-7 w-full overflow-hidden rounded-none border-y border-line bg-white shadow-soft sm:rounded-[24px] sm:border" aria-label={title}>
       <div className="border-b border-line bg-ink-950 px-4 py-4 sm:px-5">
         <h2 className="font-display text-xl font-bold text-white sm:text-2xl">{title}</h2>
       </div>
-      <div className="overflow-x-auto">
-        <div className="min-w-[900px]">
-          <div className="grid border-b border-line bg-paper px-4 py-3 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500 sm:px-5" style={{ gridTemplateColumns: `minmax(190px, 240px) repeat(${rows.length}, minmax(150px, 1fr))` }}>
-            <span className="sticky left-0 z-10 bg-paper pr-4">Broker</span>
-            {rows.map((field) => <span key={field} className="text-center">{label[field]}</span>)}
+      <div className="overflow-x-auto overscroll-x-contain">
+        <div className="min-w-[760px] sm:min-w-[980px]">
+          <div className="grid border-b border-line bg-paper px-2 py-3 text-[9px] font-bold uppercase tracking-[0.12em] text-slate-500 sm:px-5 sm:text-[10px] sm:tracking-[0.16em]" style={{ gridTemplateColumns: `minmax(120px, 145px) repeat(${rows.length}, minmax(125px, 1fr))` }}>
+            <span className="sticky left-0 z-10 bg-paper pr-2 sm:pr-4">Broker</span>
+            {rows.map((field) => <span key={field} className="px-1 text-center">{label[field]}</span>)}
           </div>
 
           {brokers.map((broker, index) => {
@@ -60,21 +60,21 @@ export default function PipRankComparisonTable({ brokers, fields, title = 'Broke
               <div
                 key={broker.id}
                 className={`${index >= 5 ? 'hidden sm:grid' : 'grid'} items-stretch border-b border-line last:border-b-0 ${index % 2 === 0 ? 'bg-white' : 'bg-paper/50'}`}
-                style={{ gridTemplateColumns: `minmax(190px, 240px) repeat(${rows.length}, minmax(150px, 1fr))` }}
+                style={{ gridTemplateColumns: `minmax(120px, 145px) repeat(${rows.length}, minmax(125px, 1fr))` }}
               >
-                <div className={`sticky left-0 z-10 flex min-w-0 items-center gap-3 border-r border-line px-4 py-4 sm:px-5 ${index % 2 === 0 ? 'bg-white' : 'bg-paper'}`}>
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-ink-950 font-display text-xs font-bold text-white">{index + 1}</span>
+                <div className={`sticky left-0 z-10 flex min-w-0 items-center gap-2 border-r border-line px-2.5 py-3 sm:gap-3 sm:px-5 sm:py-4 ${index % 2 === 0 ? 'bg-white' : 'bg-paper'}`}>
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-ink-950 font-display text-[10px] font-bold text-white sm:h-8 sm:w-8 sm:text-xs">{index + 1}</span>
                   <div className="min-w-0">
-                    <a href={`#bestfor-${broker.slug}`} className="block truncate font-display text-sm font-bold text-ink-950 hover:text-emerald-700 sm:text-base">{broker.name}</a>
-                    <span className="tnum text-[11px] font-semibold text-emerald-700">{pipRankScore(broker)}/100</span>
+                    <a href={`#bestfor-${broker.slug}`} className="block truncate font-display text-[11px] font-bold leading-tight text-ink-950 hover:text-emerald-700 sm:text-base">{broker.name}</a>
+                    <span className="tnum text-[9px] font-semibold text-emerald-700 sm:text-[11px]">{pipRankScore(broker)}/100</span>
                   </div>
                 </div>
                 {rows.map((field, fieldIndex) => {
                   const isWinner = winners[fieldIndex]?.includes(index);
                   return (
-                    <div key={field} className={`flex min-w-0 items-center justify-center px-3 py-4 text-center ${isWinner ? 'bg-emerald-50/70' : ''}`}>
-                      <span className={`tnum text-sm font-semibold ${isWinner ? 'text-emerald-700' : 'text-slate-600'}`}>{value(broker, field)}</span>
-                      {isWinner && <CircleCheck size={14} className="ml-1.5 shrink-0 text-emerald-600" />}
+                    <div key={field} className={`flex min-w-0 items-center justify-center px-2 py-3 text-center sm:px-3 sm:py-4 ${isWinner ? 'bg-emerald-50/70' : ''}`}>
+                      <span className={`tnum text-[11px] font-semibold leading-tight sm:text-sm ${isWinner ? 'text-emerald-700' : 'text-slate-600'}`}>{value(broker, field)}</span>
+                      {isWinner && <CircleCheck size={13} className="ml-1 shrink-0 text-emerald-600 sm:ml-1.5 sm:h-3.5 sm:w-3.5" />}
                     </div>
                   );
                 })}
