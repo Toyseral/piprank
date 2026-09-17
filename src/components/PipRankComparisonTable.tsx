@@ -17,9 +17,6 @@ const label: Record<ComparisonField, string> = {
   commission: 'Commission', max_leverage: 'Max leverage', platforms: 'Platforms', payments: 'Payment methods', regulations: 'Regulation',
 };
 
-// PipRank Score is the only score users should see in comparison tables.
-// Rating and Trust Score remain in the shared PageBuilder type for backwards compatibility,
-// but comparison tables deliberately filter them out.
 const allowedMetricFields: ComparisonField[] = [
   'min_deposit',
   'spread_eurusd',
@@ -52,8 +49,8 @@ function winner(field: ComparisonField, brokers: Broker[]) {
 }
 
 export default function PipRankComparisonTable({ brokers, fields, title = 'Broker comparison', showCta = false }: Props) {
-  const requested = fields?.length ? fields : ['min_deposit', 'spread_eurusd', 'commission', 'max_leverage'];
-  const rows = requested.filter((field): field is ComparisonField => allowedMetricFields.includes(field));
+  const requested: ComparisonField[] = fields?.length ? fields : ['min_deposit', 'spread_eurusd', 'commission', 'max_leverage'];
+  const rows = requested.filter((field) => allowedMetricFields.includes(field));
   if (brokers.length < 2) return null;
 
   return (
