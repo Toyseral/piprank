@@ -4,7 +4,7 @@ import type { Broker, ContentDocument, CountryPage } from '../../lib/types';
 import PageBuilder, { blocksToHtml, type PageBlock } from '../PageBuilder';
 import BestForCanonicalPageEditor from './BestForCanonicalPageEditor';
 
-type CanonicalEditorKind = 'broker' | 'best-for';
+export type CanonicalEditorKind = 'broker' | 'best-for';
 type CanonicalSlot =
   | 'overview'
   | 'editorial_before_pricing'
