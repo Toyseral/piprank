@@ -1,43 +1,124 @@
 import { Link } from 'react-router-dom';
 import type { Broker, ContentDocument, FAQ } from '../lib/types';
 import PageBlocksRenderer from './PageBlocksRenderer';
-import BrokerCard from './BrokerCard';
-import Reveal from './Reveal';
+import PipRankComparisonTable from './PipRankComparisonTable';
+import StructuredBrokerDataCard from './StructuredBrokerDataCard';
+import PipRankVerdictCard from './PipRankVerdictCard';
+import BestForQuickFacts from './BestForQuickFacts';
+import Monogram from './Monogram';
 import { ButtonLink } from './Button';
 import { isBlockShape } from '../lib/contentBlocks';
+import { pipRankScore } from '../lib/score';
 import { reviewerFor } from '../lib/team';
 
-type Props = {
-  document: ContentDocument;
-  brokers: Broker[];
-  ranked: Broker[];
-  intentSlug: string;
-  criteria: string[];
-  faqs: FAQ[];
-  countryName?: string;
-  countrySlug?: string;
-  localized?: boolean;
-  locale?: string;
-};
+type Props = { document: ContentDocument; brokers: Broker[]; ranked: Broker[]; intentSlug: string; criteria: string[]; faqs: FAQ[]; countryName?: string; countrySlug?: string; localized?: boolean; locale?: string };
 type ScopedBlock = { id: string; type: string; editorialSection?: string; [key: string]: unknown };
-const sectionBlocks = (blocks: unknown, section: string) => !isBlockShape(blocks) ? [] : (blocks as ScopedBlock[]).filter((block) => (block.editorialSection || 'introduction') === section);
-function EditorialZone({ blocks, brokers, intentSlug, countrySlug, section }: { blocks: unknown; brokers: Broker[]; intentSlug: string; countrySlug?: string; section: string }) { const scoped = sectionBlocks(blocks, section); if (!scoped.length) return null; return <PageBlocksRenderer blocks={scoped as any} brokers={brokers} intent={intentSlug} countrySlug={countrySlug} className="piprank-rich-content space-y-8" />; }
+
+const blocksFor = (blocks: unknown, section: string, brokerSlug?: string) => {
+  if (!isBlockShape(blocks)) return [] as ScopedBlock[];
+  return (blocks as ScopedBlock[]).filter((block) => {
+    if ((block.editorialSection || 'introduction') !== section) return false;
+    if (!brokerSlug) return true;
+    return String(block.id || '').startsWith(`bestfor-broker:${brokerSlug}:`);
+  });
+};
+
+function EditorialZone({ blocks, brokers, intentSlug, countrySlug, section }: { blocks: unknown; brokers: Broker[]; intentSlug: string; countrySlug?: string; section: string }) {
+  const scoped = blocksFor(blocks, section);
+  return scoped.length ? <PageBlocksRenderer blocks={scoped as any} brokers={brokers} intent={intentSlug} countrySlug={countrySlug} className="piprank-rich-content" /> : null;
+}
+
+function BrokerEditorial({ blocks, broker, brokers, intentSlug, countrySlug }: { blocks: unknown; broker: Broker; brokers: Broker[]; intentSlug: string; countrySlug?: string }) {
+  const scoped = blocksFor(blocks, 'detailed_analysis', broker.slug);
+  return scoped.length ? <PageBlocksRenderer blocks={scoped as any} brokers={brokers} intent={intentSlug} countrySlug={countrySlug} className="piprank-rich-content" editorialSection="detailed_analysis" /> : null;
+}
+
+function RankingList({ ranked }: { ranked: Broker[] }) {
+  return (
+    <div className="overflow-hidden rounded-2xl border border-line bg-white shadow-soft">
+      {ranked.slice(0, 9).map((broker, index) => (
+        <a key={broker.id} href={`#bestfor-${broker.slug}`} className="flex items-center gap-3 border-b border-line px-4 py-3.5 last:border-b-0 hover:bg-paper sm:px-5">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-ink-950 font-display text-sm font-bold text-white">{index + 1}</span>
+          <Monogram name={broker.name} color={broker.brand_color} logoUrl={broker.logo_url} size={40} />
+          <span className="min-w-0 flex-1"><span className="block truncate font-display text-sm font-bold text-ink-950">{broker.name}</span><span className="block truncate text-xs text-slate-500">{broker.tagline}</span></span>
+          <span className="tnum shrink-0 font-display text-sm font-bold text-emerald-700">{pipRankScore(broker)}/100</span>
+        </a>
+      ))}
+    </div>
+  );
+}
+
+function BrokerModule({ broker, rank, blocks, brokers, intentSlug, countrySlug }: { broker: Broker; rank: number; blocks: unknown; brokers: Broker[]; intentSlug: string; countrySlug?: string }) {
+  const editorial = blocksFor(blocks, 'detailed_analysis', broker.slug);
+  return (
+    <article id={`bestfor-${broker.slug}`} className="scroll-mt-28 overflow-hidden rounded-3xl border border-line bg-white shadow-soft">
+      <header className="border-b border-line bg-paper/70 p-5 sm:p-7">
+        <div className="flex flex-wrap items-center gap-4">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-ink-950 font-display font-bold text-white">{rank}</span>
+          <Monogram name={broker.name} color={broker.brand_color} logoUrl={broker.logo_url} size={58} className="rounded-2xl" />
+          <div className="min-w-0 flex-1"><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-700">Broker {rank}</p><h3 className="font-display text-2xl font-bold text-ink-950 sm:text-3xl">{broker.name}</h3><p className="mt-1 text-sm text-slate-500">{broker.tagline}</p></div>
+          <div className="rounded-2xl bg-white px-4 py-3 text-center ring-1 ring-line"><p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">PipRank Score</p><p className="tnum font-display text-2xl font-bold text-emerald-700">{pipRankScore(broker)}<span className="text-xs text-slate-400">/100</span></p></div>
+        </div>
+      </header>
+      <div className="space-y-6 p-5 sm:p-7">
+        <BestForQuickFacts broker={broker} />
+        <StructuredBrokerDataCard broker={broker} section="editorial" />
+        {editorial.length ? <section className="rounded-2xl border border-line bg-paper/50 p-5 sm:p-6"><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-700">Editorial analysis</p><h4 className="mt-1 font-display text-xl font-bold text-ink-950">Why {broker.name} fits this category</h4><div className="mt-5"><PageBlocksRenderer blocks={editorial as any} brokers={brokers} intent={intentSlug} countrySlug={countrySlug} className="piprank-rich-content" editorialSection="detailed_analysis" /></div></section> : null}
+        <PipRankVerdictCard broker={broker} headline={`${broker.name} for this category`} showCta={false} />
+      </div>
+    </article>
+  );
+}
+
 export default function BestForTemplate({ document, brokers, ranked, intentSlug, criteria, faqs, countryName, countrySlug, localized, locale }: Props) {
-  const settings = (document.settings ?? {}) as Record<string, any>; const hasScopedEditorial = isBlockShape(document.blocks) && (document.blocks as ScopedBlock[]).some((block) => block.editorialSection); const editorialBlocks = hasScopedEditorial ? null : document.blocks; const top = ranked[0]; const others = ranked.slice(1); const pageLabel = countryName ? `${document.title} in ${countryName}` : document.title; const ctaPath = '/find-my-broker';
+  const settings = (document.settings ?? {}) as Record<string, unknown>;
+  const top9 = ranked.slice(0, 9);
+  const top3 = top9.slice(0, 3);
+  const top = top9[0];
   const author = reviewerFor(`best-for-${countrySlug ?? 'global'}-${intentSlug}-${locale ?? ''}`);
-  return <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6"><nav aria-label="Breadcrumb" className="flex gap-1.5 text-xs text-slate-400"><Link to="/">Home</Link><span>/</span>{countrySlug ? <><Link to={`/${countrySlug}`}>{countryName || countrySlug}</Link><span>/</span></> : <><Link to="/best-for">Best For</Link><span>/</span></>}<span className="text-ink-900">{document.title}</span></nav>
-    <header className="mt-6 rounded-3xl bg-ink-950 p-7 text-white sm:p-10">{settings.image && <img src={String(settings.image)} alt="" className="mb-7 aspect-[21/8] w-full rounded-2xl object-cover" />}<p className="text-xs font-bold uppercase tracking-widest text-emerald-300">{countryName ? `${countryName}${localized && locale ? ` · ${locale}` : ''}` : 'PipRank Best For'}</p><h1 className="mt-2 font-display text-3xl font-bold sm:text-4xl">{document.title}</h1>{document.excerpt && <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-300">{document.excerpt}</p>}</header>
-    <section className="mt-8 rounded-3xl border border-emerald-200 bg-emerald-50/60 p-6 sm:p-8"><p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Short answer</p><p className="mt-2 max-w-3xl text-base leading-8 text-ink-900">These recommendations are based on the page criteria, broker eligibility and the trading characteristics relevant to {pageLabel.toLowerCase()}.</p><ButtonLink variant="dark" size="md" to={ctaPath} className="mt-5">Match Me With a Broker</ButtonLink></section>
-    <EditorialZone blocks={document.blocks} brokers={brokers} intentSlug={intentSlug} countrySlug={countrySlug} section="introduction" />
-    {!hasScopedEditorial && editorialBlocks && (isBlockShape(editorialBlocks) || document.html) && <article className="mt-8 rounded-3xl border border-line bg-white p-6 sm:p-9">{isBlockShape(editorialBlocks) ? <PageBlocksRenderer blocks={editorialBlocks as any} brokers={brokers} intent={intentSlug} countrySlug={countrySlug} className="piprank-rich-content space-y-8" /> : <div className="piprank-rich-content" dangerouslySetInnerHTML={{ __html: document.html || '' }} />}</article>}
-    {top && <section className="mt-10"><p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Top match</p><div className="mt-3 rounded-3xl border-2 border-emerald-200 bg-white p-6 shadow-sm sm:p-8"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-widest text-slate-400">PipRank recommendation</p><h2 className="mt-1 font-display text-2xl font-bold text-ink-950">{top.name}</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">{top.tagline}</p></div><span className="rounded-full bg-ink-950 px-3 py-1.5 text-xs font-bold text-white">{top.rating}/100</span></div><div className="mt-5 grid gap-3 sm:grid-cols-3"><div className="rounded-xl bg-paper p-3"><p className="text-[10px] font-bold uppercase text-slate-400">EUR/USD spread</p><p className="mt-1 text-sm font-bold">{top.spread_eurusd} pips</p></div><div className="rounded-xl bg-paper p-3"><p className="text-[10px] font-bold uppercase text-slate-400">Minimum deposit</p><p className="mt-1 text-sm font-bold">{top.min_deposit}</p></div><div className="rounded-xl bg-paper p-3"><p className="text-[10px] font-bold uppercase text-slate-400">Regulation</p><p className="mt-1 text-sm font-bold">{top.regulations?.map((r) => r.body).filter(Boolean).join(', ') || 'See broker review'}</p></div></div><div className="mt-5 flex flex-wrap gap-3"><ButtonLink variant="dark" size="md" to={`/brokers/${top.slug}`}>Read {top.name} Review</ButtonLink><ButtonLink variant="outline" size="md" to={ctaPath}>Match Me With a Broker</ButtonLink></div></div></section>}
-    {others.length > 0 && <section className="mt-10"><p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Other strong matches</p><h2 className="mt-1 font-display text-2xl font-bold text-ink-950">Other brokers worth considering</h2><div className="mt-5 grid gap-5 lg:grid-cols-2">{others.map((broker, index) => <Reveal key={broker.slug}><BrokerCard broker={broker} rank={index + 2} intent={intentSlug} countrySlug={countrySlug} /></Reveal>)}</div></section>}
-    {ranked.length > 0 && <section className="mt-10 overflow-hidden rounded-3xl border border-line bg-white"><div className="border-b border-line p-6"><p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Quick comparison</p><h2 className="mt-1 font-display text-2xl font-bold">Compare the leading matches</h2></div><div className="overflow-x-auto"><table className="min-w-full text-left text-sm"><thead className="bg-paper"><tr><th className="px-4 py-3 font-bold">Broker</th><th className="px-4 py-3 font-bold">PipRank score</th><th className="px-4 py-3 font-bold">EUR/USD</th><th className="px-4 py-3 font-bold">Min. deposit</th></tr></thead><tbody>{ranked.slice(0, 5).map((broker) => <tr key={broker.slug} className="border-t border-line"><td className="px-4 py-3 font-bold"><Link className="text-emerald-700" to={`/brokers/${broker.slug}`}>{broker.name}</Link></td><td className="px-4 py-3">{broker.rating}/100</td><td className="px-4 py-3">{broker.spread_eurusd} pips</td><td className="px-4 py-3">{broker.min_deposit}</td></tr>)}</tbody></table></div></section>}
-    <EditorialZone blocks={document.blocks} brokers={brokers} intentSlug={intentSlug} countrySlug={countrySlug} section="why_these_brokers" /><EditorialZone blocks={document.blocks} brokers={brokers} intentSlug={intentSlug} countrySlug={countrySlug} section="who_its_for" /><EditorialZone blocks={document.blocks} brokers={brokers} intentSlug={intentSlug} countrySlug={countrySlug} section="who_its_not_for" /><EditorialZone blocks={document.blocks} brokers={brokers} intentSlug={intentSlug} countrySlug={countrySlug} section="detailed_analysis" />
-    {criteria.length > 0 && <section className="mt-10 rounded-3xl border border-line bg-white p-6 sm:p-8"><p className="text-xs font-bold uppercase tracking-widest text-slate-400">How we choose</p><h2 className="mt-1 font-display text-2xl font-bold">The criteria behind this page</h2><ul className="mt-5 grid gap-3 sm:grid-cols-2">{criteria.map((criterion) => <li key={criterion} className="rounded-xl bg-paper p-4 text-sm leading-6 text-slate-600">{criterion}</li>)}</ul></section>}
-    <EditorialZone blocks={document.blocks} brokers={brokers} intentSlug={intentSlug} countrySlug={countrySlug} section="methodology" />
-    {faqs.length > 0 && <section className="mt-10 space-y-3"><p className="text-xs font-bold uppercase tracking-widest text-emerald-700">FAQ</p><h2 className="font-display text-2xl font-bold">Frequently asked questions</h2>{faqs.map((faq) => <details key={faq.q} className="rounded-2xl border border-line bg-white p-5"><summary className="cursor-pointer font-bold">{faq.q}</summary><p className="mt-3 text-sm leading-7 text-slate-600">{faq.a}</p></details>)}</section>}
-    <section className="mt-10 rounded-3xl bg-ink-950 p-7 text-white sm:p-9"><p className="text-xs font-bold uppercase tracking-widest text-emerald-300">Personalized matching</p><h2 className="mt-2 font-display text-2xl font-bold">Not sure which broker fits your situation?</h2><p className="mt-2 max-w-2xl text-sm leading-7 text-slate-300">Tell PipRank where you live, what you trade and what matters most. We’ll narrow the list to brokers that fit your criteria.</p><ButtonLink variant="white" size="md" to={ctaPath} className="mt-5">Match Me With a Broker</ButtonLink></section>
-    <section className="mt-10 rounded-3xl border border-line bg-white p-6 sm:p-8"><div className="flex flex-col gap-5 sm:flex-row sm:items-start"><div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-sm font-black text-white" style={{ backgroundColor: author.color }}>{author.penName.split(' ').map((part) => part[0]).join('').slice(0, 2)}</div><div className="min-w-0"><p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Author & reviewer</p><h2 className="mt-1 font-display text-xl font-bold text-ink-950">Written & reviewed by {author.penName}</h2><p className="mt-1 text-sm font-semibold text-slate-600">{author.role}</p><p className="mt-3 text-sm leading-7 text-slate-600">{author.bio}</p><div className="mt-4 flex flex-wrap gap-x-5 gap-y-1 text-xs text-slate-400"><Link to={`/authors#${author.slug}`} className="font-bold text-emerald-700">View author profile</Link><span>Updated {new Date(document.updated_at).toISOString().slice(0, 10)}</span></div></div></div></section>
-  </div>;
+  const pageLabel = countryName ? `${document.title} in ${countryName}` : document.title;
+  const heroEyebrow = String(settings.heroEyebrow || (countryName ? `${countryName} · PipRank` : 'PipRank Best For'));
+  const heroCta = String(settings.heroCta || 'Match Me With a Broker');
+  const additional = Array.isArray(settings.sections) ? settings.sections as { title?: string; html?: string }[] : [];
+
+  return (
+    <main className="bg-paper">
+      <div className="mx-auto max-w-7xl px-4 py-7 sm:px-6 sm:py-10">
+        <nav aria-label="Breadcrumb" className="flex gap-1.5 text-xs text-slate-400"><Link to="/">Home</Link><span>/</span>{countrySlug ? <><Link to={`/${countrySlug}`}>{countryName || countrySlug}</Link><span>/</span></> : <><Link to="/best-for">Best For</Link><span>/</span></>}<span className="text-ink-900">{document.title}</span></nav>
+
+        <header className="mt-5 overflow-hidden rounded-3xl bg-ink-950 text-white shadow-soft-lg">
+          <div className="grid gap-7 p-6 sm:p-9 lg:grid-cols-[minmax(0,1fr)_420px] lg:items-center lg:p-11">
+            <div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-300">{heroEyebrow}</p><h1 className="mt-3 max-w-3xl font-display text-4xl font-bold tracking-tight sm:text-5xl">{document.title}</h1>{document.excerpt && <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-300 sm:text-base">{document.excerpt}</p>}<ButtonLink variant="white" size="md" to="/find-my-broker" className="mt-6">{heroCta}</ButtonLink></div>
+            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 lg:grid-cols-2">{[['Top match', top?.name || '—'], ['Brokers ranked', String(top9.length)], ['Criteria', String(criteria.length)], ['Updated', new Date(document.updated_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })]].map(([label, value]) => <div key={label} className="rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-3.5"><p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{label}</p><p className="mt-1 truncate font-display text-base font-bold text-white">{value}</p></div>)}</div>
+          </div>
+        </header>
+
+        <div className="mx-auto max-w-6xl">
+          <EditorialZone blocks={document.blocks} brokers={brokers} intentSlug={intentSlug} countrySlug={countrySlug} section="introduction" />
+
+          {top && <section className="mt-10 overflow-hidden rounded-3xl border-2 border-emerald-200 bg-white shadow-soft"><div className="bg-emerald-50/70 p-5 sm:p-7"><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-700">PipRank Top Broker for {pageLabel}</p><div className="mt-3 flex flex-wrap items-center gap-4"><Monogram name={top.name} color={top.brand_color} logoUrl={top.logo_url} size={64} className="rounded-2xl" /><div className="min-w-0 flex-1"><h2 className="font-display text-2xl font-bold text-ink-950 sm:text-3xl">{top.name}</h2><p className="mt-1 text-sm leading-6 text-slate-600">{top.tagline}</p></div><div className="rounded-2xl bg-white px-5 py-3 text-center shadow-sm ring-1 ring-emerald-100"><p className="text-[9px] font-bold uppercase tracking-wider text-slate-500">PipRank Score</p><p className="tnum font-display text-3xl font-bold text-emerald-700">{pipRankScore(top)}<span className="text-xs text-slate-400">/100</span></p></div></div><p className="mt-5 max-w-3xl text-sm leading-7 text-slate-700">Our current top match for this category, based on the same ranking and eligibility rules used for the full shortlist.</p><div className="mt-5"><ButtonLink variant="dark" size="md" to="#bestfor-brokers">See all 9 brokers</ButtonLink></div></div></section>}
+
+          {top9.length > 0 && <section id="bestfor-brokers" className="mt-10"><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-700">Ranked shortlist</p><h2 className="mt-1 font-display text-2xl font-bold text-ink-950 sm:text-3xl">Best 9 forex brokers for {intentSlug.replace(/-/g, ' ')}</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">Explore the nine eligible brokers selected for this category. Each result links directly to its full analysis below.</p><div className="mt-5"><RankingList ranked={top9} /></div></section>}
+
+          {top3.length > 1 && <section className="mt-10"><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-700">Quick comparison</p><h2 className="mt-1 font-display text-2xl font-bold text-ink-950">Compare the top 3</h2><PipRankComparisonTable brokers={top3} title="Top 3 broker comparison" showCta={false} /></section>}
+
+          <section className="mt-12"><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-700">Detailed broker analysis</p><h2 className="mt-1 font-display text-3xl font-bold text-ink-950">Best forex broker for {intentSlug.replace(/-/g, ' ')}</h2><div className="mt-6 space-y-8">{top9.map((broker, index) => <BrokerModule key={broker.id} broker={broker} rank={index + 1} blocks={document.blocks} brokers={brokers} intentSlug={intentSlug} countrySlug={countrySlug} />)}</div></section>
+
+          {additional.length > 0 && <section className="mt-12 space-y-6"><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-700">Additional editorial</p>{additional.map((section, index) => section.title || section.html ? <article key={`${section.title}-${index}`} className="rounded-3xl border border-line bg-white p-6 shadow-soft sm:p-8">{section.title && <h2 className="font-display text-2xl font-bold text-ink-950">{section.title}</h2>}{section.html && <div className="piprank-rich-content mt-4" dangerouslySetInnerHTML={{ __html: section.html }} />}</article> : null)}</section>}
+
+          <section className="mt-12"><EditorialZone blocks={document.blocks} brokers={brokers} intentSlug={intentSlug} countrySlug={countrySlug} section="why_these_brokers" /></section>
+
+          {faqs.length > 0 && <section className="mt-12 rounded-3xl border border-line bg-white p-6 shadow-soft sm:p-8"><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-700">FAQ</p><h2 className="mt-1 font-display text-2xl font-bold text-ink-950">Frequently asked questions</h2><div className="mt-6 space-y-3">{faqs.map((faq: FAQ) => <details key={faq.q} className="rounded-2xl border border-line bg-paper p-5"><summary className="cursor-pointer font-bold text-ink-950">{faq.q}</summary><p className="mt-3 text-sm leading-7 text-slate-600">{faq.a}</p></details>)}</div></section>}
+
+          {criteria.length > 0 && <section className="mt-12 rounded-3xl border border-line bg-white p-6 shadow-soft sm:p-8"><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Criteria</p><h2 className="mt-1 font-display text-2xl font-bold text-ink-950">What we considered</h2><div className="mt-5 grid gap-3 sm:grid-cols-2">{criteria.map((criterion) => <div key={criterion} className="rounded-2xl bg-paper p-4 text-sm leading-6 text-slate-600">{criterion}</div>)}</div></section>}
+
+          <section className="mt-12 rounded-3xl border border-line bg-white p-6 shadow-soft sm:p-8"><div className="flex flex-wrap items-center justify-between gap-4"><div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Methodology</p><h2 className="mt-1 font-display text-2xl font-bold text-ink-950">How PipRank ranks brokers</h2><p className="mt-2 max-w-2xl text-sm leading-7 text-slate-600">See the factors, scoring approach and review process used to evaluate brokers.</p></div><ButtonLink variant="outline" size="md" to="/methodology">See our methodology</ButtonLink></div></section>
+
+          <section className="mt-12 rounded-3xl bg-ink-950 p-7 text-white shadow-soft sm:p-9"><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-300">Personalized matching</p><h2 className="mt-2 font-display text-2xl font-bold">Get matched with a broker that fits you</h2><p className="mt-2 max-w-2xl text-sm leading-7 text-slate-300">Tell us where you live, what you trade and what matters most. We’ll narrow down the brokers available to you.</p><ButtonLink variant="white" size="md" to="/find-my-broker" className="mt-5">Match Me With a Broker</ButtonLink></section>
+
+          <section className="mt-12 rounded-3xl border border-line bg-white p-6 shadow-soft sm:p-8"><div className="flex flex-col gap-5 sm:flex-row sm:items-start"><div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-sm font-black text-white" style={{ backgroundColor: author.color }}>{author.penName.split(' ').map((part) => part[0]).join('').slice(0, 2)}</div><div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-700">Author & reviewer</p><h2 className="mt-1 font-display text-xl font-bold text-ink-950">Written & reviewed by {author.penName}</h2><p className="mt-1 text-sm font-semibold text-slate-600">{author.role}</p><p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600">{author.bio}</p><Link to={`/authors#${author.slug}`} className="mt-4 inline-flex text-xs font-bold text-emerald-700">View author profile →</Link></div></div></section>
+        </div>
+      </div>
+    </main>
+  );
 }
