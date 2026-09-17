@@ -4,8 +4,8 @@ import PageBlocksRenderer from './PageBlocksRenderer';
 import PipRankComparisonTable from './PipRankComparisonTable';
 import StructuredBrokerDataCard from './StructuredBrokerDataCard';
 import PipRankVerdictCard from './PipRankVerdictCard';
-import BestForQuickFacts from './BestForQuickFacts';
 import Monogram from './Monogram';
+import VisitButton from './VisitButton';
 import { ButtonLink } from './Button';
 import { isBlockShape } from '../lib/contentBlocks';
 import { pipRankScore } from '../lib/score';
@@ -33,10 +33,10 @@ function EditorialZone({ blocks, brokers, intentSlug, countrySlug, section }: { 
 
 function SectionIntro({ eyebrow, title, copy }: { eyebrow: string; title: string; copy?: string }) {
   return (
-    <div className="mb-7 max-w-3xl">
+    <div className="mb-8 max-w-4xl">
       <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-emerald-700">{eyebrow}</p>
-      <h2 className="mt-2 font-display text-3xl font-bold tracking-tight text-ink-950 sm:text-4xl">{title}</h2>
-      {copy && <p className="mt-3 text-[15px] leading-7 text-slate-600 sm:text-base">{copy}</p>}
+      <h2 className="mt-2 font-display text-3xl font-bold tracking-tight text-ink-950 sm:text-4xl lg:text-[2.65rem]">{title}</h2>
+      {copy && <p className="mt-3 max-w-3xl text-[15px] leading-7 text-slate-600 sm:text-base">{copy}</p>}
     </div>
   );
 }
@@ -48,15 +48,15 @@ function RankingList({ ranked }: { ranked: Broker[] }) {
         <a
           key={broker.id}
           href={`#bestfor-${broker.slug}`}
-          className="group grid grid-cols-[40px_44px_minmax(0,1fr)_auto] items-center gap-3 border-b border-line px-4 py-4 transition last:border-b-0 hover:bg-paper sm:grid-cols-[48px_52px_minmax(0,1fr)_auto] sm:px-6 sm:py-5"
+          className="group flex min-w-0 items-center gap-3 border-b border-line px-4 py-4 transition last:border-b-0 hover:bg-paper sm:gap-4 sm:px-6 sm:py-5"
         >
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-ink-950 font-display text-sm font-bold text-white sm:h-9 sm:w-9">{index + 1}</span>
-          <Monogram name={broker.name} color={broker.brand_color} logoUrl={broker.logo_url} size={44} className="rounded-xl" />
-          <span className="min-w-0">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-ink-950 font-display text-sm font-bold text-white sm:h-9 sm:w-9">{index + 1}</span>
+          <Monogram name={broker.name} color={broker.brand_color} logoUrl={broker.logo_url} size={44} className="shrink-0 rounded-xl" />
+          <span className="min-w-0 flex-1">
             <span className="block truncate font-display text-[15px] font-bold text-ink-950 group-hover:text-emerald-700 sm:text-base">{broker.name}</span>
-            <span className="mt-0.5 block truncate text-xs text-slate-500 sm:text-sm">{broker.tagline}</span>
+            <span className="mt-0.5 hidden truncate text-xs text-slate-500 sm:block sm:text-sm">{broker.tagline}</span>
           </span>
-          <span className="text-right">
+          <span className="shrink-0 text-right">
             <span className="tnum block font-display text-base font-bold text-emerald-700 sm:text-lg">{pipRankScore(broker)}</span>
             <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">score</span>
           </span>
@@ -70,25 +70,26 @@ function BrokerModule({ broker, rank, blocks, brokers, intentSlug, countrySlug }
   const editorial = blocksFor(blocks, 'detailed_analysis', broker.slug);
   return (
     <article id={`bestfor-${broker.slug}`} className="scroll-mt-28 overflow-hidden rounded-[28px] border border-line bg-white shadow-soft-lg">
-      <header className="relative overflow-hidden bg-ink-950 px-5 py-6 text-white sm:px-8 sm:py-7">
+      <header className="relative overflow-hidden bg-ink-950 px-4 py-5 text-white sm:px-7 sm:py-6 lg:px-8">
         <div className="absolute right-0 top-0 h-40 w-40 translate-x-1/3 -translate-y-1/3 rounded-full bg-emerald-400/10 blur-2xl" />
-        <div className="relative flex flex-wrap items-center gap-4">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/10 font-display text-sm font-bold">{rank}</span>
-          <Monogram name={broker.name} color={broker.brand_color} logoUrl={broker.logo_url} size={56} className="rounded-2xl" />
-          <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-300">Broker {rank}</p>
-            <h3 className="mt-1 font-display text-2xl font-bold tracking-tight sm:text-3xl">{broker.name}</h3>
-            <p className="mt-1 max-w-2xl text-sm text-slate-300">{broker.tagline}</p>
+        <div className="relative flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center">
+          <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/10 font-display text-sm font-bold">{rank}</span>
+            <Monogram name={broker.name} color={broker.brand_color} logoUrl={broker.logo_url} size={52} className="shrink-0 rounded-2xl" />
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-300">Broker {rank}</p>
+              <h3 className="mt-1 truncate font-display text-xl font-bold tracking-tight sm:text-2xl">{broker.name}</h3>
+              <p className="mt-1 truncate text-sm text-slate-300">{broker.tagline}</p>
+            </div>
           </div>
-          <div className="min-w-[86px] rounded-2xl border border-white/10 bg-white/[0.07] px-4 py-3 text-center">
+          <div className="flex shrink-0 items-center justify-between rounded-2xl border border-white/10 bg-white/[0.07] px-4 py-3 sm:ml-auto sm:min-w-[96px] sm:flex-col sm:items-center sm:justify-center">
             <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">PipRank</p>
-            <p className="tnum mt-0.5 font-display text-2xl font-bold text-white">{pipRankScore(broker)}<span className="text-xs font-semibold text-slate-400">/100</span></p>
+            <p className="tnum font-display text-2xl font-bold text-white">{pipRankScore(broker)}<span className="text-xs font-semibold text-slate-400">/100</span></p>
           </div>
         </div>
       </header>
 
-      <div className="space-y-7 p-5 sm:p-8 lg:p-9">
-        <BestForQuickFacts broker={broker} />
+      <div className="space-y-7 p-4 sm:p-7 lg:p-8">
         <StructuredBrokerDataCard broker={broker} section="editorial" />
         {editorial.length ? (
           <section className="border-t border-line pt-7">
@@ -99,7 +100,7 @@ function BrokerModule({ broker, rank, blocks, brokers, intentSlug, countrySlug }
             </div>
           </section>
         ) : null}
-        <PipRankVerdictCard broker={broker} headline={`${broker.name} for this category`} showCta={false} />
+        <PipRankVerdictCard broker={broker} headline={`${broker.name} for this category`} />
       </div>
     </article>
   );
@@ -108,27 +109,26 @@ function BrokerModule({ broker, rank, blocks, brokers, intentSlug, countrySlug }
 export default function BestForTemplate({ document, brokers, ranked, intentSlug, criteria, faqs, countryName, countrySlug, localized, locale }: Props) {
   const settings = (document.settings ?? {}) as Record<string, unknown>;
   const top9 = ranked.slice(0, 9);
-  const top3 = top9.slice(0, 3);
   const top = top9[0];
   const author = reviewerFor(`best-for-${countrySlug ?? 'global'}-${intentSlug}-${locale ?? ''}`);
   const categoryLabel = intentSlug.replace(/-/g, ' ');
-  const heroEyebrow = String(settings.label || (countryName ? `${countryName} · PipRank` : 'PipRank Best For'));
+  const heroEyebrow = String(settings.label || (countryName ? `${countryName} · PipRank` : 'PipRank'));
   const additional = Array.isArray(settings.sections) ? settings.sections as { title?: string; html?: string }[] : [];
   const updated = new Date(document.updated_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
   return (
     <main className="w-full overflow-x-clip bg-paper">
-      <div className="w-full border-b border-line bg-paper px-4 py-4 sm:px-6 lg:px-8">
-        <div className="mx-auto flex w-full max-w-[1440px] items-center gap-2 overflow-x-auto whitespace-nowrap text-xs text-slate-400">
-          <Link to="/" className="transition hover:text-ink-950">Home</Link>
-          <span>/</span>
-          {countrySlug ? <><Link to={`/${countrySlug}`} className="transition hover:text-ink-950">{countryName || countrySlug}</Link><span>/</span></> : <><Link to="/best-for" className="transition hover:text-ink-950">Best For</Link><span>/</span></>}
-          <span className="text-ink-900">{document.title}</span>
+      <nav aria-label="Breadcrumb" className="w-full bg-ink-950 text-slate-400">
+        <div className="mx-auto flex w-full max-w-[1440px] items-center gap-2 overflow-x-auto whitespace-nowrap px-4 py-3.5 text-xs sm:px-8 lg:px-12 xl:px-16">
+          <Link to="/" className="transition hover:text-white">Home</Link>
+          <span className="text-slate-600">/</span>
+          {countrySlug && <><Link to={`/${countrySlug}`} className="transition hover:text-white">{countryName || countrySlug}</Link><span className="text-slate-600">/</span></>}
+          <span className="font-semibold text-white">{document.title}</span>
         </div>
-      </div>
+      </nav>
 
       <header className="w-full bg-ink-950 text-white">
-        <div className="mx-auto grid w-full max-w-[1440px] gap-10 px-5 py-12 sm:px-8 sm:py-16 lg:grid-cols-[minmax(0,1fr)_470px] lg:items-center lg:px-12 lg:py-20 xl:px-16">
+        <div className="mx-auto grid w-full max-w-[1440px] gap-10 px-5 pb-14 pt-10 sm:px-8 sm:pb-18 sm:pt-14 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-center lg:px-12 lg:pb-20 lg:pt-16 xl:px-16">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-3 text-[10px] font-bold uppercase tracking-[0.22em]">
               <span className="text-emerald-300">{heroEyebrow}</span>
@@ -137,40 +137,28 @@ export default function BestForTemplate({ document, brokers, ranked, intentSlug,
             </div>
             <h1 className="mt-5 max-w-4xl font-display text-[clamp(2.5rem,6vw,5.5rem)] font-bold leading-[0.96] tracking-[-0.045em]">{document.title}</h1>
             {document.excerpt && <p className="mt-6 max-w-2xl text-[15px] leading-7 text-slate-300 sm:text-lg sm:leading-8">{document.excerpt}</p>}
-            <div className="mt-8 flex flex-wrap items-center gap-4">
-              <ButtonLink variant="white" size="md" to="/find-my-broker">Match Me With a Broker</ButtonLink>
-              {top && <a href="#bestfor-brokers" className="text-sm font-semibold text-slate-300 transition hover:text-white">Explore the rankings <span aria-hidden="true">↓</span></a>}
+            <div className="mt-7">
+              {top && <a href="#bestfor-brokers" className="inline-flex items-center rounded-xl border border-white/15 bg-white/[0.06] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/10">Explore the rankings <span className="ml-2" aria-hidden="true">↓</span></a>}
             </div>
           </div>
 
-          <div className="grid grid-cols-2 overflow-hidden rounded-[28px] border border-white/10 bg-white/[0.045] shadow-2xl sm:grid-cols-4 lg:grid-cols-2">
-            <div className="border-b border-r border-white/10 p-5 sm:border-b-0 sm:border-r lg:border-b lg:border-r">
-              <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-500">Top match</p>
-              <p className="mt-2 truncate font-display text-lg font-bold text-white">{top?.name || '—'}</p>
-              {top && <p className="mt-1 text-xs text-emerald-300">{pipRankScore(top)}/100 PipRank</p>}
+          <div className="rounded-[28px] border border-white/10 bg-white/[0.045] p-5 shadow-2xl sm:p-6">
+            <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-500">Top match</p>
+            <div className="mt-4 flex items-center gap-4">
+              {top && <Monogram name={top.name} color={top.brand_color} logoUrl={top.logo_url} size={58} className="shrink-0 rounded-2xl" />}
+              <div className="min-w-0">
+                <p className="truncate font-display text-xl font-bold text-white">{top?.name || '—'}</p>
+                {top && <p className="mt-1 text-sm font-semibold text-emerald-300">{pipRankScore(top)}/100 PipRank score</p>}
+              </div>
             </div>
-            <div className="border-b border-white/10 p-5 sm:border-b-0 lg:border-b">
-              <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-500">Brokers ranked</p>
-              <p className="mt-2 font-display text-3xl font-bold text-white">{top9.length}</p>
-              <p className="mt-1 text-xs text-slate-400">eligible options</p>
-            </div>
-            <div className="border-r border-white/10 p-5 sm:border-r lg:border-r">
-              <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-500">Criteria</p>
-              <p className="mt-2 font-display text-3xl font-bold text-white">{criteria.length}</p>
-              <p className="mt-1 text-xs text-slate-400">evaluation factors</p>
-            </div>
-            <div className="p-5">
-              <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-500">Page type</p>
-              <p className="mt-2 font-display text-lg font-bold capitalize text-white">{localized ? locale || 'Localized' : countryName ? countryName : 'Global'}</p>
-              <p className="mt-1 text-xs text-slate-400">{categoryLabel}</p>
-            </div>
+            <p className="mt-5 border-t border-white/10 pt-4 text-sm leading-6 text-slate-400">The highest-ranked eligible broker for this category.</p>
           </div>
         </div>
       </header>
 
       <section className="w-full bg-white">
         <div className="mx-auto w-full max-w-[1440px] px-5 py-10 sm:px-8 sm:py-14 lg:px-12 xl:px-16">
-          <div className="mx-auto max-w-5xl">
+          <div className="max-w-4xl">
             <EditorialZone blocks={document.blocks} brokers={brokers} intentSlug={intentSlug} countrySlug={countrySlug} section="introduction" />
           </div>
         </div>
@@ -179,25 +167,37 @@ export default function BestForTemplate({ document, brokers, ranked, intentSlug,
       {top && (
         <section className="w-full border-y border-line bg-paper">
           <div className="mx-auto w-full max-w-[1440px] px-5 py-12 sm:px-8 sm:py-16 lg:px-12 xl:px-16">
-            <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-center">
-              <div>
-                <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-emerald-700">PipRank Top Broker for {categoryLabel}</p>
-                <h2 className="mt-3 max-w-3xl font-display text-3xl font-bold tracking-tight text-ink-950 sm:text-4xl lg:text-5xl">{top.name}</h2>
-                <p className="mt-3 max-w-2xl text-[15px] leading-7 text-slate-600">{top.tagline}</p>
-                <p className="mt-5 max-w-2xl text-sm leading-7 text-slate-600">Our current top match for this category, based on the same eligibility and ranking rules used for the full shortlist.</p>
-                <div className="mt-6 flex flex-wrap gap-3">
-                  <ButtonLink variant="dark" size="md" to={`/brokers/${top.slug}`}>Review {top.name}</ButtonLink>
-                  <a href="#bestfor-brokers" className="inline-flex items-center rounded-xl border border-line px-4 py-2.5 text-sm font-bold text-ink-950 transition hover:bg-white">See all 9</a>
+            <SectionIntro eyebrow="PipRank top broker" title={`${top.name} is our top match for ${categoryLabel}`} copy="The broker at the top of this shortlist based on eligibility, category fit and PipRank's ranking rules." />
+            <article className="overflow-hidden rounded-[30px] border border-line bg-ink-950 text-white shadow-soft-lg">
+              <div className="grid lg:grid-cols-[minmax(0,1fr)_360px]">
+                <div className="p-6 sm:p-8 lg:p-10">
+                  <div className="flex items-start gap-4 sm:gap-5">
+                    <Monogram name={top.name} color={top.brand_color} logoUrl={top.logo_url} size={72} className="shrink-0 rounded-2xl bg-white" />
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-300">#1 for {categoryLabel}</p>
+                      <h2 className="mt-1 truncate font-display text-3xl font-bold tracking-tight sm:text-4xl">{top.name}</h2>
+                      <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">{top.tagline}</p>
+                    </div>
+                  </div>
+                  <div className="mt-7 grid gap-4 sm:grid-cols-[auto_1fr] sm:items-end">
+                    <div>
+                      <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-500">PipRank score</p>
+                      <p className="tnum mt-1 font-display text-5xl font-bold">{pipRankScore(top)}<span className="text-base font-semibold text-slate-500">/100</span></p>
+                    </div>
+                    <p className="max-w-xl text-sm leading-6 text-slate-400">See why {top.name} ranks first for this category, then compare the other eligible brokers below.</p>
+                  </div>
+                  <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+                    <VisitButton broker={top} className="w-full sm:w-auto" />
+                    <a href="#bestfor-brokers" className="inline-flex min-h-11 items-center justify-center rounded-xl border border-white/15 px-5 text-sm font-bold text-white transition hover:bg-white/10 sm:w-auto">See other brokers</a>
+                  </div>
+                </div>
+                <div className="border-t border-white/10 bg-white/[0.04] p-6 sm:p-8 lg:border-l lg:border-t-0 lg:p-10">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-300">Why it is here</p>
+                  <p className="mt-3 text-sm leading-7 text-slate-300">{top.name} is currently the highest-ranked eligible broker in this category. The detailed analysis below shows the assessment, editorial reasoning and verdict.</p>
+                  <a href={`#bestfor-${top.slug}`} className="mt-6 inline-flex text-sm font-bold text-white hover:text-emerald-300">Read the full analysis →</a>
                 </div>
               </div>
-              <div className="flex items-center gap-4 rounded-[24px] border border-line bg-white p-5 shadow-soft sm:p-6">
-                <Monogram name={top.name} color={top.brand_color} logoUrl={top.logo_url} size={68} className="rounded-2xl" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">PipRank Score</p>
-                  <p className="tnum mt-1 font-display text-4xl font-bold tracking-tight text-ink-950">{pipRankScore(top)}<span className="text-sm font-semibold text-slate-400">/100</span></p>
-                </div>
-              </div>
-            </div>
+            </article>
           </div>
         </section>
       )}
@@ -210,7 +210,7 @@ export default function BestForTemplate({ document, brokers, ranked, intentSlug,
               <RankingList ranked={top9} />
               <aside className="hidden rounded-[24px] bg-paper p-6 lg:block">
                 <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">How to use this list</p>
-                <p className="mt-3 text-sm leading-6 text-slate-600">Start with the ranking, then jump to any broker below for quick facts, the assessment, editorial analysis and verdict.</p>
+                <p className="mt-3 text-sm leading-6 text-slate-600">Start with the ranking, then jump to any broker below for the assessment, editorial analysis and verdict.</p>
                 <a href="#bestfor-detail" className="mt-5 inline-flex text-sm font-bold text-emerald-700">Jump to broker analysis →</a>
               </aside>
             </div>
@@ -218,28 +218,26 @@ export default function BestForTemplate({ document, brokers, ranked, intentSlug,
         </section>
       )}
 
-      {top3.length > 1 && (
+      {top9.length > 1 && (
         <section className="w-full bg-paper">
           <div className="mx-auto w-full max-w-[1440px] px-5 py-12 sm:px-8 sm:py-16 lg:px-12 xl:px-16">
-            <SectionIntro eyebrow="Quick comparison" title="Compare the top 3" />
-            <div className="overflow-x-auto">
-              <PipRankComparisonTable brokers={top3} title="Top 3 broker comparison" showCta={false} />
-            </div>
+            <SectionIntro eyebrow="Quick comparison" title={`Compare the best ${top9.length} forex brokers for ${categoryLabel}`} copy="Keep the broker names fixed on the left while you scroll across the metrics. On smaller screens, the first five brokers remain visible." />
+            <PipRankComparisonTable brokers={top9} title={`Best ${top9.length} forex brokers compared`} showCta={false} />
           </div>
         </section>
       )}
 
       <section id="bestfor-detail" className="w-full bg-[#f7f7f5]">
         <div className="mx-auto w-full max-w-[1440px] px-5 py-14 sm:px-8 sm:py-20 lg:px-12 xl:px-16">
-          <SectionIntro eyebrow="Detailed broker analysis" title={`Best forex broker for ${categoryLabel}`} copy="A closer look at each broker in the shortlist, with the same structured facts, assessment and verdict used across PipRank." />
+          <SectionIntro eyebrow="Detailed broker analysis" title={`Best forex broker for ${categoryLabel}`} copy="A closer look at each broker in the shortlist, with the same structured assessment and verdict used across PipRank." />
           <div className="space-y-8">{top9.map((broker, index) => <BrokerModule key={broker.id} broker={broker} rank={index + 1} blocks={document.blocks} brokers={brokers} intentSlug={intentSlug} countrySlug={countrySlug} />)}</div>
         </div>
       </section>
 
       {(blocksFor(document.blocks, 'why_these_brokers').length || blocksFor(document.blocks, 'who_its_for').length || blocksFor(document.blocks, 'who_its_not_for').length) ? (
         <section className="w-full bg-white">
-          <div className="mx-auto w-full max-w-[1440px] px-5 py-14 sm:px-8 sm:py-18 lg:px-12 xl:px-16">
-            <div className="mx-auto max-w-5xl space-y-12">
+          <div className="mx-auto w-full max-w-[1440px] px-5 py-14 sm:px-8 lg:px-12 xl:px-16">
+            <div className="max-w-4xl space-y-12">
               <SectionIntro eyebrow="Editorial content" title="More about these recommendations" />
               <EditorialZone blocks={document.blocks} brokers={brokers} intentSlug={intentSlug} countrySlug={countrySlug} section="why_these_brokers" />
               <EditorialZone blocks={document.blocks} brokers={brokers} intentSlug={intentSlug} countrySlug={countrySlug} section="who_its_for" />
@@ -265,7 +263,7 @@ export default function BestForTemplate({ document, brokers, ranked, intentSlug,
 
       <section className="w-full bg-white">
         <div className="mx-auto w-full max-w-[1440px] px-5 py-14 sm:px-8 lg:px-12 xl:px-16">
-          <div className="mx-auto max-w-5xl">
+          <div className="max-w-4xl">
             <EditorialZone blocks={document.blocks} brokers={brokers} intentSlug={intentSlug} countrySlug={countrySlug} section="detailed_analysis" />
           </div>
         </div>
@@ -273,8 +271,8 @@ export default function BestForTemplate({ document, brokers, ranked, intentSlug,
 
       {faqs.length > 0 && (
         <section className="w-full bg-paper">
-          <div className="mx-auto w-full max-w-[1440px] px-5 py-14 sm:px-8 sm:py-18 lg:px-12 xl:px-16">
-            <div className="mx-auto max-w-4xl">
+          <div className="mx-auto w-full max-w-[1440px] px-5 py-14 sm:px-8 lg:px-12 xl:px-16">
+            <div className="max-w-4xl">
               <SectionIntro eyebrow="FAQ" title="Frequently asked questions" />
               <div className="divide-y divide-line overflow-hidden rounded-[24px] border border-line bg-white">{faqs.map((faq) => <details key={faq.q} className="group px-5 py-5 sm:px-7"><summary className="flex cursor-pointer list-none items-center justify-between gap-6 font-display text-base font-bold text-ink-950 sm:text-lg"><span>{faq.q}</span><span className="text-xl font-normal text-slate-400 transition group-open:rotate-45">+</span></summary><p className="mt-3 max-w-3xl pr-8 text-sm leading-7 text-slate-600">{faq.a}</p></details>)}</div>
             </div>
@@ -285,7 +283,7 @@ export default function BestForTemplate({ document, brokers, ranked, intentSlug,
       {criteria.length > 0 && (
         <section className="w-full bg-white">
           <div className="mx-auto w-full max-w-[1440px] px-5 py-14 sm:px-8 lg:px-12 xl:px-16">
-            <div className="mx-auto max-w-5xl">
+            <div className="max-w-4xl">
               <SectionIntro eyebrow="Criteria" title="What we considered" />
               <div className="grid gap-px overflow-hidden rounded-[24px] border border-line bg-line sm:grid-cols-2">{criteria.map((criterion) => <div key={criterion} className="bg-paper p-5 text-sm leading-6 text-slate-600 sm:p-6">{criterion}</div>)}</div>
             </div>
@@ -294,7 +292,7 @@ export default function BestForTemplate({ document, brokers, ranked, intentSlug,
       )}
 
       <section className="w-full bg-ink-950 text-white">
-        <div className="mx-auto grid w-full max-w-[1440px] gap-8 px-5 py-14 sm:px-8 sm:py-18 lg:grid-cols-[1fr_auto] lg:items-center lg:px-12 xl:px-16">
+        <div className="mx-auto grid w-full max-w-[1440px] gap-8 px-5 py-14 sm:px-8 lg:grid-cols-[1fr_auto] lg:items-center lg:px-12 xl:px-16">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-emerald-300">Methodology</p>
             <h2 className="mt-2 font-display text-3xl font-bold tracking-tight sm:text-4xl">How PipRank ranks brokers</h2>
@@ -305,7 +303,7 @@ export default function BestForTemplate({ document, brokers, ranked, intentSlug,
       </section>
 
       <section className="w-full bg-white">
-        <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-6 px-5 py-14 sm:px-8 sm:py-18 lg:flex-row lg:items-center lg:justify-between lg:px-12 xl:px-16">
+        <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-6 px-5 py-14 sm:px-8 lg:flex-row lg:items-center lg:justify-between lg:px-12 xl:px-16">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-emerald-700">Personalized matching</p>
             <h2 className="mt-2 font-display text-3xl font-bold tracking-tight text-ink-950 sm:text-4xl">Get matched with a broker that fits you</h2>
@@ -317,7 +315,7 @@ export default function BestForTemplate({ document, brokers, ranked, intentSlug,
 
       <section className="w-full border-t border-line bg-paper">
         <div className="mx-auto w-full max-w-[1440px] px-5 py-12 sm:px-8 sm:py-14 lg:px-12 xl:px-16">
-          <div className="mx-auto flex max-w-5xl flex-col gap-5 sm:flex-row sm:items-start">
+          <div className="flex max-w-4xl flex-col gap-5 sm:flex-row sm:items-start">
             <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-sm font-black text-white" style={{ backgroundColor: author.color }}>{author.penName.split(' ').map((part) => part[0]).join('').slice(0, 2)}</div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-700">Author & reviewer</p>
