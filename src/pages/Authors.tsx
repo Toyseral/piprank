@@ -1,72 +1,21 @@
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Monogram from '../components/Monogram';
 import Reveal from '../components/Reveal';
 import { useSEO } from '../hooks/useSEO';
 import { buildBreadcrumbJsonLd, buildWebPageJsonLd, SITE_NAME } from '../lib/seo';
 import { TEAM } from '../lib/team';
+import type { ContentDocument } from '../lib/types';
 
-const AUTHORS_SEO = {
-  title: `Our Editorial Team | ${SITE_NAME}`,
-  description: 'Meet the PipRank editorial team responsible for broker regulation checks, real-money testing, Health Score methodology and country coverage.',
-  path: '/authors',
-  type: 'website' as const,
-};
+const AUTHORS_SEO = { title: `Our Editorial Team | ${SITE_NAME}`, description: 'Meet the PipRank editorial team responsible for broker regulation checks, real-money testing, Health Score methodology and country coverage.', path: '/authors', type: 'website' as const };
+const list = (value: unknown) => Array.isArray(value) ? value.filter((x): x is string => typeof x === 'string') : [];
 
 export default function Authors() {
-  useSEO(AUTHORS_SEO, [
-    { ...buildWebPageJsonLd(AUTHORS_SEO), '@type': 'CollectionPage' },
-    buildBreadcrumbJsonLd([
-      { name: 'Home', path: '/' },
-      { name: 'Editorial Team', path: '/authors' },
-    ]),
-  ]);
-
-  return (
-    <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6">
-      <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-emerald-700">
-        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-        Editorial team
-      </p>
-      <h1 className="mt-2 font-display text-4xl font-bold tracking-tight text-ink-900 sm:text-5xl">
-        Who writes <em className="serif-accent text-emerald-700">PipRank</em>
-      </h1>
-      <p className="mt-4 max-w-2xl text-base leading-relaxed text-slate-500">
-        Reviews are attributed to the editor responsible for that section of our process, each following the
-        same{' '}
-        <Link to="/methodology" className="font-semibold text-emerald-700 hover:text-emerald-800">
-          published methodology
-        </Link>
-        . Bylines are editorial identities used consistently across our reviews, not one-off freelance credits.
-      </p>
-
-      <div className="mt-10 space-y-4">
-        {TEAM.map((t, i) => (
-          <Reveal key={t.slug} delay={i * 0.05}>
-            <div id={t.slug} className="scroll-mt-28 flex gap-4 rounded-2xl border border-line bg-white p-5 shadow-soft sm:p-6">
-              <Monogram name={t.penName} color={t.color} size={56} className="shrink-0" />
-              <div className="min-w-0">
-                <p className="font-display text-lg font-bold text-ink-900">{t.penName}</p>
-                <p className="text-xs font-bold uppercase tracking-wide text-emerald-700">{t.role}</p>
-                <p className="mt-2 text-sm leading-relaxed text-slate-600">{t.bio}</p>
-                <p className="mt-2 text-xs font-semibold text-slate-400">Focus: {t.focus}</p>
-              </div>
-            </div>
-          </Reveal>
-        ))}
-      </div>
-
-      <div className="mt-10 rounded-2xl border border-line bg-paper p-5 text-xs leading-relaxed text-slate-500">
-        Every review follows the same regulation, cost, execution, withdrawal, support and sentiment process —
-        see the{' '}
-        <Link to="/methodology" className="font-semibold text-emerald-700 hover:text-emerald-800">
-          full Health Score methodology
-        </Link>{' '}
-        or the{' '}
-        <Link to="/about" className="font-semibold text-emerald-700 hover:text-emerald-800">
-          editorial policy
-        </Link>
-        .
-      </div>
-    </div>
-  );
+  const [authors, setAuthors] = useState<ContentDocument[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  useEffect(() => { fetch('/api/content-documents?type=author').then((r) => r.ok ? r.json() : []).then((data) => setAuthors(Array.isArray(data) ? data : [])).catch(() => setAuthors([])).finally(() => setLoaded(true)); }, []);
+  const people = useMemo(() => authors.length ? authors : TEAM.map((member) => ({ id: 0, content_key: `legacy-author:${member.slug}`, content_type: 'author', country_slug: null, topic_slug: null, slug: member.slug, title: member.penName, excerpt: member.bio, html: '', blocks: [], seo_title: null, seo_description: null, indexable: false, published: true, updated_by: null, created_at: '', updated_at: '', settings: { role: member.role, short_bio: member.bio, expertise: [member.focus], credentials: [], links: [], photo_url: '', display_order: 0 } } as ContentDocument)), [authors]);
+  const schemas = people.map((person) => ({ '@context': 'https://schema.org', '@type': 'Person', name: person.title, jobTitle: String(person.settings?.role || 'Author'), description: String(person.settings?.short_bio || person.excerpt || ''), url: `/authors#${person.slug}` }));
+  useSEO(AUTHORS_SEO, [{ ...buildWebPageJsonLd(AUTHORS_SEO), '@type': 'CollectionPage' }, buildBreadcrumbJsonLd([{ name: 'Home', path: '/' }, { name: 'Editorial Team', path: '/authors' }]), ...schemas]);
+  return <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6"><p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-emerald-700"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Editorial team</p><h1 className="mt-2 font-display text-4xl font-bold tracking-tight text-ink-900 sm:text-5xl">Who writes <em className="serif-accent text-emerald-700">PipRank</em></h1><p className="mt-4 max-w-2xl text-base leading-relaxed text-slate-500">Reviews are attributed to the editor responsible for that section of our process, each following the same <Link to="/methodology" className="font-semibold text-emerald-700 hover:text-emerald-800">published methodology</Link>. Bylines are editorial identities used consistently across our reviews.</p><div className="mt-10 space-y-4">{people.map((author, i) => <Reveal key={author.slug || author.content_key} delay={i * 0.05}><div id={author.slug || undefined} className="scroll-mt-28 flex gap-4 rounded-2xl border border-line bg-white p-5 shadow-soft sm:p-6"><Monogram name={author.title} color="#1f8a5c" size={56} className="shrink-0" /><div className="min-w-0"><p className="font-display text-lg font-bold text-ink-900">{author.title}</p><p className="text-xs font-bold uppercase tracking-wide text-emerald-700">{String(author.settings?.role || 'Author')}</p><p className="mt-2 text-sm leading-relaxed text-slate-600">{String(author.settings?.short_bio || author.excerpt || '')}</p>{list(author.settings?.expertise).length > 0 && <p className="mt-2 text-xs font-semibold text-slate-400">Focus: {list(author.settings?.expertise).join(' · ')}</p>}{list(author.settings?.credentials).length > 0 && <p className="mt-2 text-xs text-slate-500">{list(author.settings?.credentials).join(' · ')}</p>}</div></div></Reveal>)}</div>{!loaded && <p className="mt-5 text-center text-xs text-slate-400">Loading current author profiles…</p>}<div className="mt-10 rounded-2xl border border-line bg-paper p-5 text-xs leading-relaxed text-slate-500">Every review follows the same regulation, cost, execution, withdrawal, support and sentiment process — see the <Link to="/methodology" className="font-semibold text-emerald-700 hover:text-emerald-800">full Health Score methodology</Link> or the <Link to="/about" className="font-semibold text-emerald-700 hover:text-emerald-800">editorial policy</Link>.</div></div>;
 }
