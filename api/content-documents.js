@@ -4,7 +4,7 @@ import { sanitizeBlocks, sanitizeHtml, sanitizePublicSettings } from './_lib/con
 
 const CONTENT_WRITE = ['super_admin', 'admin', 'content_admin'];
 const RETIRED_CONTENT_TYPES = new Set(['country-topic', 'localized-seo']);
-const CANONICAL_CONTENT_TYPES = new Set(['guide', 'global-best-for', 'country-guide', 'country-best-for', 'localized-guide', 'localized-best-for', 'broker', 'country']);
+const CANONICAL_CONTENT_TYPES = new Set(['guide', 'global-best-for', 'country-guide', 'country-best-for', 'localized-guide', 'localized-best-for', 'broker', 'country', 'author']);
 const PUBLIC_FIELDS = 'id,content_key,content_type,country_slug,topic_slug,slug,title,excerpt,html,blocks,settings,seo_title,seo_description,indexable,published,updated_at';
 
 function slugify(value) {
@@ -21,6 +21,7 @@ function canonicalKey({ contentType, countrySlug, slug, locale }) {
   if (contentType === 'localized-best-for') return countrySlug && locale ? `localized-best-for:${countrySlug}:${locale}:${slug}` : null;
   if (contentType === 'broker') return `broker:${slug}:main`;
   if (contentType === 'country') return `country:${slug}:hub`;
+  if (contentType === 'author') return `author:${slug}`;
   return null;
 }
 
@@ -73,12 +74,7 @@ function rejectInvalidType(payload, res) {
 
 function toPublicDocument(document) {
   if (!document) return null;
-  return {
-    ...document,
-    html: sanitizeHtml(document.html),
-    blocks: sanitizeBlocks(document.blocks),
-    settings: sanitizePublicSettings(document.settings),
-  };
+  return { ...document, html: sanitizeHtml(document.html), blocks: sanitizeBlocks(document.blocks), settings: sanitizePublicSettings(document.settings) };
 }
 
 export default async function handler(req, res) {
@@ -91,11 +87,7 @@ export default async function handler(req, res) {
       if (RETIRED_CONTENT_TYPES.has(requestedType) || String(key || '').startsWith('country-topic:')) return res.status(410).json({ error: 'Retired content type.' });
       if (requestedType && !CANONICAL_CONTENT_TYPES.has(requestedType)) return res.status(400).json({ error: 'Unsupported content type' });
 
-      let query = supabase
-        .from('content_documents')
-        .select(wantsAdmin ? '*' : PUBLIC_FIELDS)
-        .in('content_type', [...CANONICAL_CONTENT_TYPES])
-        .order('updated_at', { ascending: false });
+      let query = supabase.from('content_documents').select(wantsAdmin ? '*' : PUBLIC_FIELDS).in('content_type', [...CANONICAL_CONTENT_TYPES]).order('updated_at', { ascending: false });
       if (!wantsAdmin) query = query.eq('published', true);
       if (id) query = query.eq('id', Number(id));
       if (key) query = query.eq('content_key', String(key));
@@ -129,11 +121,7 @@ export default async function handler(req, res) {
       const { id, ...rest } = req.body || {};
       const documentId = Number(id);
       if (!Number.isInteger(documentId) || documentId <= 0) return res.status(400).json({ error: 'A valid id is required' });
-      const { data: existing, error: lookupError } = await supabase
-        .from('content_documents')
-        .select('id,content_key,content_type,country_slug,topic_slug,slug,title,excerpt,html,blocks,settings,seo_title,seo_description,indexable,published')
-        .eq('id', documentId)
-        .maybeSingle();
+      const { data: existing, error: lookupError } = await supabase.from('content_documents').select('id,content_key,content_type,country_slug,topic_slug,slug,title,excerpt,html,blocks,settings,seo_title,seo_description,indexable,published').eq('id', documentId).maybeSingle();
       if (lookupError) throw lookupError;
       if (!existing) return res.status(404).json({ error: 'Content document not found' });
       const payload = sanitizeDocumentInput(rest, existing);
