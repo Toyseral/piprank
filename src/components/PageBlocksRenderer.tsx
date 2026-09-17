@@ -59,9 +59,8 @@ export default function PageBlocksRenderer({ blocks, brokers, intent, countrySlu
       if (excludeZone && blockZone === excludeZone) return false;
 
       const blockSection = typeof block?.editorialSection === 'string' ? block.editorialSection : undefined;
-      if (blockSection) {
-        return blockSection === (editorialSection ?? 'editorial');
-      }
+      if (blockSection) return blockSection === (editorialSection ?? 'editorial');
+      if (editorialSection === 'introduction') return true;
       return editorialSection === undefined || editorialSection === 'editorial';
     }),
     [blocks, zone, excludeZone, editorialSection],

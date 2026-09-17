@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Plus, Save, X } from 'lucide-react';
-import type { Broker, ContentDocument } from '../../lib/types';
+import type { Broker, ContentDocument, CountryPage } from '../../lib/types';
 import PageBuilder, { blocksToHtml, type PageBlock } from '../PageBuilder';
+import BestForCanonicalPageEditor from './BestForCanonicalPageEditor';
 
 export type CanonicalEditorKind = 'broker' | 'best-for';
-export type CanonicalSlot =
+type CanonicalSlot =
   | 'overview'
   | 'editorial_before_pricing'
   | 'pricing'
@@ -12,15 +13,13 @@ export type CanonicalSlot =
   | 'trust'
   | 'editorial_after_trust'
   | 'faq'
-  | 'final_cta'
-  | 'intro'
-  | 'after_rankings'
-  | 'editorial';
+  | 'final_cta';
 
 type Props = {
   kind: CanonicalEditorKind;
   document: ContentDocument | null;
   brokers: Broker[];
+  countries: CountryPage[];
   token: string;
   onClose: () => void;
   onSave: (document: ContentDocument, isNew: boolean) => Promise<void>;
@@ -37,14 +36,6 @@ const BROKER_SLOTS: { key: CanonicalSlot; label: string }[] = [
   { key: 'final_cta', label: 'Final CTA' },
 ];
 
-const BEST_FOR_SLOTS: { key: CanonicalSlot; label: string }[] = [
-  { key: 'intro', label: 'Intro' },
-  { key: 'after_rankings', label: 'Content after Broker Rankings' },
-  { key: 'editorial', label: 'Editorial Zone' },
-  { key: 'faq', label: 'FAQ' },
-  { key: 'final_cta', label: 'Final CTA' },
-];
-
 function normalizeBlocks(document: ContentDocument | null): PageBlock[] {
   if (!document) return [];
   if (Array.isArray(document.blocks) && document.blocks.length) return document.blocks as PageBlock[];
@@ -53,17 +44,67 @@ function normalizeBlocks(document: ContentDocument | null): PageBlock[] {
 }
 
 function zoneOf(block: PageBlock): CanonicalSlot {
-  return ((block as any).zone || 'editorial') as CanonicalSlot;
+  const zone = (block as PageBlock & { zone?: string }).zone;
+  return (BROKER_SLOTS.some((slot) => slot.key === zone) ? zone : 'overview') as CanonicalSlot;
 }
 
-export default function CanonicalPageEditor({ kind, document, brokers, token, onClose, onSave }: Props) {
-  const [form, setForm] = useState<ContentDocument>(() => document ? { ...document } : {
+export default function CanonicalPageEditor({ kind, document, brokers, countries, token, onClose, onSave }: Props) {
+  // Best-For has one canonical editor. Keep this existing admin entry point
+  // as the compatibility boundary so callers do not create a second editor.
+  if (kind === 'best-for') {
+    const topicSlug = String(document?.topic_slug || document?.slug || '').trim().toLowerCase();
+    const countrySlug = document?.country_slug || undefined;
+    const contentType = document?.content_type || '';
+    const editorKind = contentType === 'localized-best-for' ? 'localized' : countrySlug ? 'country' : 'global';
+    const locale = document?.settings && typeof document.settings === 'object'
+      ? String((document.settings as Record<string, unknown>).locale || '')
+      : undefined;
+
+    return (
+      <BestForCanonicalPageEditor
+        kind={editorKind}
+        document={document}
+        brokers={brokers}
+        countries={countries}
+        token={token}
+        countrySlug={countrySlug}
+        topicSlug={topicSlug}
+        locale={locale}
+        onClose={onClose}
+        onSave={onSave}
+      />
+    );
+  }
+
+  return <BrokerCanonicalPageEditor
+    document={document}
+    brokers={brokers}
+    token={token}
+    onClose={onClose}
+    onSave={onSave}
+  />;
+}
+
+function BrokerCanonicalPageEditor({
+  document,
+  brokers,
+  token,
+  onClose,
+  onSave,
+}: {
+  document: ContentDocument | null;
+  brokers: Broker[];
+  token: string;
+  onClose: () => void;
+  onSave: (document: ContentDocument, isNew: boolean) => Promise<void>;
+}) {
+  const [form, setForm] = useState<ContentDocument>(() => document ? { ...document, settings: document.settings ?? {} } : {
     id: 0,
-    content_key: kind === 'broker' ? 'broker:new:main' : 'best-for:new',
-    content_type: kind,
+    content_key: 'broker:new:main',
+    content_type: 'broker',
     country_slug: null,
     topic_slug: null,
-    slug: '',
+    slug: 'main',
     title: '',
     excerpt: '',
     html: '',
@@ -78,27 +119,43 @@ export default function CanonicalPageEditor({ kind, document, brokers, token, on
     settings: {},
   });
   const [blocks, setBlocks] = useState<PageBlock[]>(normalizeBlocks(document));
-  const [activeSlot, setActiveSlot] = useState<CanonicalSlot>(kind === 'broker' ? 'overview' : 'intro');
+  const [activeSlot, setActiveSlot] = useState<CanonicalSlot>('overview');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const next = normalizeBlocks(document);
-    setForm(document ? { ...document } : form);
-    setBlocks(next);
+    setForm(document ? { ...document, settings: document.settings ?? {} } : {
+      id: 0,
+      content_key: 'broker:new:main',
+      content_type: 'broker',
+      country_slug: null,
+      topic_slug: null,
+      slug: 'main',
+      title: '',
+      excerpt: '',
+      html: '',
+      blocks: [],
+      seo_title: null,
+      seo_description: null,
+      indexable: true,
+      published: false,
+      updated_by: null,
+      created_at: '',
+      updated_at: '',
+      settings: {},
+    });
+    setBlocks(normalizeBlocks(document));
   }, [document?.id]);
 
-  const slots = kind === 'broker' ? BROKER_SLOTS : BEST_FOR_SLOTS;
   const grouped = useMemo(() => {
     const map = new Map<CanonicalSlot, PageBlock[]>();
-    slots.forEach(({ key }) => map.set(key, []));
+    BROKER_SLOTS.forEach(({ key }) => map.set(key, []));
     blocks.forEach((block) => {
       const key = zoneOf(block);
-      if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(block);
     });
     return map;
-  }, [blocks, slots]);
+  }, [blocks]);
 
   const updateSlot = (slot: CanonicalSlot, next: PageBlock[]) => {
     setBlocks((current) => {
@@ -111,15 +168,14 @@ export default function CanonicalPageEditor({ kind, document, brokers, token, on
     try {
       setBusy(true);
       setError('');
-      const payload = {
+      await onSave({
         ...form,
+        content_type: 'broker',
         blocks,
         html: blocksToHtml(blocks, brokers),
-        content_type: kind,
-      } as ContentDocument;
-      await onSave(payload, !document);
+      }, !document);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not save content');
+      setError(e instanceof Error ? e.message : 'Could not save broker content');
     } finally {
       setBusy(false);
     }
@@ -147,8 +203,8 @@ export default function CanonicalPageEditor({ kind, document, brokers, token, on
       <div className="flex max-h-[96vh] w-full max-w-6xl flex-col overflow-hidden rounded-3xl bg-white shadow-soft-lg">
         <header className="flex items-center gap-3 bg-ink-950 px-5 py-4 text-white">
           <div className="min-w-0 flex-1">
-            <p className="font-display text-lg font-bold">{document ? 'Edit' : 'Create'} {kind === 'broker' ? 'broker page' : 'Best-For page'}</p>
-            <p className="text-xs text-slate-400">One PageBuilder workspace with fixed page sections and Add Item insertion points.</p>
+            <p className="font-display text-lg font-bold">{document ? 'Edit' : 'Create'} broker page</p>
+            <p className="text-xs text-slate-400">Broker editorial content with fixed page sections.</p>
           </div>
           <button onClick={onClose} className="rounded-lg p-2 text-slate-400 hover:bg-white/10 hover:text-white"><X size={18} /></button>
         </header>
@@ -157,7 +213,7 @@ export default function CanonicalPageEditor({ kind, document, brokers, token, on
           <aside className="hidden w-64 shrink-0 overflow-y-auto border-r border-line bg-paper p-3 md:block">
             <p className="px-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">Page structure</p>
             <div className="mt-2 space-y-1">
-              {slots.map((slot) => {
+              {BROKER_SLOTS.map((slot) => {
                 const count = grouped.get(slot.key)?.length ?? 0;
                 return <button key={slot.key} onClick={() => setActiveSlot(slot.key)} className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeSlot === slot.key ? 'bg-ink-950 text-white' : 'text-slate-600 hover:bg-white'}`}><span>{slot.label}</span>{count > 0 && <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] text-emerald-700">{count}</span>}</button>;
               })}
@@ -174,8 +230,8 @@ export default function CanonicalPageEditor({ kind, document, brokers, token, on
 
             <div className="mt-6 rounded-2xl border border-line bg-paper p-4">
               <div className="flex items-start justify-between gap-3">
-                <div><p className="text-xs font-bold uppercase tracking-widest text-emerald-700">{slots.find((s) => s.key === activeSlot)?.label}</p><p className="mt-1 text-xs text-slate-500">Add as many content items as needed in this position.</p></div>
-                <button onClick={() => updateSlot(activeSlot, [...(grouped.get(activeSlot) || []), { id: `b_${Date.now()}`, type: 'richtext', html: '<p></p>', zone: activeSlot } as any])} className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-ink-950 px-3 py-2 text-xs font-bold text-white"><Plus size={13} className="text-emerald-400" /> Add Item</button>
+                <div><p className="text-xs font-bold uppercase tracking-widest text-emerald-700">{BROKER_SLOTS.find((s) => s.key === activeSlot)?.label}</p><p className="mt-1 text-xs text-slate-500">Add content items in this position.</p></div>
+                <button onClick={() => updateSlot(activeSlot, [...(grouped.get(activeSlot) || []), { id: `b_${Date.now()}`, type: 'richtext', html: '<p></p>', zone: activeSlot } as PageBlock])} className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-ink-950 px-3 py-2 text-xs font-bold text-white"><Plus size={13} className="text-emerald-400" /> Add Item</button>
               </div>
               <div className="mt-4 rounded-xl border border-line bg-white p-3">
                 <PageBuilder value={grouped.get(activeSlot) || []} onChange={(next) => updateSlot(activeSlot, next)} onUploadImage={uploadImage} />
