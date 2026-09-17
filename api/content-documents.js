@@ -30,7 +30,7 @@ function sanitizeDocumentInput(body, existing = null) {
   const topicSlug = existing?.topic_slug ?? (body.topic_slug ? slugify(body.topic_slug) : null);
   const slug = existing?.slug ?? (body.slug ? slugify(body.slug) : (topicSlug || slugify(body.title || '') || null));
   const locale = String(existing?.settings?.locale || existing?.settings?.languageCode || body.settings?.locale || body.settings?.languageCode || '').trim().slice(0, 40);
-  const contentKey = existing?.content_key || canonicalKey({ contentType, countrySlug, slug, locale });
+  const contentKey = canonicalKey({ contentType, countrySlug, slug, locale });
   const settings = body.settings && typeof body.settings === 'object' && !Array.isArray(body.settings) ? body.settings : (existing?.settings || {});
   return {
     content_key: contentKey,
@@ -60,7 +60,11 @@ function rejectInvalidType(payload, res) {
     res.status(400).json({ error: 'Unsupported content type' });
     return true;
   }
-  if (String(payload.content_key || '').startsWith('country-topic:')) {
+  if (!payload.content_key) {
+    res.status(400).json({ error: 'Canonical content identity is required' });
+    return true;
+  }
+  if (String(payload.content_key).startsWith('country-topic:')) {
     res.status(410).json({ error: 'country-topic content keys are retired.' });
     return true;
   }
@@ -116,7 +120,6 @@ export default async function handler(req, res) {
     if (req.method === 'POST') {
       const payload = sanitizeDocumentInput(req.body || {});
       if (rejectInvalidType(payload, res)) return;
-      if (!payload.content_key || !payload.slug) return res.status(400).json({ error: 'Canonical content identity is required' });
       const { data, error } = await supabase.from('content_documents').insert({ ...payload, updated_by: actor.email }).select().single();
       if (error) throw error;
       return res.status(201).json(data);
