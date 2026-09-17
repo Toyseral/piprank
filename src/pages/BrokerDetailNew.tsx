@@ -85,7 +85,7 @@ export default function BrokerDetailNew() {
   if (!broker) return <div className="mx-auto max-w-5xl px-4 py-16 text-center"><h1 className="font-display text-3xl font-bold">Broker not found</h1><Link className="mt-4 inline-flex font-bold text-emerald-700" to="/brokers">Back to brokers</Link></div>;
 
   const heroRegulators = broker.regulations.filter((r) => HERO_REGULATORS.has(r.body)).map((r) => r.body).filter((name, i, all) => all.indexOf(name) === i);
-  const editorialBlocks = Array.isArray(richProfile?.blocks) ? richProfile.blocks as any[] : [];
+  const editorialBlocks = Array.isArray(richProfile?.blocks) ? richProfile.blocks as import('../components/PageBuilder').PageBlock[] : [];
   const editorialBrokers = allBrokers.length ? allBrokers : [broker];
 
   return (
