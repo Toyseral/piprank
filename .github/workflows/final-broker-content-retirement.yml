@@ -1,0 +1,98 @@
+name: Final broker content retirement
+
+on:
+  push:
+    branches: [fix/batch-3-broker-content-cutover]
+
+jobs:
+  retire:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/batch-3-broker-content-cutover
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Apply canonical broker cutover
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          # BrokerDetail: remove the last public dependency on BrokerContent.
+          p = Path('src/pages/BrokerDetail.tsx')
+          s = p.read_text()
+          s = s.replace("Broker, BrokerContent, BrokerCountryAvailability, BrokerCountryVerification, PlatformDetail, Review, ContentDocument", "Broker, BrokerCountryAvailability, BrokerCountryVerification, PlatformDetail, Review, ContentDocument")
+          s = s.replace("fetchBroker, fetchBrokerAvailability, fetchBrokerContent, fetchBrokers, fetchBrokerVerification, fetchReviews", "fetchBroker, fetchBrokerAvailability, fetchBrokers, fetchBrokerVerification, fetchReviews")
+          s = re.sub(r"; const \[extras,setExtras\]=useState<BrokerContent\|null>\(null\)", ";", s, count=1)
+          s = s.replace("setFormDone(false);setExtras(null);setAvailability([]);", "setFormDone(false);setAvailability([]);")
+          s = s.replace("fetchBrokerContent(b.id).then(setExtras).catch(()=>setExtras(null));", "")
+          s = s.replace("||extras?.faqs?.length", "")
+          s = s.replace("...(extras?.faqs??[])", "")
+          s = s.replace("const platformContent:PlatformDetail[]=broker.platforms.map(name=>extras?.platforms?.find(p=>p.name===name)??", "const platformContent:PlatformDetail[]=broker.platforms.map(name=>")
+          s = s.replace("const accountRows=extras?.accounts?.length?extras.accounts:broker.account_types.map", "const accountRows=broker.account_types.map")
+          s = re.sub(r"\{extras\?\.why_recommend\?\.length<[^}]*\}\s*", "", s)
+          # Explicitly replace remaining editorial compatibility expressions with canonical/no-duplicate equivalents.
+          s = re.sub(r"\{extras\?\.overview\?\.map\([^}]+\)\}", "", s)
+          s = re.sub(r"\{extras\?\.verdict\?\.map\([^}]+\)\}", "", s)
+          s = re.sub(r"\{extras\?\.fees_detail\?\.length&&<div[^>]*>.*?</div>\}", "", s)
+          s = re.sub(r"\{extras\?\.regulation_detail\?\.length&&<div[^>]*>.*?</div>\}", "", s)
+          s = re.sub(r"\{extras\?\.payments\?\.length\?<div", "<div", s)
+          # The old payment branch has a false conditional after the previous replacement;
+          # replace the whole payment table conditional with structured broker payment badges.
+          s = re.sub(r"<div className=\"mt-3 overflow-x-auto overflow-y-hidden rounded-2xl border border-line\">.*?</div>:<div className=\"mt-2\.5 flex flex-wrap gap-2\">\{broker\.payments", "<div className=\"mt-2.5 flex flex-wrap gap-2\">{broker.payments", s, flags=re.S)
+          s = re.sub(r"\}\</div>\<p className=\"mt-3 text-xs text-slate-400\">Deposits:", "}</div><p className=\"mt-3 text-xs text-slate-400\">Deposits:", s)
+          p.write_text(s)
+
+          # api.ts: remove the BrokerContent compatibility adapter and its type import.
+          p = Path('src/lib/api.ts')
+          s = p.read_text()
+          s = s.replace('Broker, BrokerContent, BrokerCountryAvailability', 'Broker, BrokerCountryAvailability')
+          start = s.find('function htmlToParagraphs(html: string): string[]')
+          marker = 'export const fetchBrokerAvailability ='
+          end = s.find(marker)
+          if start != -1 and end != -1:
+              s = s[:start] + s[end:]
+          p.write_text(s)
+
+          # broker-assets: retire the content compatibility resource entirely.
+          p = Path('api/broker-assets.js')
+          s = p.read_text()
+          start = s.find('const CONTENT_WRITE =')
+          avail = s.find('async function handleAvailability')
+          if start != -1 and avail != -1:
+              s = s[:start] + s[avail:]
+          s = s.replace("if (resource === 'content') return await handleContent(req, res); ", "")
+          s = s.replace("Missing or unknown 'resource' query param (expected 'content', 'availability', 'verification' or 'media')", "Missing or unknown 'resource' query param (expected 'availability', 'verification' or 'media')")
+          p.write_text(s)
+
+          # Admin no longer needs the legacy BrokerContent type if it survived the CMS cutover.
+          p = Path('src/pages/Admin.tsx')
+          s = p.read_text()
+          s = s.replace('Broker, BrokerContent, CountryBestFor', 'Broker, CountryBestFor')
+          p.write_text(s)
+          PY
+
+          # Hard fail if any runtime source still references the old endpoint/table.
+          ! grep -R "resource=content\|from('broker_content')\|from(\"broker_content\")\|fetchBrokerContent" src api --exclude-dir=node_modules
+
+      - name: Typecheck and build
+        run: |
+          npm ci
+          npm run build
+
+      - name: Verify retirement references
+        run: |
+          ! grep -R "resource=content\|fetchBrokerContent\|from('broker_content')\|from(\"broker_content\")" src api --exclude-dir=node_modules
+
+      - name: Commit and remove temporary workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/final-broker-content-retirement.yml
+          git add src/pages/BrokerDetail.tsx src/lib/api.ts api/broker-assets.js src/pages/Admin.tsx
+          git commit -m "refactor: retire broker content compatibility layer [batch3]"
+          git push origin HEAD:fix/batch-3-broker-content-cutover
