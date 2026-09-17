@@ -2,16 +2,21 @@ import supabase from './_lib/db-client.js';
 
 const CANONICAL_CONTENT_TYPES = ['guide', 'global-best-for', 'country-guide', 'country-best-for', 'localized-guide', 'localized-best-for', 'broker', 'country'];
 const PUBLIC_COLUMNS = ['content_key','content_type','country_slug','topic_slug','slug','title','excerpt','html','blocks','seo_title','seo_description','indexable','published','updated_at','settings'].join(',');
-const PUBLIC_SETTING_KEYS = ['locale','languageCode','icon','label','criteria','sections','faqs','ranking_intent_slug','canonicalIntentSlug','image'];
+const PUBLIC_SETTING_KEYS = ['locale','languageCode','icon','label','criteria','sections','faqs','ranking_intent_slug','canonicalIntentSlug','image','rankingMode','pinnedBrokerSlugs','excludedBrokerSlugs','comparisonFields'];
+const COMPARISON_SETTING_FIELDS = new Set(['min_deposit','spread_eurusd','commission','max_leverage','platforms','payments','regulations']);
 function cleanText(value, max) { return String(value ?? '').slice(0, max); }
 function cleanHtml(value) { return String(value ?? '').replace(/<!--[\s\S]*?-->/g, '').replace(/<\s*script\b[^>]*>[\s\S]*?<\s*\/script\s*>/gi, '').replace(/\bon[a-z]+\s*=\s*("[^"]*"|'[^']*')/gi, '').slice(0, 100000); }
+function cleanStringArray(value, max = 100, itemMax = 300) { return Array.isArray(value) ? value.filter((item) => typeof item === 'string').map((item) => cleanText(item, itemMax)).filter(Boolean).slice(0, max) : []; }
 function sanitizePublicSettings(settings) {
   if (!settings || typeof settings !== 'object' || Array.isArray(settings)) return {};
   const output = {};
   for (const key of PUBLIC_SETTING_KEYS) {
     const value = settings[key]; if (value === undefined || value === null) continue;
+    if (key === 'rankingMode') { output[key] = value === 'manual' ? 'manual' : 'auto'; continue; }
+    if (key === 'pinnedBrokerSlugs' || key === 'excludedBrokerSlugs') { output[key] = cleanStringArray(value, 100, 160); continue; }
+    if (key === 'comparisonFields') { output[key] = Array.isArray(value) ? value.filter((item) => typeof item === 'string' && COMPARISON_SETTING_FIELDS.has(item)).slice(0, 20) : []; continue; }
     if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') { output[key] = typeof value === 'string' ? cleanText(value, 500) : value; continue; }
-    if (key === 'criteria') { output[key] = Array.isArray(value) ? value.filter((item) => typeof item === 'string').map((item) => cleanText(item, 300)).slice(0, 100) : []; continue; }
+    if (key === 'criteria') { output[key] = cleanStringArray(value, 100, 300); continue; }
     if (key === 'sections') { output[key] = Array.isArray(value) ? value.filter((item) => item && typeof item === 'object' && !Array.isArray(item)).map((item) => ({ title: item.title ? cleanText(item.title, 300) : undefined, html: item.html ? cleanHtml(item.html) : undefined })).slice(0, 100) : []; continue; }
     if (key === 'faqs') { output[key] = Array.isArray(value) ? value.filter((item) => item && typeof item === 'object' && !Array.isArray(item)).map((item) => ({ q: cleanText(item.q, 500), a: cleanText(item.a, 2000) })).filter((item) => item.q && item.a).slice(0, 100) : []; }
   }
