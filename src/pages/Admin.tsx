@@ -44,8 +44,8 @@ import LocalizationWorkspace from '../components/admin/LocalizationWorkspace';
 import TeamTab from './admin/TeamTab';
 import PromosTab from './admin/PromosTab';
 import ConversionsTab from './admin/ConversionsTab';
-import type { Broker, BrokerContent, CountryBestFor, CountryPage, FAQ, Intent, Promotion, Regulation, Review, TestResult, ContentDocument, CountryLanguage, LocalizedSeoPage } from '../lib/types';
-import { legacySectionsToBlocks, brokerContentToLegacySections, introCriteriaToLegacySections, faqsToBlocks, isBlockShape } from '../lib/contentBlocks';
+import type { Broker, CountryPage, FAQ, Intent, Promotion, Regulation, Review, TestResult, ContentDocument, CountryLanguage } from '../lib/types';
+import { legacySectionsToBlocks, introCriteriaToLegacySections, faqsToBlocks, isBlockShape } from '../lib/contentBlocks';
 import Monogram from '../components/Monogram';
 import Stars from '../components/Stars';
 import { fmtDate, timeAgo } from '../lib/format';
@@ -391,7 +391,6 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [intents, setIntents] = useState<Intent[]>([]);
   const [countries, setCountries] = useState<CountryPage[]>([]);
-  const [countryBestFors, setCountryBestFors] = useState<CountryBestFor[]>([]);
   const [subs, setSubs] = useState<Sub[]>([]);
   const [clicks, setClicks] = useState<ClicksAgg>({ total: 0, byBroker: {}, byPage: {}, recent: [] });
   const [loading, setLoading] = useState(true);
@@ -400,13 +399,11 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
   const [editingBroker, setEditingBroker] = useState<Broker | null | 'new'>(null);
   const [editingCountry, setEditingCountry] = useState<CountryPage | null | 'new'>(null);
   const [editingIntent, setEditingIntent] = useState<Intent | null | 'new'>(null);
-  const [editingCountryBestFor, setEditingCountryBestFor] = useState<CountryBestFor | 'new' | null>(null);
   const [editingBrokerContent, setEditingBrokerContent] = useState<Broker | null>(null);
   const [contentDocs, setContentDocs] = useState<ContentDocument[]>([]);
   const [editingContentDoc, setEditingContentDoc] = useState<ContentDocument | 'new' | null>(null);
   const [newDocDefaultCountry, setNewDocDefaultCountry] = useState<string | undefined>(undefined);
   const [countryLanguages, setCountryLanguages] = useState<CountryLanguage[]>([]);
-  const [localizedPages, setLocalizedPages] = useState<LocalizedSeoPage[]>([]);
 
   const headers = useCallback(
     () => ({
@@ -432,28 +429,24 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
           return fallback;
         }
       };
-      const [b, r, i, co, cb, s, c, cd, cl, lp] = await Promise.all([
+      const [b, r, i, co, s, c, cd, cl] = await Promise.all([
         safeJson(fetch('/api/brokers'), []),
         safeJson(fetch('/api/reviews', { headers: headers() }), []),
         safeJson(fetch('/api/intents'), []),
         safeJson(fetch('/api/countries'), []),
-        safeJson(fetch('/api/country-best-for'), []),
         safeJson(fetch('/api/newsletter', { headers: headers() }), []),
         safeJson<ClicksAgg>(fetch('/api/track?resource=clicks', { headers: headers() }), { total: 0, byBroker: {}, byPage: {}, byDay: {}, recent: [] }),
         safeJson(fetch('/api/content-documents?admin=true', { headers: headers() }), []),
         safeJson(fetch('/api/country-languages?admin=true', { headers: headers() }), []),
-        safeJson(fetch('/api/localized-seo-pages?admin=true', { headers: headers() }), []),
       ]);
       if (Array.isArray(b)) setBrokers(b);
       if (Array.isArray(r)) setReviews(r);
       if (Array.isArray(i)) setIntents(i);
       if (Array.isArray(co)) setCountries(co);
-      if (Array.isArray(cb)) setCountryBestFors(cb);
       if (Array.isArray(s)) setSubs(s);
       if (c && typeof c === 'object' && Array.isArray(c.recent)) setClicks(c);
       if (Array.isArray(cd)) setContentDocs(cd);
       if (Array.isArray(cl)) setCountryLanguages(cl);
-      if (Array.isArray(lp)) setLocalizedPages(lp);
       setError('');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load admin data');
@@ -643,21 +636,17 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
                   <CountryHub
                     countries={countries}
                     brokers={brokers}
-                    countryBestFors={countryBestFors}
                     contentDocs={contentDocs}
                     token={session.access_token}
                     notify={notify}
                     onNewCountry={() => setEditingCountry('new')}
                     onEditCountry={(c) => setEditingCountry(c)}
-                    onEditCountryBestFor={(p) => setEditingCountryBestFor(p)}
-                    onNewCountryBestFor={() => setEditingCountryBestFor('new')}
                   />
                 )}
                 {activeTab === 'localization' && (
                   <LocalizationWorkspace
                     countries={countries}
                     languages={countryLanguages}
-                    pages={localizedPages}
                     contentDocs={contentDocs}
                     mutate={mutate}
                     accessToken={session.access_token}
@@ -671,7 +660,6 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
                     onEditGuide={(g) => setEditingContentDoc(g)}
                     onNewIntent={() => setEditingIntent('new')}
                     onEditIntent={(i) => setEditingIntent(i)}
-                    intentToTopic={SUPERSEDED_INTENT_TO_TOPIC}
                   />
                 )}
                 {activeTab === 'authors' && (
@@ -735,19 +723,6 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
           token={session.access_token}
           onClose={() => setEditingBrokerContent(null)}
           onSave={async () => {}} />
-      )}
-      {editingCountryBestFor && (
-        <CountryBestForEditor
-          page={editingCountryBestFor === 'new' ? null : editingCountryBestFor}
-          countries={countries}
-          intents={intents}
-          token={session.access_token}
-          onClose={() => setEditingCountryBestFor(null)}
-          onSave={async (fields, isNew) => {
-            await mutate('/api/country-best-for', isNew ? 'POST' : 'PUT', fields, isNew ? 'Best-for page published' : 'Best-for page saved');
-            setEditingCountryBestFor(null);
-          }}
-        />
       )}
       {editingCountry && (
         <CountryEditor
@@ -2281,13 +2256,16 @@ function ContentDocumentEditor({ document, countries, token, defaultCountrySlug,
   onSave: (fields: Record<string, unknown>, isNew: boolean) => Promise<void>;
 }) {
   const [form, setForm] = useState(() => document ? { ...document } : {
-    content_key: '', content_type: 'country-topic', country_slug: defaultCountrySlug || '', topic_slug: '', slug: '', title: '', excerpt: '', html: '', blocks: [] as PageBlock[], seo_title: '', seo_description: '', indexable: true, published: true,
+    content_key: '', content_type: 'guide', country_slug: defaultCountrySlug || '', topic_slug: '', slug: '', title: '', excerpt: '', html: '', blocks: [] as PageBlock[], seo_title: '', seo_description: '', indexable: true, published: true,
   });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const input = 'h-10 w-full rounded-xl border border-line bg-paper px-3 text-sm outline-none focus:border-emerald-500';
   const submit = async () => {
-    if (form.content_type !== 'author' && !form.content_key.trim()) return setErr('Content key is required. Example: country-topic:ghana:gold-forex-brokers');
+    if (form.content_type === 'country-topic' || form.content_type === 'localized-seo') {
+      return setErr('This content type has been retired. Use the canonical Content Studio editor.');
+    }
+    if (form.content_type !== 'author' && !form.content_key.trim()) return setErr('Content key is required. Example: guide:gold-forex-brokers');
     setBusy(true); setErr('');
     try { const isNewDoc = !document || Number((document as any).id) === 0; const nextForm = form.content_type === 'author' && !form.content_key.trim() ? { ...form, content_key: `author:${String(form.slug || form.title || 'author').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}` } : form; await onSave({ ...nextForm, ...(isNewDoc ? {} : { id: document.id }) }, isNewDoc); } catch (e) { setErr(e instanceof Error ? e.message : 'Could not save content'); } finally { setBusy(false); }
   };
@@ -2295,10 +2273,10 @@ function ContentDocumentEditor({ document, countries, token, defaultCountrySlug,
     <div className="space-y-5">
       {err && <p className="rounded-xl bg-rose-50 px-4 py-2.5 text-sm text-rose-600">{err}</p>}
       <div className="grid gap-3 sm:grid-cols-2">
-        <label><FieldLabel hint="Stable identifier used by the page renderer">Content key</FieldLabel><input value={form.content_key} onChange={e=>setForm({...form,content_key:e.target.value})} className={input} placeholder="country-topic:ghana:gold-forex-brokers" /></label>
-        <label><FieldLabel>Content type</FieldLabel><select value={form.content_type} onChange={e=>setForm({...form,content_type:e.target.value})} className={input}><option value="country-topic">Country topic</option><option value="country-guide">Country guide</option><option value="country">Country</option><option value="guide">Guide</option><option value="broker">Broker</option><option value="page">Page</option><option value="section">Additional section</option><option value="author">Author profile</option></select></label>
+        <label><FieldLabel hint="Stable identifier used by the page renderer">Content key</FieldLabel><input value={form.content_key} onChange={e=>setForm({...form,content_key:e.target.value})} className={input} placeholder="guide:gold-forex-brokers" /></label>
+        <label><FieldLabel>Content type</FieldLabel><select value={form.content_type} onChange={e=>setForm({...form,content_type:e.target.value})} className={input}><option value="country-guide">Country guide</option><option value="country">Country</option><option value="guide">Guide</option><option value="broker">Broker</option><option value="page">Page</option><option value="section">Additional section</option><option value="author">Author profile</option></select></label>
         <label><FieldLabel>Country</FieldLabel><select value={form.country_slug || ''} onChange={e=>setForm({...form,country_slug:e.target.value})} className={input}><option value="">Global</option>{countries.map(c=><option key={c.id} value={c.slug}>{c.name}</option>)}</select></label>
-        <label><FieldLabel hint="Topic slug from the SEO matrix">Topic slug</FieldLabel><input value={form.topic_slug || ''} onChange={e=>setForm({...form,topic_slug:e.target.value})} className={input} placeholder="gold-forex-brokers" /></label>
+        <label><FieldLabel hint="Optional topic identifier used by the content document">Topic slug</FieldLabel><input value={form.topic_slug || ''} onChange={e=>setForm({...form,topic_slug:e.target.value})} className={input} placeholder="gold-forex-brokers" /></label>
       </div>
       <label><FieldLabel>Section title</FieldLabel><input value={form.title} onChange={e=>setForm({...form,title:e.target.value})} className={input} placeholder="Why gold brokers differ for traders in Ghana" /></label>
       <label><FieldLabel>Short intro</FieldLabel><textarea value={form.excerpt} onChange={e=>setForm({...form,excerpt:e.target.value})} rows={3} className="w-full rounded-xl border border-line bg-paper px-3 py-2.5 text-sm outline-none focus:border-emerald-500" /></label>
@@ -2322,158 +2300,6 @@ function AuthorProfileFields({ form, setForm, input }: { form: ContentDocument; 
 }
 
 /* ======================= COUNTRY BEST-FOR EDITOR ======================= */
-
-interface CountryBestForForm {
-  country_id: number | '';
-  intent_id?: number | null;
-  slug: string;
-  label: string;
-  title: string;
-  meta_title: string;
-  meta_description: string;
-  icon: string;
-  intro: string[];
-  criteria: string[];
-  sections: { heading: string; body: string[]; bullets?: string[] }[];
-  faqs: FAQ[];
-  indexable: boolean;
-  sort_order: number;
-}
-
-// Kept in sync with INTENT_TO_TOPIC in scripts/prerender.mjs and
-// SUPERSEDED_INTENTS in scripts/generate-sitemap.mjs, and the matching
-// redirects in vercel.json. These 10 intents are now generated automatically
-// per country by the SEO Page Generator — a new country_best_for row using
-// one of these slugs would just 301 away the moment the site rebuilds.
-const SUPERSEDED_INTENT_SLUGS = new Set([
-  'beginners', 'low-spread', 'mt5', 'gold', 'scalping',
-  'ecn', 'copy-trading', 'swing-trading', 'high-leverage', 'islamic',
-]);
-
-// Kept in sync with INTENT_TO_TOPIC in scripts/prerender.mjs,
-// SUPERSEDED_INTENTS in scripts/generate-sitemap.mjs, and the matching
-// redirects in vercel.json.
-const SUPERSEDED_INTENT_TO_TOPIC: Record<string, string> = {
-  beginners: 'forex-brokers-for-beginners',
-  'low-spread': 'low-spread-forex-brokers',
-  mt5: 'mt5-forex-brokers',
-  gold: 'gold-forex-brokers',
-  scalping: 'forex-brokers-for-scalping',
-  ecn: 'ecn-forex-brokers',
-  'copy-trading': 'copy-trading-forex-brokers',
-  'swing-trading': 'forex-brokers-for-swing-trading',
-  'high-leverage': 'high-leverage-forex-brokers',
-  islamic: 'islamic-forex-brokers',
-};
-
-const EMPTY_COUNTRY_BEST_FOR: CountryBestForForm = {
-  country_id: '', intent_id: null, slug: '', label: '', title: '', meta_title: '', meta_description: '', icon: 'beginners',
-  intro: [], criteria: [], sections: [], faqs: [], indexable: true, sort_order: 0,
-};
-
-function CountryBestForEditor({ page, countries, intents = [], token, onClose, onSave }: {
-  page: CountryBestFor | null;
-  countries: CountryPage[];
-  intents?: Intent[];
-  token: string;
-  onClose: () => void;
-  onSave: (fields: Record<string, unknown>, isNew: boolean) => Promise<void>;
-}) {
-  const [form, setForm] = useState<CountryBestForForm>(() => page ? JSON.parse(JSON.stringify({ ...EMPTY_COUNTRY_BEST_FOR, ...page })) : JSON.parse(JSON.stringify(EMPTY_COUNTRY_BEST_FOR)));
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState('');
-  const inputCls = 'h-10 w-full rounded-xl border border-line bg-paper px-3 text-sm font-medium outline-none transition focus:border-emerald-500';
-  const isSuperseded = !page && SUPERSEDED_INTENT_SLUGS.has(form.slug);
-
-  // Same block-based body as guides and global best-for pages, editing
-  // `sections` directly — legacy pages convert automatically on first open.
-  const initialBlocks = useMemo(
-    () => (isBlockShape(form.sections) ? (form.sections as unknown as PageBlock[]) : legacySectionsToBlocks(introCriteriaToLegacySections(undefined, undefined, form.sections))),
-    []
-  );
-
-  const uploadImage = async (file: File) => {
-    const reader = new FileReader();
-    const data = await new Promise<string>((resolve, reject) => { reader.onload = () => resolve(String(reader.result)); reader.onerror = reject; reader.readAsDataURL(file); });
-    const res = await fetch('/api/content-assets', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ filename: file.name, contentType: file.type, dataBase64: data }) });
-    const out = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(out.error || 'Image upload failed');
-    return out.url;
-  };
-
-  const submit = async () => {
-    if (!form.country_id) return setErr('Choose a country.');
-    if (form.label.trim().length < 2) return setErr('A label is required.');
-    if (form.title.trim().length < 8) return setErr('Write a useful page H1/title.');
-    if (!page && SUPERSEDED_INTENT_SLUGS.has(form.slug)) {
-      return setErr('This category is now generated automatically by the SEO Page Generator (Content tab → SEO Page Generator) and would immediately redirect. Choose a different category, or use the generator instead.');
-    }
-    setBusy(true);
-    try {
-      const out: Record<string, unknown> = { ...form, country_id: Number(form.country_id) };
-      if (page) out.id = page.id;
-      await onSave(out, !page);
-    } finally { setBusy(false); }
-  };
-
-  return (
-    <DrawerShell title={page ? `Edit ${page.title}` : 'New country Best-For page'} onClose={onClose} wide>
-      <div className="space-y-4">
-        {err && <p className="rounded-xl bg-rose-50 px-4 py-2.5 text-sm font-medium text-rose-600">{err}</p>}
-        {!page && (
-          <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs text-amber-800">
-            Beginners, low-spread, MT5, gold, scalping, ECN, copy-trading, swing-trading, high-leverage and Islamic
-            categories are now generated automatically per country via the SEO Page Generator and will redirect if
-            created here. Use this editor only for categories the generator doesn't cover.
-          </p>
-        )}
-        <div className="grid grid-cols-2 gap-3">
-          <label><FieldLabel>Country</FieldLabel><select value={form.country_id} onChange={(e) => setForm({ ...form, country_id: e.target.value ? Number(e.target.value) : '' })} className={inputCls}><option value="">Select country…</option>{countries.map((c) => <option key={c.id} value={c.id}>{c.flag} {c.name}</option>)}</select></label>
-          <label><FieldLabel hint="URL slug within the country">Slug</FieldLabel><input value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} className={inputCls} placeholder="low-spread-brokers" /></label>
-        </div>
-        {isSuperseded && (
-          <p className="rounded-xl bg-rose-50 px-4 py-2.5 text-xs font-medium text-rose-600">
-            "{form.slug}" is one of the categories generated automatically — this page would redirect immediately. Pick a different slug, or use the SEO Page Generator instead.
-          </p>
-        )}
-        <label>
-          <FieldLabel hint="Links this country page to the master Best-For category">Master Best-For category</FieldLabel>
-          <select value={form.intent_id ?? ''} onChange={(e) => { const id = e.target.value ? Number(e.target.value) : null; const i = intents.find((x) => x.id === id); setForm({ ...form, intent_id: id, slug: i ? i.slug : form.slug, label: i ? i.label : form.label, title: i ? `${i.title.replace(/\s*\(\d{4}\)$/, '')} in ${countries.find((c) => c.id === Number(form.country_id))?.name ?? ''} (2026)` : form.title }); }} className={inputCls}>
-            <option value="">Select master category…</option>
-            {intents.map((i) => (
-              <option key={i.id} value={i.id} disabled={!page && SUPERSEDED_INTENT_SLUGS.has(i.slug)}>
-                {i.label}{!page && SUPERSEDED_INTENT_SLUGS.has(i.slug) ? ' — auto-generated, use SEO Page Generator' : ''}
-              </option>
-            ))}
-          </select>
-        </label>
-        <div className="grid grid-cols-2 gap-3">
-          <label><FieldLabel>Label</FieldLabel><input value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} className={inputCls} placeholder="Best Low-Spread Brokers" /></label>
-          <label><FieldLabel>Icon</FieldLabel><input value={form.icon} onChange={(e) => setForm({ ...form, icon: e.target.value })} className={inputCls} placeholder="low-spread" /></label>
-        </div>
-        <label><FieldLabel hint="The visible H1">Title (H1)</FieldLabel><input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className={inputCls} /></label>
-        <label><FieldLabel hint="Optional; defaults to title + PipRank">SEO title</FieldLabel><input value={form.meta_title} onChange={(e) => setForm({ ...form, meta_title: e.target.value })} className={inputCls} placeholder="Best Low-Spread Forex Brokers in Malaysia 2026 | PipRank" /></label>
-        <label><FieldLabel hint="Unique 140–160 character search description">Meta description</FieldLabel><textarea value={form.meta_description} onChange={(e) => setForm({ ...form, meta_description: e.target.value })} rows={3} className="w-full rounded-xl border border-line bg-paper px-3 py-2.5 text-sm outline-none focus:border-emerald-500" /></label>
-        <StringList label="Intro paragraphs" hint="Country-specific opening copy" items={form.intro} onChange={(v) => setForm({ ...form, intro: v })} textarea />
-        <StringList label="Ranking criteria" items={form.criteria} onChange={(v) => setForm({ ...form, criteria: v })} placeholder="Explain what qualifies a broker for this category" />
-        <div>
-          <FieldLabel hint="Reorder, add headings, images, tables, callouts and more">Page content</FieldLabel>
-          <div className="mt-1.5">
-            <PageBuilder value={initialBlocks} onChange={(blocks) => setForm({ ...form, sections: blocks as unknown as typeof form.sections })} onUploadImage={uploadImage} />
-          </div>
-        </div>
-        <FaqListEditor label="FAQs" hint="Structured FAQ editor for normal admins." faqs={form.faqs} onChange={(faqs) => setForm({ ...form, faqs })} />
-        <div className="flex items-center justify-between rounded-xl border border-line bg-paper p-4">
-          <div><p className="text-sm font-bold text-ink-900">Index this page</p><p className="text-xs text-slate-500">Only enable when the page has enough unique content and commercial value.</p></div>
-          <Toggle on={form.indexable} onToggle={() => setForm({ ...form, indexable: !form.indexable })} />
-        </div>
-        <label><FieldLabel hint="Controls ordering in admin and related sections">Sort order</FieldLabel><input type="number" value={form.sort_order} onChange={(e) => setForm({ ...form, sort_order: Number(e.target.value) || 0 })} className={inputCls} /></label>
-        <button onClick={submit} disabled={busy} className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-ink-950 text-sm font-bold text-white transition hover:bg-ink-800 disabled:opacity-60">{busy && <Loader2 size={15} className="animate-spin" />}{page ? 'Save Best-For page' : 'Publish Best-For page'}</button>
-      </div>
-    </DrawerShell>
-  );
-}
-
 
 function SeoSectionsEditor({ label, hint, sections, onChange }: { label: string; hint?: string; sections: { heading: string; body: string[]; bullets?: string[] }[]; onChange: (sections: { heading: string; body: string[]; bullets?: string[] }[]) => void }) {
   const safeSections = Array.isArray(sections) ? sections : [];

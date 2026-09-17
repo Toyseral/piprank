@@ -1,21 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Eye, Loader2, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
-import type { Broker, ContentDocument, CountryBestFor, CountryPage } from '../../../lib/types';
+import type { Broker, ContentDocument, CountryPage } from '../../../lib/types';
 import CountryGuides from '../CountryGuides';
 import PageBuilder, { blocksToHtml, type PageBlock } from '../../../components/PageBuilder';
 
 type Props = {
   countries: CountryPage[];
   brokers: Broker[];
-  /** @deprecated retained by the dashboard while the legacy endpoint is retired. */
-  countryBestFors?: CountryBestFor[];
   contentDocs: ContentDocument[];
   token: string;
   notify: (msg: string) => void;
   onNewCountry: () => void;
   onEditCountry: (country: CountryPage) => void;
-  onEditCountryBestFor?: (page: CountryBestFor) => void;
-  onNewCountryBestFor?: (countrySlug: string) => void;
 };
 
 function HubMetric({ label, value, sub }: { label: string; value: string; sub: string }) {
