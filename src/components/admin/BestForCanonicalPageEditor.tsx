@@ -5,7 +5,7 @@ import { blocksToHtml, type PageBlock, type ComparisonField } from '../PageBuild
 import BestForEditorialPageBuilder from '../BestForEditorialPageBuilder';
 import ManualBrokerOrder from '../ManualBrokerOrder';
 import { brokerMatchesTopic, getCountrySeoTopic, rankCountryTopicBrokers } from '../../data/countrySeoTopics';
-import { fetchCountryBrokerAvailability } from '../../lib/api';
+import { fetchCountryBrokerAvailability, publicIntentSlug } from '../../lib/api';
 
 type Kind = 'global' | 'country' | 'localized';
 type Props = { kind: Kind; document: ContentDocument | null; brokers: Broker[]; countries: CountryPage[]; token: string; countrySlug?: string; topicSlug: string; locale?: string; onClose: () => void; onSave: (document: ContentDocument, isNew: boolean) => Promise<void> };
@@ -51,7 +51,10 @@ export default function BestForCanonicalPageEditor({ kind, document, brokers, co
     const topic = String(form.topic_slug || topicSlug || '').trim().toLowerCase();
     const excludedSet = new Set(excluded);
     if (!topic) return [] as Broker[];
-    if (kind !== 'country') return brokers.filter(b => b.best_for.includes(topic) && !excludedSet.has(b.slug));
+    if (kind !== 'country') {
+      const brokerTopic = publicIntentSlug(topic);
+      return brokers.filter(b => b.best_for.includes(brokerTopic) && !excludedSet.has(b.slug));
+    }
     const country = countries.find(c => c.slug === (form.country_slug || countrySlug));
     const countryTopic = getCountrySeoTopic(topic);
     if (!country || !countryTopic) return [] as Broker[];
