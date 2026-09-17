@@ -1,4 +1,4 @@
-import type { Broker, BrokerContent, BrokerCountryAvailability, BrokerCountryVerification, CountryPage, Intent, Review, ContentDocument, CountryLanguage, CountryIntentBrokerRanking } from './types';
+import type { Broker, BrokerContent, BrokerCountryAvailability, BrokerCountryVerification, CountryPage, Intent, Review, ContentDocument, CountryLanguage, CountryIntentBrokerRanking, BrokerPlatform, BrokerPlatforms } from './types';
 
 async function get<T>(url: string, token?: string): Promise<T> {
   const res = await fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : undefined });
@@ -13,6 +13,50 @@ async function send<T>(url: string, method: string, body: unknown): Promise<T> {
   return data as T;
 }
 
+function normalizePlatforms(value: unknown): BrokerPlatforms {
+  const raw = Array.isArray(value) ? value : [];
+  const items = raw.map((platform): BrokerPlatform | null => {
+    if (typeof platform === 'string') {
+      const name = platform.trim();
+      if (!name) return null;
+      return {
+        name,
+        summary: '',
+        features: [],
+        toString: () => name,
+        toLowerCase: () => name.toLowerCase(),
+      };
+    }
+    if (!platform || typeof platform !== 'object') return null;
+    const candidate = platform as Record<string, unknown>;
+    const name = String(candidate.name ?? '').trim();
+    if (!name) return null;
+    return {
+      name,
+      summary: typeof candidate.summary === 'string' ? candidate.summary : '',
+      features: Array.isArray(candidate.features) ? candidate.features.map(String).filter(Boolean) : [],
+      toString: () => name,
+      toLowerCase: () => name.toLowerCase(),
+    };
+  }).filter((platform): platform is BrokerPlatform => Boolean(platform));
+
+  return new Proxy(items as BrokerPlatforms, {
+    get(target, property, receiver) {
+      if (property === 'includes') {
+        return (searchElement: string | BrokerPlatform, fromIndex = 0) => {
+          const needle = typeof searchElement === 'string' ? searchElement.toLowerCase() : searchElement.name.toLowerCase();
+          return target.slice(fromIndex).some((platform) => platform.name.toLowerCase() === needle);
+        };
+      }
+      return Reflect.get(target, property, receiver);
+    },
+  });
+}
+
+function normalizeBroker(broker: Broker): Broker {
+  return { ...broker, platforms: normalizePlatforms(broker.platforms) };
+}
+
 export const CANONICAL_INTENT_SLUGS: Record<string, string> = {
   'forex-brokers-for-beginners': 'beginners', 'low-spread-forex-brokers': 'low-spread', mt5: 'mt5', gold: 'gold',
   'forex-brokers-for-scalping': 'scalping', 'islamic-forex-brokers': 'islamic', 'ecn-forex-brokers': 'ecn',
@@ -20,9 +64,9 @@ export const CANONICAL_INTENT_SLUGS: Record<string, string> = {
 };
 export const publicIntentSlug = (slug: string) => CANONICAL_INTENT_SLUGS[slug] ?? slug;
 
-export const fetchBrokers = () => get<Broker[]>('/api/brokers');
+export const fetchBrokers = async () => (await get<Broker[]>('/api/brokers')).map(normalizeBroker);
 export const fetchGeo = () => get<{ slug: string | null; iso2: string | null; source: string }>('/api/site?resource=geo');
-export const fetchBroker = (slug: string) => get<Broker>(`/api/brokers?slug=${encodeURIComponent(slug)}`);
+export const fetchBroker = async (slug: string) => normalizeBroker(await get<Broker>(`/api/brokers?slug=${encodeURIComponent(slug)}`));
 export const fetchIntents = () => get<Intent[]>('/api/intents');
 export const fetchIntent = async (slug: string) => { const mapped = publicIntentSlug(slug); try { return await get<Intent>(`/api/intents?slug=${encodeURIComponent(mapped)}`); } catch (e) { if (mapped === slug) throw e; return get<Intent>(`/api/intents?slug=${encodeURIComponent(slug)}`); } };
 export const fetchReviews = (brokerId: number) => get<Review[]>(`/api/reviews?broker_id=${brokerId}`);
@@ -70,23 +114,10 @@ export const fetchBrokerContent = async (brokerId: number): Promise<BrokerConten
   if (!document) return null;
 
   const result: BrokerContent = {
-    broker_id: Number(broker.id),
-    overview: [],
-    verdict: [],
-    why_recommend: [],
-    best_for_detail: [],
-    avoid_if: [],
-    regulation_detail: [],
-    fees_detail: [],
-    platform_intro: [],
-    accounts_intro: [],
-    funding_intro: [],
-    faqs: [],
-    platforms: [],
-    accounts: [],
-    payments: [],
+    broker_id: Number(broker.id), overview: [], verdict: [], why_recommend: [], best_for_detail: [], avoid_if: [],
+    regulation_detail: [], fees_detail: [], platform_intro: [], accounts_intro: [], funding_intro: [], faqs: [],
+    platforms: [], accounts: [], payments: [],
   };
-
   let section: keyof typeof result = 'overview';
   const blocks = Array.isArray(document.blocks) ? document.blocks : [];
   for (const raw of blocks) {
@@ -98,12 +129,9 @@ export const fetchBrokerContent = async (brokerId: number): Promise<BrokerConten
     }
     if (block.type === 'richtext' && typeof block.html === 'string') {
       const paragraphs = htmlToParagraphs(block.html);
-      if (section in result && Array.isArray(result[section])) {
-        (result[section] as string[]).push(...paragraphs);
-      }
+      if (section in result && Array.isArray(result[section])) (result[section] as string[]).push(...paragraphs);
     }
   }
-
   return result;
 };
 
@@ -116,7 +144,6 @@ export const saveBrokerVerification = (payload: Partial<BrokerCountryVerificatio
 // legacy /api/countries Vercel rewrite being part of public route resolution.
 export const fetchCountries = () => get<CountryPage[]>('/api/content?resource=countries');
 export const fetchCountry = (slug: string) => get<CountryPage>(`/api/content?resource=countries&slug=${encodeURIComponent(slug)}`);
-
 export const fetchCountryIntentRankings = (countrySlug: string, intentSlug: string) => get<CountryIntentBrokerRanking[]>(`/api/country-intent-rankings?country=${encodeURIComponent(countrySlug)}&intent=${encodeURIComponent(publicIntentSlug(intentSlug))}`);
 export const createReview = async (payload: { broker_id: number; author: string; country: string; rating: number; title: string; body: string }, authToken?: string): Promise<Review> => { const res = await fetch('/api/reviews', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}) }, body: JSON.stringify(payload) }); const data = await res.json().catch(() => ({})); if (!res.ok) throw new Error((data as { error?: string }).error || `Request failed (${res.status})`); return data as Review; };
 export const voteHelpful = (id: number) => send<Review>('/api/reviews', 'PUT', { id });
