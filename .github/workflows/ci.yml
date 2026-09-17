@@ -21,5 +21,13 @@ jobs:
           node-version: 24
           cache: npm
       - run: node scripts/fix-batch3-admin-parent-save.mjs
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/pages/Admin.tsx
+          if ! git diff --cached --quiet; then
+            git commit -m "refactor: remove legacy broker admin save callback [batch3]"
+            git push origin HEAD:fix/batch-3-broker-content-cutover
+          fi
       - run: npm ci
       - run: npm run build
