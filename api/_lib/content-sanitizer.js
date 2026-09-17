@@ -17,7 +17,7 @@ const BLOCK_KEYS = {
   broker_cta: ['id','type','title','brokerId','variant','ctaLabel','ctaHref','headline','buttonLabel','editorialSection'],
   piprank_verdict: ['id','type','title','html','editorialSection'],
 };
-const COMPARISON_SETTING_FIELDS = new Set(['min_deposit','spread_eurusd','commission','max_leverage','platforms','payments','regulations']);
+const COMPARISON_SETTING_FIELDS = new Set(['rating','trust_score','min_deposit','spread_eurusd','commission','max_leverage','platforms','payments','regulations']);
 
 function cleanText(value, max = 500) {
   return String(value ?? '').trim().slice(0, max);
@@ -107,7 +107,7 @@ export function sanitizeBlock(block) {
   if ('variant' in output && !['default','compact','featured','primary','dark','soft'].includes(output.variant)) delete output.variant;
   if ('brokerId' in output) output.brokerId = Number.isFinite(Number(output.brokerId)) ? Number(output.brokerId) : null;
   if ('brokerIds' in output) output.brokerIds = Array.isArray(output.brokerIds) ? output.brokerIds.map(Number).filter(Number.isFinite).slice(0, 20) : [];
-  if ('fields' in output) output.fields = cleanStringArray(output.fields, 20, 80);
+  if ('fields' in output) output.fields = cleanStringArray(output.fields, 20, 80).filter((field) => COMPARISON_SETTING_FIELDS.has(field));
   if ('ctaLabel' in output) output.ctaLabel = cleanText(output.ctaLabel, 180);
   if ('ctaHref' in output) output.ctaHref = safeUrl(output.ctaHref) || null;
   if ('headline' in output) output.headline = cleanText(output.headline, 300);
