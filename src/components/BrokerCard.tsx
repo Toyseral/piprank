@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, BadgeCheck } from 'lucide-react';
 import type { Broker, BrokerPlatform } from '../lib/types';
+import { hasPlatform } from '../lib/types';
 import Monogram from './Monogram';
 import Stars from './Stars';
 import VisitButton from './VisitButton';
@@ -23,7 +24,7 @@ export default function BrokerCard({ broker, rank, note, intent: explicitIntent,
     if (isCountryContext) contextual = { label: 'Payment methods', value: shortList(broker.payments) };
     else if (intent === 'beginners') contextual = { label: 'Demo account', value: broker.demo_account ? 'Yes' : 'No' };
     else if (intent === 'low-spread') contextual = { label: 'Commission', value: commissionLabel(broker) };
-    else if (intent === 'mt5') contextual = { label: 'MT5', value: broker.platforms.some((p) => p.name.toLowerCase() === 'mt5') ? 'Available' : 'Not available' };
+    else if (intent === 'mt5') contextual = { label: 'MT5', value: hasPlatform(broker.platforms, 'MT5') ? 'Available' : 'Not available' };
     else if (intent === 'ecn') contextual = { label: 'Commission', value: commissionLabel(broker) };
     else if (intent === 'copy-trading') contextual = { label: 'Copy trading', value: broker.copy_trading ? 'Available' : 'Not available' };
     else if (intent === 'scalping') contextual = { label: 'Commission', value: commissionLabel(broker) };
