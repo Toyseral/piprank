@@ -37,6 +37,7 @@ export default function BrokerDetailNew() {
   const { slug = '' } = useParams<{ slug: string }>();
   const [broker, setBroker] = useState<Broker | null>(null);
   const [richProfile, setRichProfile] = useState<ContentDocument | null>(null);
+  const [authorProfile, setAuthorProfile] = useState<ContentDocument | null>(null);
   const [allBrokers, setAllBrokers] = useState<Broker[]>([]);
   const [loading, setLoading] = useState(true);
   const [stickyCtaOpen, setStickyCtaOpen] = useState(true);
@@ -45,30 +46,42 @@ export default function BrokerDetailNew() {
     let live = true;
     setLoading(true);
     setRichProfile(null);
+    setAuthorProfile(null);
     setAllBrokers([]);
     fetchBroker(slug).then(async (b) => {
       if (!live) return;
       setBroker(b);
-      const [rich, brokers] = await Promise.all([
+      const fallbackReviewer = reviewerFor(b.slug);
+      const [rich, brokers, author] = await Promise.all([
         fetchContentDocument(`broker:${b.slug}:main`).catch(() => null),
         fetchBrokers().catch(() => []),
+        fetchContentDocument(`author:${fallbackReviewer.slug}`).catch(() => null),
       ]);
       if (!live) return;
       setRichProfile(rich?.published ? rich : null);
+      setAuthorProfile(author?.published ? author : null);
       setAllBrokers(Array.isArray(brokers) && brokers.length ? brokers : [b]);
     }).catch(() => live && setBroker(null)).finally(() => live && setLoading(false));
     return () => { live = false; };
   }, [slug]);
 
   const faqs = broker?.faqs ?? [];
-  const reviewer = reviewerFor(broker?.slug ?? slug);
+  const fallbackReviewer = reviewerFor(broker?.slug ?? slug);
+  const authorSettings = (authorProfile?.settings ?? {}) as Record<string, any>;
+  const reviewer = authorProfile ? {
+    slug: authorProfile.slug,
+    penName: authorProfile.title || fallbackReviewer.penName,
+    role: authorSettings.role || fallbackReviewer.role,
+    bio: authorSettings.short_bio || authorProfile.excerpt || fallbackReviewer.bio,
+    photoUrl: authorSettings.photo_url || null,
+  } : fallbackReviewer;
   const baseSeo = broker ? brokerSeo(broker) : null;
   const seo = baseSeo
     ? { ...baseSeo, title: richProfile?.seo_title || baseSeo.title, description: richProfile?.seo_description || baseSeo.description }
     : null;
   const jsonLd = seo && broker
     ? [
-        buildWebPageJsonLd(seo),
+        { ...buildWebPageJsonLd(seo), author: { '@type': 'Person', name: reviewer.penName, jobTitle: reviewer.role, url: `/authors#${reviewer.slug}`, ...(reviewer.photoUrl ? { image: reviewer.photoUrl } : {}) } },
         buildBreadcrumbJsonLd([
           { name: 'Home', path: '/' },
           { name: 'Forex Brokers', path: '/brokers' },
@@ -115,7 +128,7 @@ export default function BrokerDetailNew() {
             <section id="funding" className="scroll-mt-28"><StructuredBrokerDataCard broker={broker} section="funding" /></section>
             {faqs.length > 0 && <section id="faq" className="scroll-mt-28 rounded-3xl border border-line bg-white p-5 shadow-soft sm:p-7"><p className="text-xs font-bold tracking-wider text-emerald-700">FAQ</p><h2 className="mt-1 font-display text-2xl font-bold">{broker.name} frequently asked questions</h2><div className="mt-6 space-y-3">{faqs.map((faq, i) => <details key={`${i}-${faq.q}`} className="rounded-2xl border border-line bg-paper p-4"><summary className="cursor-pointer font-bold">{faq.q}</summary><p className="mt-3 text-sm leading-6 text-slate-600">{faq.a}</p></details>)}</div></section>}
             <section className="rounded-3xl bg-ink-950 p-6 text-white sm:p-8" aria-label={`Open ${broker.name} account`}><h2 className="font-display text-2xl font-bold">Open {broker.name} Account</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">Review the broker details above and open an account directly with {broker.name} if it fits your trading needs.</p><div className="mt-5"><VisitButton broker={broker} /></div></section>
-            <section className="rounded-3xl border border-line bg-white p-6 shadow-soft sm:p-8" aria-labelledby="broker-author-bio"><div className="flex flex-col gap-5 sm:flex-row sm:items-start"><div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-paper font-display text-xl font-bold text-ink-950 ring-1 ring-line">{reviewer.penName.slice(0, 1)}</div><div><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Reviewed by</p><h2 id="broker-author-bio" className="mt-1 font-display text-xl font-bold text-ink-950">{reviewer.penName}</h2><p className="mt-0.5 text-sm font-semibold text-emerald-700">{reviewer.role}</p><p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">{reviewer.bio}</p><Link to={`/authors#${reviewer.slug}`} className="mt-3 inline-flex text-xs font-bold text-emerald-700 hover:text-emerald-800">View editorial profile →</Link></div></div></section>
+            <section className="rounded-3xl border border-line bg-white p-6 shadow-soft sm:p-8" aria-labelledby="broker-author-bio"><div className="flex flex-col gap-5 sm:flex-row sm:items-start">{reviewer.photoUrl ? <img src={reviewer.photoUrl} alt="" className="h-14 w-14 shrink-0 rounded-2xl object-cover ring-1 ring-line" /> : <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-paper font-display text-xl font-bold text-ink-950 ring-1 ring-line">{reviewer.penName.slice(0, 1)}</div>}<div><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Reviewed by</p><h2 id="broker-author-bio" className="mt-1 font-display text-xl font-bold text-ink-950">{reviewer.penName}</h2><p className="mt-0.5 text-sm font-semibold text-emerald-700">{reviewer.role}</p><p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">{reviewer.bio}</p><Link to={`/authors#${reviewer.slug}`} className="mt-3 inline-flex text-xs font-bold text-emerald-700 hover:text-emerald-800">View editorial profile →</Link></div></div></section>
           </div>
           <aside className="hidden lg:block"><div className="sticky top-24 space-y-4"><Anchors /><BrokerCard broker={broker} /></div></aside>
         </div>
