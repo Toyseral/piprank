@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Eye, FileText, Link2, Plus, Save, Trash2, X, Loader2 } from 'lucide-react';
 import type { Broker, ContentDocument, CountryPage } from '../../lib/types';
 import PageBuilder, { blocksToHtml } from '../PageBuilder';
