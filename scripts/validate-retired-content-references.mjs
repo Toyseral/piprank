@@ -3,12 +3,23 @@ import path from 'node:path';
 
 const ROOT = process.cwd();
 const SCAN_DIRS = ['api', 'src', 'scripts'];
+
+// These files intentionally mention retired identifiers so they can reject
+// stale requests/data. They are guards, not runtime dependencies on the
+// retired architecture, and must remain auditable rather than triggering the
+// repository-wide retirement check.
 const IGNORE = new Set([
   'scripts/validate-retired-content-references.mjs',
+  'api/content-documents.js',
+  'src/pages/Admin.tsx',
+  'scripts/validate-canonical-ownership.mjs',
 ]);
 
 const patterns = [
-  { label: 'retired table: guides', re: /(?:from|into|update|delete\s+from)\s+['"]?guides\b|\.from\(['"]guides['"]\)/i },
+  { label: 'retired table: broker_content', re: /(?:from|into|update|delete\s+from)\s+['"]?broker_content\b|\.from\(['"]broker_content['"]\)/i },
+  { label: 'retired runtime type: BrokerContent', re: /\bBrokerContent\b/ },
+  { label: 'retired runtime helper: fetchBrokerContent', re: /\bfetchBrokerContent\b/ },
+  { label: 'retired broker content API', re: /resource\s*=\s*['"]?content\b|resource=content\b/i },
   { label: 'retired table: country_best_for', re: /(?:from|into|update|delete\s+from)\s+['"]?country_best_for\b|\.from\(['"]country_best_for['"]\)/i },
   { label: 'retired table: localized_seo_pages', re: /(?:from|into|update|delete\s+from)\s+['"]?localized_seo_pages\b|\.from\(['"]localized_seo_pages['"]\)/i },
   { label: 'retired API: /api/guides', re: /\/api\/guides\b/ },
@@ -50,4 +61,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('[validate-retired-content] OK — no retired content references found');
+console.log('[validate-retired-content] OK — no retired runtime/content references found');
