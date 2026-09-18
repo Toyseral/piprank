@@ -52,10 +52,12 @@ export default function BrokerDetailNew() {
       if (!live) return;
       setBroker(b);
       const fallbackReviewer = reviewerFor(b.slug);
-      const [rich, brokers, author] = await Promise.all([
-        fetchContentDocument(`broker:${b.slug}:main`).catch(() => null),
+      const rich = await fetchContentDocument(`broker:${b.slug}:main`).catch(() => null);
+      const richSettings = (rich?.settings ?? {}) as Record<string, any>;
+      const authorSlug = String(richSettings.reviewed_by_slug || richSettings.author_slug || fallbackReviewer.slug).trim().toLowerCase();
+      const [brokers, author] = await Promise.all([
         fetchBrokers().catch(() => []),
-        fetchContentDocument(`author:${fallbackReviewer.slug}`).catch(() => null),
+        fetchContentDocument(`author:${authorSlug}`).catch(() => null),
       ]);
       if (!live) return;
       setRichProfile(rich?.published ? rich : null);
