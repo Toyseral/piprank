@@ -59,6 +59,7 @@ import CountryEditor from './admin/countries/CountryEditor';
 import AdminSidebar from './admin/components/AdminSidebar';
 import AffiliateLinksTab from './admin/AffiliateLinksTab';
 import UnifiedGuideEditor from '../components/admin/UnifiedGuideEditor';
+import RankingManager from '../components/admin/RankingManager';
 
 /* =============================== TYPES =============================== */
 
