@@ -114,6 +114,40 @@ export default async function handler(req, res) {
       if (rejectInvalidType(payload, res)) return;
       const { data, error } = await supabase.from('content_documents').insert({ ...payload, updated_by: actor.email }).select().single();
       if (error) throw error;
+
+      // Global Best-For pages are the source of truth for ranking intents.
+      // Creating a canonical owner automatically creates its intent when one
+      // does not already exist, so admins never need a separate intent-creation step.
+      if (payload.content_type === 'global-best-for' && payload.slug) {
+        const intentLabel = String(payload.title || payload.slug)
+          .replace(/^best\\s+/i, '')
+          .replace(/\\s*\\(\\d{4}\\)\\s*$/, '')
+          .trim();
+
+        const { data: existingIntent, error: intentLookupError } = await supabase
+          .from('intents')
+          .select('id')
+          .eq('slug', payload.slug)
+          .maybeSingle();
+        if (intentLookupError) {
+          await supabase.from('content_documents').delete().eq('id', data.id);
+          throw intentLookupError;
+        }
+
+        if (!existingIntent) {
+          const { error: intentError } = await supabase.from('intents').insert({
+            slug: payload.slug,
+            label: intentLabel.slice(0, 120) || payload.slug,
+            icon: 'beginners',
+            sort_order: 0,
+          });
+          if (intentError) {
+            await supabase.from('content_documents').delete().eq('id', data.id);
+            throw intentError;
+          }
+        }
+      }
+
       return res.status(201).json(data);
     }
 

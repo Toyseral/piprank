@@ -396,7 +396,6 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');
   const [editingBroker, setEditingBroker] = useState<Broker | null | 'new'>(null);
-  const [editingIntent, setEditingIntent] = useState<Intent | null | 'new'>(null);
   const [editingBrokerContent, setEditingBrokerContent] = useState<Broker | null>(null);
   const [contentDocs, setContentDocs] = useState<ContentDocument[]>([]);
   const [editingContentDoc, setEditingContentDoc] = useState<ContentDocument | 'new' | null>(null);
@@ -710,8 +709,6 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
                     intents={intents}
                     onNewGuide={() => setEditingContentDoc({ id: 0, content_key: '', content_type: 'guide', country_slug: null, topic_slug: null, slug: '', title: '', excerpt: '', html: '', blocks: [], seo_title: null, seo_description: null, indexable: true, published: false, updated_by: null, created_at: '', updated_at: '', settings: {} } as ContentDocument)}
                     onEditGuide={(g) => setEditingContentDoc(g)}
-                    onNewIntent={() => setEditingIntent('new')}
-                    onEditIntent={(i) => setEditingIntent(i)}
                   />
                 )}
                 {activeTab === 'authors' && (
@@ -755,17 +752,6 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
             } else {
               await mutate('/api/brokers', 'PUT', { id: editingBroker.id, ...fields }, 'Saved — live on site');
             }
-          }}
-        />
-      )}
-      {editingIntent && (
-        <IntentEditor
-          intent={editingIntent === 'new' ? null : editingIntent}
-          token={session.access_token}
-          onClose={() => setEditingIntent(null)}
-          onSave={async (fields, isNew) => {
-            await mutate('/api/intents', isNew ? 'POST' : 'PUT', fields, isNew ? 'Intent published' : 'Intent saved');
-            setEditingIntent(null);
           }}
         />
       )}
@@ -2376,146 +2362,6 @@ interface PromoForm {
 const GUIDE_CATEGORIES = ['Basics', 'Risk', 'Psychology', 'Platforms', 'Costs', 'Strategy'];
 const GUIDE_LEVELS = ['Beginner', 'Intermediate', 'Advanced', 'All levels'];
 
-
-const INTENT_PUBLIC_SLUGS: Record<string, string> = {
-  beginners: 'forex-brokers-for-beginners',
-  'low-spread': 'low-spread-forex-brokers',
-  mt4: 'mt4-forex-brokers',
-  mt5: 'mt5-forex-brokers',
-  gold: 'gold-forex-brokers',
-  ecn: 'ecn-forex-brokers',
-  'copy-trading': 'copy-trading-forex-brokers',
-  scalping: 'forex-brokers-for-scalping',
-  'swing-trading': 'forex-brokers-for-swing-trading',
-  'high-leverage': 'high-leverage-forex-brokers',
-  islamic: 'islamic-forex-brokers',
-};
-
-const ICON_OPTIONS = [
-  { value: 'beginners', label: 'Beginners (graduation cap)' },
-  { value: 'low-spread', label: 'Low spreads (percent)' },
-  { value: 'mt5', label: 'MT5 (monitor)' },
-  { value: 'ecn', label: 'ECN (zap)' },
-  { value: 'copy-trading', label: 'Copy trading (copy)' },
-  { value: 'scalping', label: 'Scalping (timer)' },
-  { value: 'swing-trading', label: 'Swing trading (waves)' },
-  { value: 'high-leverage', label: 'High leverage (gauge)' },
-];
-
-interface IntentForm {
-  label: string;
-  icon: string;
-  sort_order: number;
-}
-
-const EMPTY_INTENT: IntentForm = { label: '', icon: 'beginners', sort_order: 0 };
-
-function IntentEditor({
-  intent,
-  token: _token,
-  onClose,
-  onSave,
-}: {
-  intent: Intent | null;
-  token: string;
-  onClose: () => void;
-  onSave: (fields: Record<string, unknown>, isNew: boolean) => Promise<void>;
-}) {
-  const [form, setForm] = useState<IntentForm>(() =>
-    intent
-      ? { label: intent.label ?? '', icon: intent.icon ?? 'beginners', sort_order: intent.sort_order ?? 0 }
-      : { ...EMPTY_INTENT }
-  );
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState('');
-
-  const submit = async () => {
-    if (form.label.trim().length < 2) return setErr('A label is required.');
-    setBusy(true);
-    setErr('');
-    try {
-      const out: Record<string, unknown> = {
-        label: form.label.trim(),
-        icon: form.icon,
-        sort_order: Number.isFinite(form.sort_order) ? form.sort_order : 0,
-      };
-      if (intent) {
-        out.id = intent.id;
-        // Slugs are stable taxonomy identifiers. The API intentionally does not
-        // allow editors to mutate them because they are part of route ownership.
-      }
-      await onSave(out, !intent);
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Could not save intent.');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const inputCls =
-    'h-10 w-full rounded-xl border border-line bg-paper px-3 text-sm font-medium outline-none transition focus:border-emerald-500';
-
-  return (
-    <DrawerShell title={intent ? `Edit "${intent.label}"` : 'New broker category'} onClose={onClose}>
-      <div className="space-y-4">
-        {err && <p className="rounded-xl bg-rose-50 px-4 py-2.5 text-sm font-medium text-rose-600">{err}</p>}
-        <label className="block">
-          <FieldLabel hint="Short taxonomy label used in filters, navigation and rankings">Label</FieldLabel>
-          <input
-            value={form.label}
-            onChange={(e) => setForm({ ...form, label: e.target.value })}
-            className={inputCls}
-            placeholder="e.g. Low spreads"
-          />
-        </label>
-        <label className="block">
-          <FieldLabel>Icon</FieldLabel>
-          <select value={form.icon} onChange={(e) => setForm({ ...form, icon: e.target.value })} className={inputCls}>
-            {ICON_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
-        </label>
-        <label className="block">
-          <FieldLabel hint="Controls ordering in category lists">Sort order</FieldLabel>
-          <input
-            type="number"
-            value={form.sort_order}
-            onChange={(e) => setForm({ ...form, sort_order: Number(e.target.value) || 0 })}
-            className={inputCls}
-          />
-        </label>
-
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-          <p className="text-sm font-bold text-emerald-900">Editorial content is managed separately</p>
-          <p className="mt-1 text-xs leading-relaxed text-emerald-800">
-            The category record now owns taxonomy only. Page title, SEO metadata, copy, sections, FAQs and other
-            editorial content belong to the canonical Best-For document in the Global Hub.
-          </p>
-          {intent?.slug && (
-            <a
-              href={`/${INTENT_PUBLIC_SLUGS[intent.slug] ?? intent.slug}`}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-white px-3 py-2 text-xs font-bold text-emerald-800 hover:bg-emerald-100"
-            >
-              Open public Best-For page <ExternalLink size={13} />
-            </a>
-          )}
-        </div>
-
-        <button
-          onClick={submit}
-          disabled={busy}
-          className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-ink-950 text-sm font-bold text-white transition hover:bg-ink-800 disabled:opacity-60"
-        >
-          {busy && <Loader2 size={15} className="animate-spin" />}
-          {intent ? 'Save category' : 'Create category'}
-        </button>
-      </div>
-    </DrawerShell>
-  );
-}
 
 function DrawerShell({
   title,

@@ -1,6 +1,6 @@
 import { Eye, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import type { ContentDocument, Intent } from '../../lib/types';
+import type { ContentDocument } from '../../lib/types';
 import supabase from '../../lib/supabase';
 import BestForEditorialPageBuilder from '../../components/BestForEditorialPageBuilder';
 import { blocksToHtml, type PageBlock } from '../../components/PageBuilder';
@@ -30,11 +30,6 @@ type Props = {
   brokers: Broker[];
   onNewGuide: () => void;
   onEditGuide: (guide: ContentDocument) => void;
-  /** Intent metadata is editable here; canonical page ownership remains in content_documents. */
-  intents?: Intent[];
-  onNewIntent?: () => void;
-  onEditIntent?: (intent: Intent) => void;
-  intentToTopic?: Record<string, string>;
 };
 
 export default function GlobalHub({
@@ -74,10 +69,7 @@ export default function GlobalHub({
     [bestFors],
   );
 
-  const sortedIntents = useMemo(
-    () => [...intents].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.label.localeCompare(b.label)),
-    [intents],
-  );
+
 
   return (
     <div className="space-y-5">
@@ -164,37 +156,7 @@ export default function GlobalHub({
           </div>
         </div>
 
-        <div className="rounded-2xl border border-line bg-white shadow-soft">
-          <div className="flex items-center justify-between border-b border-line px-5 py-4">
-            <div>
-              <p className="font-display text-base font-bold text-ink-900">Intents ({intents.length})</p>
-              <p className="text-[11px] text-slate-400">Ranking/config metadata · not page ownership</p>
-            </div>
-            {onNewIntent && (
-              <button onClick={onNewIntent} className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3.5 py-1.5 text-xs font-bold text-white">
-                <Plus size={13} /> New intent
-              </button>
-            )}
-          </div>
-          <div className="divide-y divide-line">
-            {sortedIntents.map((intent) => (
-              <div key={intent.id} className="flex items-center gap-3 px-5 py-3.5">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-bold text-ink-900">{intent.label || intent.title}</p>
-                  <p className="truncate text-xs text-slate-400">
-                    {intent.slug}{intent.indexable === false ? ' · Noindex' : ' · Indexable'}
-                  </p>
-                </div>
-                {onEditIntent && (
-                  <button onClick={() => onEditIntent(intent)} className="rounded-lg p-2 text-slate-400" title="Edit intent">
-                    <Pencil size={14} />
-                  </button>
-                )}
-              </div>
-            ))}
-            {!sortedIntents.length && <p className="p-5 text-sm text-slate-400">No intents configured yet.</p>}
-          </div>
-        </div>
+
       </div>
 
       {editing && (
@@ -339,7 +301,7 @@ function GlobalBestForEditor({
         <div className="flex items-center gap-3 bg-ink-950 px-5 py-4 text-white">
           <div className="min-w-0 flex-1">
             <p className="font-display text-lg font-bold">{document ? 'Edit' : 'Create'} global Best-For page</p>
-            <p className="text-xs text-slate-400">Canonical Content Studio document · intents remain ranking/config only</p>
+            <p className="text-xs text-slate-400">Canonical Content Studio document · creates its ranking intent automatically</p>
           </div>
           <button onClick={onClose} className="rounded-lg p-2 text-slate-400"><X size={18} /></button>
         </div>
