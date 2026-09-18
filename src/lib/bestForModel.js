@@ -24,7 +24,7 @@ export function pipRankScore(broker) {
 }
 export function rankingIntentSlug(pageSlug, doc) {
   const settings = doc?.settings && typeof doc.settings === 'object' ? doc.settings : {};
-  const explicit = settings.ranking_intent_slug;
+  const explicit = settings.canonicalIntentSlug || settings.intent_slug || settings.ranking_intent_slug || doc?.topic_slug;
   if (typeof explicit === 'string' && explicit.trim()) return explicit.trim().toLowerCase();
   return String(pageSlug || '').replace(/^forex-brokers-for-/, '').replace(/-forex-brokers$/, '').replace(/-brokers$/, '').replace(/-forex$/, '');
 }
