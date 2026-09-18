@@ -286,7 +286,8 @@ async function handleCountryIntentRankings(req, res) {
     }
 
     if (rankingMode === 'automatic') {
-      return res.status(200).json(hydrated.slice(0, 9).map((r, index) => ({ ...r, final_rank: index + 1 })));
+      const automaticPool = hydrated.filter((row) => baseMap.has(Number(row.broker_id)) || row.force_include);
+      return res.status(200).json(automaticPool.slice(0, 9).map((r, index) => ({ ...r, final_rank: index + 1 })));
     }
 
     const manuallyRanked = hydrated.filter((row) => Number.isInteger(Number(row.manual_rank)) && Number(row.manual_rank) >= 1 && Number(row.manual_rank) <= 9);
