@@ -15,9 +15,35 @@ import { track } from '../lib/track';
 
 type Props = { route: CanonicalRoute };
 
-function settingsOf(doc: ContentDocument | null) { return (doc?.settings ?? {}) as Record<string, any>; }
-function faqsOf(doc: ContentDocument | null) { const value = settingsOf(doc).faqs; return Array.isArray(value) ? value.filter((x: any) => x?.q && x?.a) : []; }
-function criteriaOf(doc: ContentDocument | null): string[] { const value = settingsOf(doc).criteria; return Array.isArray(value) ? value.map(String).filter(Boolean) : []; }
+function textFromHtml(value: unknown) {
+  return String(value ?? '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+function blocksOf(doc: ContentDocument | null) {
+  return Array.isArray(doc?.blocks) ? doc.blocks as Array<Record<string, unknown>> : [];
+}
+function criteriaOf(doc: ContentDocument | null): string[] {
+  const block = blocksOf(doc).find((item) => item.id === 'intent-migration:criteria');
+  const html = typeof block?.html === 'string' ? block.html : '';
+  return [...html.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi)]
+    .map((match) => textFromHtml(match[1]))
+    .filter(Boolean);
+}
+function faqsOf(doc: ContentDocument | null): { q: string; a: string }[] {
+  return blocksOf(doc)
+    .filter((item) => String(item.id || '').startsWith('intent-migration:faq-'))
+    .map((item) => {
+      const html = typeof item.html === 'string' ? item.html : '';
+      const question = html.match(/<h3[^>]*>([\s\S]*?)<\/h3>/i)?.[1] || '';
+      const answer = html.match(/<p[^>]*>([\s\S]*?)<\/p>/i)?.[1] || '';
+      return { q: textFromHtml(question), a: textFromHtml(answer) };
+    })
+    .filter((item) => item.q && item.a);
+}
 function intentNote(intent: string, broker: Broker) {
   switch (intent) {
     case 'low-spread': return `${broker.spread_eurusd}p EUR/USD · ${allInCost(broker)} pips all-in per lot`;

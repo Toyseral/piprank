@@ -85,15 +85,6 @@ function verdictSection(broker, intentSlug) {
   return '<section class="piprank-prerender-verdict"><p>PipRank verdict</p><h4>Is ' + esc(broker.name) + ' right for ' + esc(category) + '?</h4><p>' + esc(broker.tagline || ('Review the costs, regulation, platforms and account features before deciding.')) + ' ' + esc(broker.best_for?.length ? `PipRank considers ${broker.name} relevant for ${broker.best_for.slice(0, 3).join(', ')}.` : '') + '</p><div>' + tags + '</div></section>';
 }
 
-function additionalSections(doc) {
-  const settings = sanitizePublicSettings(doc?.settings);
-  const sections = Array.isArray(settings.sections) ? settings.sections : [];
-  const reserved = new Set(['__bestfor_ranking_description', '__bestfor_comparison_description', '__bestfor_broker_analysis_description']);
-  const visible = sections.filter((section) => section && (section.title || section.html) && !reserved.has(String(section.title || '')));
-  if (!visible.length) return '';
-  return `<section class="piprank-prerender-additional"><h2>More on this category</h2>${visible.map((section) => `<article>${section.title ? `<h3>${esc(section.title)}</h3>` : ''}${section.html ? `<div class="piprank-rich-content">${String(section.html)}</div>` : ''}</article>`).join('')}</section>`;
-}
-
 function inject(html, extra) {
   if (!extra) return html;
   const marker = '<!-- piprank-bestfor-prerender -->';
@@ -146,7 +137,7 @@ async function main() {
     const intentSlug = rankingIntentSlug(doc.slug, doc);
     const rankingRows = country ? (rankingMap.get(`${country.slug}:${intentSlug}`) || []) : [];
     const ranked = rankBrokers(brokersRes.data || [], doc, country, rankingRows);
-    const extra = `${rankingSection(ranked, doc)}${comparisonTable(ranked, doc)}${detailSection(ranked, doc)}${criteriaSection(doc)}${additionalSections(doc)}${ranked.map((broker) => verdictSection(broker, intentSlug)).join('')}`;
+    const extra = `${rankingSection(ranked, doc)}${comparisonTable(ranked, doc)}${detailSection(ranked, doc)}${criteriaSection(doc)}${ranked.map((broker) => verdictSection(broker, intentSlug)).join('')}`;
     const output = inject(html, extra);
     if (output !== html) {
       writeFileSync(file, output, 'utf8');

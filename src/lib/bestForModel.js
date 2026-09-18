@@ -1,5 +1,9 @@
 import { getCountrySeoTopic, rankCountryTopicBrokers } from '../data/countrySeoMatrix.js';
 
+/** @typedef {import('./types').Broker} Broker */
+/** @typedef {import('./types').CountryPage} CountryPage */
+/** @typedef {import('./types').CountryIntentBrokerRanking} CountryIntentBrokerRanking */
+
 export function healthScore(broker) {
   const h = broker?.health || {};
   return Math.round(
@@ -39,6 +43,7 @@ function excludedSet(settings) {
   return new Set(Array.isArray(settings.excludedBrokerSlugs) ? settings.excludedBrokerSlugs.map(String) : []);
 }
 
+/** @param {Broker[]} brokers @param {any} doc @param {string} intentSlug @returns {Broker[]} */
 export function rankGlobalBestFor(brokers, doc, intentSlug) {
   const settings = settingsOf(doc);
   const excluded = excludedSet(settings);
@@ -52,6 +57,7 @@ export function rankGlobalBestFor(brokers, doc, intentSlug) {
   return [...eligible].sort((a, b) => Number(b.rating || 0) - Number(a.rating || 0) || Number(b.trust_score || 0) - Number(a.trust_score || 0));
 }
 
+/** @param {Broker[]} brokers @param {CountryPage|null|undefined} country @param {any} doc @param {string} intentSlug @param {CountryIntentBrokerRanking[]} [rankingRows] @returns {Broker[]} */
 export function rankCountryBestFor(brokers, country, doc, intentSlug, rankingRows = []) {
   const topic = getCountrySeoTopic(intentSlug);
   if (!topic || !country) return [];
@@ -77,6 +83,7 @@ export function rankCountryBestFor(brokers, country, doc, intentSlug, rankingRow
   });
 }
 
+/** @param {{ document: any; brokers: Broker[]; country?: CountryPage|null; intentSlug: string; rankingRows?: CountryIntentBrokerRanking[] }} args */
 export function buildBestForPageModel({ document, brokers, country, intentSlug, rankingRows = [] }) {
   const ranked = country ? rankCountryBestFor(brokers, country, document, intentSlug, rankingRows) : rankGlobalBestFor(brokers, document, intentSlug);
   const settings = settingsOf(document);
