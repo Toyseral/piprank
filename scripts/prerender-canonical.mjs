@@ -167,7 +167,7 @@ async function main() {
   const supabase = createClient(url, key);
   const [brokersRes, countriesRes, docsRes, authorsRes] = await Promise.all([
     supabase.from('brokers').select('id,name,slug,tagline,rating,trust_score,min_deposit,spread_eurusd,max_leverage,platforms,regulations,commission,website'),
-    supabase.from('countries').select('id,slug,name,recommended,intro,publishing_state').eq('publishing_state', 'published'),
+    supabase.from('countries').select('id,slug,name,flag,publishing_state,updated_at').eq('publishing_state', 'published'),
     supabase.from('content_documents').select('id,content_key,content_type,country_slug,topic_slug,slug,title,excerpt,html,blocks,settings,seo_title,seo_description,indexable,published,updated_at').in('content_type', ['guide', 'global-best-for', 'country-guide', 'country-best-for', 'localized-guide', 'localized-best-for', 'broker', 'country']).eq('published', true).eq('indexable', true),
     supabase.from('content_documents').select('id,content_key,content_type,slug,title,excerpt,settings').eq('content_type', 'author').eq('published', true),
   ]);
@@ -208,16 +208,22 @@ async function main() {
     if (writePage(shell, writtenPaths, path, { title, description }, content, [pageJsonLd(title, description, path, 'Article'), breadcrumbJsonLd([{ name: 'Home', path: '/' }, { name: 'Brokers', path: '/brokers' }, { name: broker.name, path }])])) written++;
   }
 
+  const countryDocuments = new Map(publicDocs.filter((doc) => doc.content_type === 'country' && doc.country_slug && doc.slug).map((doc) => [doc.country_slug, doc]));
   for (const country of countries.filter((item) => item.slug)) {
-    const recommended = Array.isArray(country.recommended) ? country.recommended.map((item) => typeof item === 'string' ? item : item?.slug).filter(Boolean) : [];
-    const countryBrokers = sortedBrokers.filter((broker) => recommended.includes(broker.slug));
+    const doc = countryDocuments.get(country.slug);
+    if (!doc) {
+      warn(`Skipping country ${country.slug}: canonical hub document is missing.`);
+      continue;
+    }
     const path = `/${country.slug}`;
-    const title = `Best Forex Brokers in ${country.name} | ${SITE_NAME}`;
-    const description = `Compare forex brokers available to traders in ${country.name}, including regulation, costs, platforms and account features.`;
-    const content = `<main><h1>Best Forex Brokers in ${esc(country.name)}</h1><p>${esc(country.intro || description)}</p><h2>Recommended forex brokers</h2><ol>${countryBrokers.slice(0, 10).map((broker) => `<li><a href="/brokers/${esc(broker.slug)}">${esc(broker.name)}</a> — ${esc(broker.tagline || '')}</li>`).join('')}</ol><h2>Country guides</h2><ul>${countryGuides.filter((doc) => doc.country_slug === country.slug).map((doc) => `<li><a href="/${esc(country.slug)}/guides/${esc(doc.slug)}">${esc(doc.title)}</a></li>`).join('')}</ul><p><a href="/countries">Browse all countries</a></p></main>`;
-    if (writePage(shell, writtenPaths, path, { title, description }, content, [pageJsonLd(title, description, path), breadcrumbJsonLd([{ name: 'Home', path: '/' }, { name: country.name, path }])])) written++;
+    const title = doc.seo_title || doc.title || `Best Forex Brokers in ${country.name} | ${SITE_NAME}`;
+    const description = doc.seo_description || doc.excerpt || `Compare forex brokers available to traders in ${country.name}, including regulation, costs, platforms and account features.`;
+    const faqs = Array.isArray(doc.settings?.faqs) ? doc.settings.faqs.filter((faq) => faq?.q && faq?.a) : [];
+    const content = `<main><nav><a href="/">Home</a> › <a href="/countries">Countries</a> › <span>${esc(country.name)}</span></nav><p>${esc(country.flag || '')} ${esc(country.name)}</p><h1>${esc(doc.title || title)}</h1>${doc.excerpt ? `<p>${esc(doc.excerpt)}</p>` : ''}${renderDocument(doc, brokersById)}${faqs.length ? `<h2>Frequently Asked Questions</h2>${faqs.map((faq) => `<details><summary>${esc(faq.q)}</summary><p>${esc(faq.a)}</p></details>`).join('')}` : ''}<p><a href="/countries">Browse all countries</a></p></main>`;
+    const ld = [pageJsonLd(title, description, path), breadcrumbJsonLd([{ name: 'Home', path: '/' }, { name: country.name, path }])];
+    if (faqs.length) ld.push(faqJsonLd(faqs));
+    if (writePage(shell, writtenPaths, path, { title, description }, content, ld)) written++;
   }
-
   for (const doc of guides) {
     const path = canonicalPathForDocument(doc); if (!path) continue;
     const title = doc.seo_title || `${doc.title} | ${SITE_NAME} Guides`;
