@@ -77,6 +77,14 @@ function criteriaSection(doc) {
     : '';
 }
 
+function verdictSection(broker, intentSlug) {
+  if (!broker) return '';
+  const score = pipRankScore(broker);
+  const category = String(intentSlug || '').replace(/-/g, ' ');
+  const tags = (broker.best_for || []).slice(0, 6).map((item) => '<span>' + esc('Best for ' + item) + '</span>').join('');
+  return '<section class="piprank-prerender-verdict"><p>PipRank verdict</p><h4>Is ' + esc(broker.name) + ' right for ' + esc(category) + '?</h4><p>' + esc(broker.tagline || ('Review the costs, regulation, platforms and account features before deciding.')) + ' ' + esc(broker.best_for?.length ? `PipRank considers ${broker.name} relevant for ${broker.best_for.slice(0, 3).join(', ')}.` : '') + '</p><div>' + tags + '</div></section>';
+}
+
 function additionalSections(doc) {
   const settings = sanitizePublicSettings(doc?.settings);
   const sections = Array.isArray(settings.sections) ? settings.sections : [];
