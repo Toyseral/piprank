@@ -110,19 +110,23 @@ export default function Home() {
   });
 
 
+  useEffect(() => {
+    if (!localizedCountry) { setLocalizedRankings([]); return; }
+    fetchCountryBrokerRankings(localizedCountry.slug).then(setLocalizedRankings).catch(() => setLocalizedRankings([]));
+  }, [localizedCountry]);
+
   const localizedCountry = useMemo(
     () => activeGeo ? countries.find((c) => c.slug === activeGeo.slug) ?? null : null,
     [activeGeo, countries]
   );
 
   const localizedBrokers = useMemo(() => {
-    if (!localizedCountry) return brokers;
-    const order = new Map((localizedCountry.available_broker_slugs ?? []).map((slug, i) => [slug, i]));
-    if (!order.size) return brokers;
+    if (!localizedCountry || !localizedRankings.length) return brokers;
+    const order = new Map(localizedRankings.map((row, i) => [row.broker?.slug ?? '', row.final_rank ?? i + 1]));
     return brokers
       .filter((b) => order.has(b.slug))
       .sort((a, b) => (order.get(a.slug) ?? 99) - (order.get(b.slug) ?? 99));
-  }, [brokers, localizedCountry]);
+  }, [brokers, localizedCountry, localizedRankings]);
 
   const displayBrokers = localizedCountry ? localizedBrokers : brokers;
 
