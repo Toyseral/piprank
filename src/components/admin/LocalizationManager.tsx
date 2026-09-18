@@ -2,7 +2,6 @@ import { FormEvent, useMemo, useState } from 'react';
 import PageBuilder, { blocksToHtml, type PageBlock } from '../PageBuilder';
 import { Eye, Globe2, Loader2, Plus, Save, Trash2 } from 'lucide-react';
 import type { ContentDocument, CountryLanguage, CountryPage } from '../../lib/types';
-import { countrySeoTopics } from '../../data/countrySeoMatrix.js';
 import { getLanguageTopicTemplate } from '../../lib/localization';
 
 type Mutate = (path: string, method: string, body: unknown, msg: string) => Promise<void>;
@@ -75,7 +74,15 @@ export function LocalizationManager({ countries, languages, contentDocs, mutate 
     }, `${template.title} created as a draft`);
   };
 
-  const addableTopics = countrySeoTopics.filter((topic) => !localizedBestFors.some((doc) => topicFromDoc(doc) === topic.key));
+  const localizationTopicOptions = [
+    ['all', 'Best Forex Brokers'],
+    ['beginners', 'Beginners'],
+    ['mt4', 'MT4'],
+    ['mt5', 'MT5'],
+    ['gold', 'Gold'],
+    ['low-spread', 'Low Spread'],
+  ] as const;
+  const addableTopics = localizationTopicOptions.filter(([key]) => !localizedBestFors.some((doc) => topicFromDoc(doc) === key));
 
   return <div className="space-y-6">
     <div className="rounded-3xl border border-line bg-white p-6">
@@ -103,7 +110,7 @@ export function LocalizationManager({ countries, languages, contentDocs, mutate 
             <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-4"><div className="flex flex-wrap items-center justify-between gap-2"><div><p className="text-sm font-bold text-ink-950">Localized Best-For pages</p><p className="text-xs text-slate-500">{localizedBestFors.length} existing pages for {language.native_name}.</p></div><span className="rounded-full bg-white px-2.5 py-1 text-xs font-bold text-emerald-700">Canonical content_documents</span></div></div>
             {selectedDocs.filter((doc) => doc.content_type === 'localized-best-for').map((doc) => <LocalizedDocumentRow key={doc.id} doc={doc} mutate={mutate} countrySlug={languageCountrySlug || ''} languagePrefix={language.url_prefix || language.code} />)}
             {localizedBestFors.length === 0 && <p className="rounded-xl border border-dashed border-line bg-paper p-4 text-sm text-slate-500">No localized Best-For pages exist for this language yet. Add one below.</p>}
-            {addableTopics.length > 0 && <div className="rounded-xl border border-dashed border-line bg-paper p-4"><p className="text-xs font-bold uppercase tracking-widest text-slate-500">Add localized Best-For</p><p className="mt-1 text-xs text-slate-500">Each button creates an unpublished canonical page. Open Edit to add PageBuilder blocks, broker cards, comparison tables and CTAs.</p><div className="mt-3 flex flex-wrap gap-2">{addableTopics.map((topic) => <button key={topic.key} type="button" onClick={() => addTopic(topic.key)} className="rounded-lg border border-line bg-white px-2.5 py-1.5 text-xs font-semibold hover:border-emerald-400">+ {(topic as { shortTitle?: string; title: string }).shortTitle || topic.title}</button>)}</div></div>}
+            {addableTopics.length > 0 && <div className="rounded-xl border border-dashed border-line bg-paper p-4"><p className="text-xs font-bold uppercase tracking-widest text-slate-500">Add localized Best-For</p><p className="mt-1 text-xs text-slate-500">Each button creates an unpublished canonical page. Open Edit to add PageBuilder blocks, broker cards, comparison tables and CTAs.</p><div className="mt-3 flex flex-wrap gap-2">{addableTopics.map(([key, label]) => <button key={key} type="button" onClick={() => addTopic(key)} className="rounded-lg border border-line bg-white px-2.5 py-1.5 text-xs font-semibold hover:border-emerald-400">+ {label}</button>)}</div></div>}
           </div>}
         </div>;
       })}
