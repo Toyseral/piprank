@@ -2356,23 +2356,15 @@ const ICON_OPTIONS = [
 
 interface IntentForm {
   label: string;
-  title: string;
-  meta_title: string;
-  meta_description: string;
   icon: string;
-  intro: string[];
-  criteria: string[];
-  sections: { heading: string; body: string[]; bullets?: string[] }[];
-  faqs: FAQ[];
-  indexable: boolean;
   sort_order: number;
 }
 
-const EMPTY_INTENT: IntentForm = { label: '', title: '', meta_title: '', meta_description: '', icon: 'beginners', intro: [], criteria: [], sections: [], faqs: [], indexable: true, sort_order: 0 };
+const EMPTY_INTENT: IntentForm = { label: '', icon: 'beginners', sort_order: 0 };
 
 function IntentEditor({
   intent,
-  token,
+  token: _token,
   onClose,
   onSave,
 }: {
@@ -2382,36 +2374,31 @@ function IntentEditor({
   onSave: (fields: Record<string, unknown>, isNew: boolean) => Promise<void>;
 }) {
   const [form, setForm] = useState<IntentForm>(() =>
-    intent ? JSON.parse(JSON.stringify({ ...EMPTY_INTENT, ...intent })) : JSON.parse(JSON.stringify(EMPTY_INTENT))
+    intent
+      ? { label: intent.label ?? '', icon: intent.icon ?? 'beginners', sort_order: intent.sort_order ?? 0 }
+      : { ...EMPTY_INTENT }
   );
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
 
-  // Same block-based body used everywhere else, editing this page's
-  // `sections` field directly — legacy pages are converted the first time
-  // they're opened here.
-  const initialBlocks = useMemo(
-    () => (isBlockShape(form.sections) ? (form.sections as unknown as PageBlock[]) : legacySectionsToBlocks(introCriteriaToLegacySections(undefined, undefined, form.sections))),
-    []
-  );
-
-  const uploadImage = async (file: File) => {
-    const reader = new FileReader();
-    const data = await new Promise<string>((resolve, reject) => { reader.onload = () => resolve(String(reader.result)); reader.onerror = reject; reader.readAsDataURL(file); });
-    const res = await fetch('/api/content-assets', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ filename: file.name, contentType: file.type, dataBase64: data }) });
-    const out = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(out.error || 'Image upload failed');
-    return out.url;
-  };
-
   const submit = async () => {
     if (form.label.trim().length < 2) return setErr('A label is required.');
-    if (form.title.trim().length < 8) return setErr('Write the full page title (H1).');
     setBusy(true);
+    setErr('');
     try {
-      const out: Record<string, unknown> = { ...form };
-      if (intent) out.id = intent.id;
+      const out: Record<string, unknown> = {
+        label: form.label.trim(),
+        icon: form.icon,
+        sort_order: Number.isFinite(form.sort_order) ? form.sort_order : 0,
+      };
+      if (intent) {
+        out.id = intent.id;
+        // Slugs are stable taxonomy identifiers. The API intentionally does not
+        // allow editors to mutate them because they are part of route ownership.
+      }
       await onSave(out, !intent);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Could not save intent.');
     } finally {
       setBusy(false);
     }
@@ -2421,65 +2408,66 @@ function IntentEditor({
     'h-10 w-full rounded-xl border border-line bg-paper px-3 text-sm font-medium outline-none transition focus:border-emerald-500';
 
   return (
-    <DrawerShell title={intent ? `Edit "${intent.label}"` : 'New intent page'} onClose={onClose} wide>
+    <DrawerShell title={intent ? `Edit "${intent.label}"` : 'New broker category'} onClose={onClose}>
       <div className="space-y-4">
         {err && <p className="rounded-xl bg-rose-50 px-4 py-2.5 text-sm font-medium text-rose-600">{err}</p>}
-        <div className="grid grid-cols-2 gap-3">
-          <label className="block">
-            <FieldLabel hint="short chip label">Label</FieldLabel>
-            <input value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} className={inputCls} placeholder="e.g. Low spreads" />
-          </label>
-          <label className="block">
-            <FieldLabel>Icon</FieldLabel>
-            <select value={form.icon} onChange={(e) => setForm({ ...form, icon: e.target.value })} className={inputCls}>
-              {ICON_OPTIONS.map((o) => (<option key={o.value} value={o.value}>{o.label}</option>))}
-            </select>
-          </label>
-        </div>
         <label className="block">
-          <FieldLabel hint="the page H1 — include keyword + year">Title (H1)</FieldLabel>
-          <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className={inputCls} placeholder="Best Forex Brokers for Beginners (2026)" />
+          <FieldLabel hint="Short taxonomy label used in filters, navigation and rankings">Label</FieldLabel>
+          <input
+            value={form.label}
+            onChange={(e) => setForm({ ...form, label: e.target.value })}
+            className={inputCls}
+            placeholder="e.g. Low spreads"
+          />
         </label>
-        <label className="block"><FieldLabel>SEO title</FieldLabel><input value={form.meta_title} onChange={(e) => setForm({ ...form, meta_title: e.target.value })} className={inputCls} placeholder="Best Forex Brokers for Beginners 2026 | PipRank" /></label>
-        <label className="block"><FieldLabel>Meta description</FieldLabel><textarea value={form.meta_description} onChange={(e) => setForm({ ...form, meta_description: e.target.value })} rows={3} className="w-full rounded-xl border border-line bg-paper px-3 py-2.5 text-sm outline-none focus:border-emerald-500" /></label>
-        <StringList
-          label="Intro paragraphs"
-          hint="SEO copy under the hero — 1–2 paragraphs"
-          items={form.intro}
-          onChange={(v) => setForm({ ...form, intro: v })}
-          textarea
-        />
-        <StringList
-          label="'How we ranked this list' criteria"
-          items={form.criteria}
-          onChange={(v) => setForm({ ...form, criteria: v })}
-          placeholder="e.g. Observed spreads below 0.3 pips"
-        />
-        <div>
-          <FieldLabel hint="Reorder, add headings, images, tables, callouts and more">Page content</FieldLabel>
-          <div className="mt-1.5">
-            <PageBuilder value={initialBlocks} onChange={(blocks) => setForm({ ...form, sections: blocks as unknown as typeof form.sections })} onUploadImage={uploadImage} />
-          </div>
+        <label className="block">
+          <FieldLabel>Icon</FieldLabel>
+          <select value={form.icon} onChange={(e) => setForm({ ...form, icon: e.target.value })} className={inputCls}>
+            {ICON_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+        </label>
+        <label className="block">
+          <FieldLabel hint="Controls ordering in category lists">Sort order</FieldLabel>
+          <input
+            type="number"
+            value={form.sort_order}
+            onChange={(e) => setForm({ ...form, sort_order: Number(e.target.value) || 0 })}
+            className={inputCls}
+          />
+        </label>
+
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+          <p className="text-sm font-bold text-emerald-900">Editorial content is managed separately</p>
+          <p className="mt-1 text-xs leading-relaxed text-emerald-800">
+            The category record now owns taxonomy only. Page title, SEO metadata, copy, sections, FAQs and other
+            editorial content belong to the canonical Best-For document in the Global Hub.
+          </p>
+          {intent?.slug && (
+            <a
+              href={`/${intent.slug}`}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-white px-3 py-2 text-xs font-bold text-emerald-800 hover:bg-emerald-100"
+            >
+              Open public Best-For page <ExternalLink size={13} />
+            </a>
+          )}
         </div>
-        <FaqListEditor label="FAQs" hint="Structured FAQ editor." faqs={form.faqs} onChange={(faqs) => setForm({ ...form, faqs })} />
-        <div className="flex items-center justify-between rounded-xl border border-line bg-paper p-4"><div><p className="text-sm font-bold text-ink-900">Index this page</p><p className="text-xs text-slate-500">Disable for drafts or pages without sufficient unique content.</p></div><Toggle on={form.indexable} onToggle={() => setForm({ ...form, indexable: !form.indexable })} /></div>
-        <p className="rounded-xl bg-paper px-3.5 py-2.5 text-xs leading-relaxed text-slate-500">
-          Brokers join this page when an admin assigns them the matching category in the broker editor
-          (Categories &amp; features).
-        </p>
+
         <button
           onClick={submit}
           disabled={busy}
           className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-ink-950 text-sm font-bold text-white transition hover:bg-ink-800 disabled:opacity-60"
         >
           {busy && <Loader2 size={15} className="animate-spin" />}
-          {intent ? 'Save intent page' : 'Publish intent page'}
+          {intent ? 'Save category' : 'Create category'}
         </button>
       </div>
     </DrawerShell>
   );
 }
-
 
 function DrawerShell({
   title,
