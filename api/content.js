@@ -10,7 +10,7 @@ function stripHtmlText(value) {
     .replace(/<[^>]+>/g, ' ')
     .replace(/&nbsp;/gi, ' ')
     .replace(/&amp;/gi, '&')
-    .replace(/\\s+/g, ' ')
+    .replace(/\s+/g, ' ')
     .trim();
 }
 
@@ -75,7 +75,33 @@ async function handleIntents(req,res){
     };
     const {data,error}=await supabase.from('intents').insert(payload).select('id,slug,label,icon,sort_order').single();
     if(error)throw error;
-    return res.status(201).json(canonicalIntentResponse(data,null));
+    const year=new Date().getFullYear();
+    const contentKey=`best-for:${data.slug}`;
+    const canonical={
+      content_key:contentKey,
+      content_type:'global-best-for',
+      country_slug:null,
+      topic_slug:data.slug,
+      slug:data.slug,
+      title:`Best Forex Brokers for ${data.label} (${year})`,
+      excerpt:`Compare forex brokers for ${data.label.toLowerCase()} traders.`,
+      html:'',
+      blocks:[
+        {id:`bestfor-copy:intro-${Date.now()}`,type:'richtext',html:`<p>Compare forex brokers for ${data.label.toLowerCase()} traders. Review costs, platforms, regulation and broker features before opening an account.</p>`},
+        {id:`bestfor-copy:criteria-${Date.now()}`,type:'richtext',html:`<h2>How we evaluate ${data.label.toLowerCase()} forex brokers</h2><p>PipRank compares relevant broker data, trading conditions, regulation, platforms and account features for this category.</p>`}
+      ],
+      settings:{rankingMode:'auto',pinnedBrokerSlugs:[],excludedBrokerSlugs:[]},
+      seo_title:`Best Forex Brokers for ${data.label} ${year} | PipRank`,
+      seo_description:`Compare forex brokers for ${data.label.toLowerCase()} traders, including spreads, platforms, regulation and key trading features.`,
+      indexable:true,
+      published:false
+    };
+    const {error:docError}=await supabase.from('content_documents').upsert(canonical,{onConflict:'content_key'});
+    if(docError){
+      await supabase.from('intents').delete().eq('id',data.id);
+      throw docError;
+    }
+    return res.status(201).json(canonicalIntentResponse(data,canonical));
   }
 
   if(req.method==='PUT'){
@@ -92,8 +118,13 @@ async function handleIntents(req,res){
   if(req.method==='DELETE'){
     const {id}=req.body??{};
     if(!id)return res.status(400).json({error:'id is required'});
+    const {data:intent,error:findError}=await supabase.from('intents').select('slug').eq('id',Number(id)).maybeSingle();
+    if(findError)throw findError;
+    if(!intent)return res.status(404).json({error:'Category not found'});
     const {error}=await supabase.from('intents').delete().eq('id',Number(id));
     if(error)throw error;
+    const {error:docError}=await supabase.from('content_documents').delete().eq('content_key',`best-for:${intent.slug}`).eq('content_type','global-best-for');
+    if(docError)throw docError;
     return res.status(200).json({ok:true});
   }
 
