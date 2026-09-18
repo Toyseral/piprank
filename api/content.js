@@ -80,44 +80,9 @@ async function handleIntents(req,res){
 
   const taxonomyKeys=['label','icon','sort_order'];
   if(req.method==='POST'){
-    const body=req.body??{};
-    if(!body.label||String(body.label).trim().length<2)return res.status(400).json({error:'Label is required'});
-    const payload={
-      label:String(body.label).trim(),
-      slug:body.slug?slugify(body.slug):slugify(body.label),
-      icon:String(body.icon??'beginners'),
-      sort_order:Number.isFinite(Number(body.sort_order))?Number(body.sort_order):0
-    };
-    const {data,error}=await supabase.from('intents').insert(payload).select('id,slug,label,icon,sort_order').single();
-    if(error)throw error;
-    const year=new Date().getFullYear();
-    const canonicalSlug=canonicalIntentSlug(data.slug);
-    const contentKey=`best-for:${canonicalSlug}`;
-    const canonical={
-      content_key:contentKey,
-      content_type:'global-best-for',
-      country_slug:null,
-      topic_slug:canonicalSlug,
-      slug:canonicalSlug,
-      title:`Best Forex Brokers for ${data.label} (${year})`,
-      excerpt:`Compare forex brokers for ${data.label.toLowerCase()} traders.`,
-      html:'',
-      blocks:[
-        {id:`bestfor-copy:intro-${Date.now()}`,type:'richtext',html:`<p>Compare forex brokers for ${data.label.toLowerCase()} traders. Review costs, platforms, regulation and broker features before opening an account.</p>`},
-        {id:`bestfor-copy:criteria-${Date.now()}`,type:'richtext',html:`<h2>How we evaluate ${data.label.toLowerCase()} forex brokers</h2><p>PipRank compares relevant broker data, trading conditions, regulation, platforms and account features for this category.</p>`}
-      ],
-      settings:{rankingMode:'auto',pinnedBrokerSlugs:[],excludedBrokerSlugs:[]},
-      seo_title:`Best Forex Brokers for ${data.label} ${year} | PipRank`,
-      seo_description:`Compare forex brokers for ${data.label.toLowerCase()} traders, including spreads, platforms, regulation and key trading features.`,
-      indexable:true,
-      published:false
-    };
-    const {error:docError}=await supabase.from('content_documents').upsert(canonical,{onConflict:'content_key'});
-    if(docError){
-      await supabase.from('intents').delete().eq('id',data.id);
-      throw docError;
-    }
-    return res.status(201).json(canonicalIntentResponse(data,{...canonical,slug:canonicalSlug}));
+    return res.status(410).json({
+      error:'Direct intent creation is retired. Create a canonical global Best-For owner instead; its intent is created automatically.'
+    });
   }
 
   if(req.method==='PUT'){
