@@ -87,7 +87,12 @@ export default function CountryDetail() {
 
   const seo = country && document
     ? countrySeo(
-        { ...country, seo_title: document.seo_title ?? country.seo_title, seo_description: document.seo_description ?? country.seo_description },
+        {
+          name: country.name,
+          slug: country.slug,
+          seo_title: document.seo_title,
+          seo_description: document.seo_description,
+        },
         `/${country.slug}`,
       )
     : null;
