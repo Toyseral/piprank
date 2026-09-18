@@ -47,7 +47,7 @@ export function rankGlobalBestFor(brokers, doc, intentSlug) {
   );
   if (settings.rankingMode === 'manual' && Array.isArray(settings.pinnedBrokerSlugs)) {
     const order = new Map(settings.pinnedBrokerSlugs.map((slug, index) => [String(slug), index]));
-    return [...eligible].sort((a, b) => (order.has(a.slug) ? Number(order.get(a.slug)) : 9999) - (order.has(b.slug) ? Number(order.get(b.slug)) : 9999));
+    return eligible.filter((broker) => order.has(broker.slug)).sort((a, b) => Number(order.get(a.slug)) - Number(order.get(b.slug)));
   }
   return [...eligible].sort((a, b) => Number(b.rating || 0) - Number(a.rating || 0) || Number(b.trust_score || 0) - Number(a.trust_score || 0));
 }
