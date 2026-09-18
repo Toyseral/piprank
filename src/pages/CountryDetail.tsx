@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import type { Broker, CountryPage } from '../lib/types';
-import { fetchBrokers, fetchCountry } from '../lib/api';
+import type { CountryPage, CountryBrokerRanking } from '../lib/types';
+import { fetchCountryHubPageModel, type CountryHubPageModel } from '../lib/countryHubModel';
 import { fetchPublishedContentDocument } from '../lib/canonicalContent';
 import PageBlocksRenderer from '../components/PageBlocksRenderer';
-import type { ContentDocument } from '../lib/types';
 import BrokerCard from '../components/BrokerCard';
 import { useSEO } from '../hooks/useSEO';
 import { buildBreadcrumbJsonLd, buildItemListJsonLd, countrySeo } from '../lib/seo';
@@ -12,30 +11,26 @@ import NotFound from './NotFound';
 
 export default function CountryDetail() {
   const { slug = '' } = useParams<{ slug: string }>();
-  const [country, setCountry] = useState<CountryPage | null>(null);
-  const [brokers, setBrokers] = useState<Broker[]>([]);
-  const [document, setDocument] = useState<ContentDocument | null>(null);
+  const [model, setModel] = useState<CountryHubPageModel | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!slug) return;
-    Promise.all([fetchCountry(slug), fetchBrokers(), fetchPublishedContentDocument(`country:${slug}:hub`)])
-      .then(([c, b, d]) => { setCountry(c); setBrokers(b); setDocument(d); })
-      .catch(() => setCountry(null))
+    fetchCountryHubPageModel(slug)
+      .then(setModel)
+      .catch(() => setModel(null))
       .finally(() => setLoading(false));
   }, [slug]);
 
-  const ranked = country
-    ? brokers
-        .filter((broker) => new Set(country.available_broker_slugs ?? brokers.map((b) => b.slug)).has(broker.slug))
-        .sort((a, b) => Number(b.rating ?? 0) - Number(a.rating ?? 0) || Number(b.trust_score ?? 0) - Number(a.trust_score ?? 0))
-        .slice(0, 9)
-    : [];
+  const country = model?.country ?? null;
+  const document = model?.countryDocument ?? null;
+  const brokers = model?.availableBrokers ?? [];
+  const ranked: CountryBrokerRanking[] = model?.topBrokers ?? [];
   const seo = country ? countrySeo(country, `/${country.slug}`) : null;
 
   useSEO(seo, seo && country ? [
     buildBreadcrumbJsonLd([{ name: 'Home', path: '/' }, { name: 'Countries', path: '/countries' }, { name: country.name, path: `/${country.slug}` }]),
-    buildItemListJsonLd(`Forex brokers available in ${country.name}`, ranked.map((b) => ({ name: b.name, path: `/brokers/${b.slug}` }))),
+    buildItemListJsonLd(`Forex brokers available in ${country.name}`, ranked.map((r) => ({ name: r.broker?.name || '', path: `/brokers/${r.broker?.slug || ''}` }))),
   ] : undefined);
 
   if (loading) return <div className="mx-auto max-w-6xl px-4 py-16 text-center text-sm text-slate-500">Loading country…</div>;
@@ -55,7 +50,7 @@ export default function CountryDetail() {
         <section className="mt-8">
           <p className="text-xs font-bold uppercase tracking-widest text-emerald-700">PipRank broker availability</p>
           <h2 className="mt-1 font-display text-2xl font-bold text-ink-900">Forex brokers available in {country.name}</h2>
-          <div className="mt-5 grid gap-5 lg:grid-cols-2">{ranked.map((broker, index) => <BrokerCard key={broker.slug} broker={broker} rank={index + 1} countrySlug={country.slug} />)}</div>
+          <div className="mt-5 grid gap-5 lg:grid-cols-2">{ranked.map((row, index) => row.broker && <BrokerCard key={row.broker.id} broker={row.broker} rank={index + 1} countrySlug={country.slug} />)}</div>
         </section>
       )}
     </div>
