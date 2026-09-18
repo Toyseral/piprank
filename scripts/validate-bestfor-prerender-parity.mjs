@@ -49,13 +49,14 @@ async function main() {
   if (!existsSync(DIST)) throw new Error('dist/ does not exist. Run vite build first.');
 
   const supabase = createClient(url, key);
-  const [docsRes, brokersRes, countriesRes, rankingsRes, overridesRes, availabilityRes] = await Promise.all([
+  const [docsRes, brokersRes, countriesRes, rankingsRes, overridesRes, availabilityRes, settingsRes] = await Promise.all([
     supabase.from('content_documents').select('id,content_type,country_slug,slug,settings,published,indexable').in('content_type', ['global-best-for', 'country-best-for', 'localized-best-for']).eq('published', true).eq('indexable', true),
     supabase.from('brokers').select('id,name,slug,rating,trust_score,best_for,spread_eurusd,min_deposit,commission_value,health,platforms,assets,scalping,islamic_account,copy_trading,hedging,account_types,demo_account'),
-    supabase.from('countries').select('slug,recommended,publishing_state').eq('publishing_state', 'published'),
-    supabase.from('country_intent_broker_final_rankings').select('final_rank,broker_id,countries!inner(slug),intents!inner(slug)'),
+    supabase.from('countries').select('slug,publishing_state').eq('publishing_state', 'published'),
+    supabase.from('country_intent_broker_final_rankings').select('final_rank,final_score,broker_id,countries!inner(slug),intents!inner(slug)'),
     supabase.from('country_intent_broker_overrides').select('broker_id,manual_rank,force_include,force_exclude,countries!inner(slug),intents!inner(slug)'),
     supabase.from('broker_country_availability').select('broker_id,status,countries!inner(slug)'),
+    supabase.from('country_intent_ranking_settings').select('ranking_mode,countries!inner(slug),intents!inner(slug)'),
   ]);
   if (docsRes.error) throw docsRes.error;
   if (brokersRes.error) throw brokersRes.error;
@@ -65,11 +66,12 @@ async function main() {
   if (availabilityRes.error) throw availabilityRes.error;
 
   const countries = new Map((countriesRes.data || []).map((country) => [country.slug, country]));
+  const settingsMap = new Map((settingsRes.data || []).map((row) => [`${row.countries?.slug}:${row.intents?.slug}`, row.ranking_mode === 'manual' ? 'manual' : 'automatic']));
   const rankingMap = new Map();
   for (const row of rankingsRes.data || []) {
     const key = `${row.countries?.slug}:${row.intents?.slug}`;
     const rows = rankingMap.get(key) || [];
-    rows.push({ broker_id: row.broker_id, final_rank: row.final_rank });
+    rows.push({ broker_id: row.broker_id, final_rank: row.final_rank, final_score: row.final_score });
     rankingMap.set(key, rows);
   }
 
@@ -94,20 +96,21 @@ async function main() {
     const country = doc.country_slug ? countries.get(doc.country_slug) : null;
     const intentSlug = rankingIntentSlug(doc.slug, doc);
     const rankingKey = country ? String(country.slug) + ':' + String(intentSlug) : '';
+    const rankingMode = country ? (settingsMap.get(rankingKey) || 'automatic') : 'automatic';
     const baseRows = country ? (rankingMap.get(rankingKey) || []) : [];
     const overrides = country ? (overrideMap.get(rankingKey) || []) : [];
     const rankingRows = baseRows
       .map((row) => {
         const override = overrides.find((item) => Number(item.broker_id) === Number(row.broker_id));
-        return { ...row, manual_rank: override?.manual_rank ?? null, force_exclude: Boolean(override?.force_exclude), availability_status: availabilityMap.get(String(country.slug) + ':' + String(row.broker_id)) || 'available' };
+        return { ...row, manual_rank: rankingMode === 'manual' ? (override?.manual_rank ?? null) : null, force_exclude: Boolean(override?.force_exclude), availability_status: availabilityMap.get(String(country.slug) + ':' + String(row.broker_id)) || 'available' };
       })
       .filter((row) => !row.force_exclude && row.availability_status === 'available');
     const overrideOnlyRows = overrides
       .filter((row) => !row.force_exclude)
       .filter((row) => (availabilityMap.get(String(country.slug) + ':' + String(row.broker_id)) || 'available') === 'available')
       .filter((row) => !rankingRows.some((existing) => Number(existing.broker_id) === Number(row.broker_id)))
-      .filter((row) => Boolean(row.force_include) || (Number.isInteger(Number(row.manual_rank)) && Number(row.manual_rank) >= 1 && Number(row.manual_rank) <= 9))
-      .map((row) => ({ broker_id: Number(row.broker_id), final_rank: Number.isInteger(Number(row.manual_rank)) ? Number(row.manual_rank) : null, manual_rank: Number.isInteger(Number(row.manual_rank)) ? Number(row.manual_rank) : null, force_include: Boolean(row.force_include), availability_status: 'available' }));
+      .filter((row) => rankingMode === 'manual' ? (Number.isInteger(Number(row.manual_rank)) && Number(row.manual_rank) >= 1 && Number(row.manual_rank) <= 9) || Boolean(row.force_include) : Boolean(row.force_include))
+      .map((row) => ({ broker_id: Number(row.broker_id), final_rank: rankingMode === 'manual' && Number.isInteger(Number(row.manual_rank)) ? Number(row.manual_rank) : null, manual_rank: rankingMode === 'manual' && Number.isInteger(Number(row.manual_rank)) ? Number(row.manual_rank) : null, force_include: Boolean(row.force_include), availability_status: 'available' }));
     const model = buildBestForPageModel({ document: doc, brokers: brokersRes.data || [], country, intentSlug, rankingRows: [...rankingRows, ...overrideOnlyRows] });
     const html = readFileSync(file, 'utf8');
     const actual = rankingNames(html).slice(0, 9);

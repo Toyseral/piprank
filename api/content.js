@@ -201,9 +201,11 @@ async function handleCountryIntentRankings(req, res) {
   const { country, intent } = req.query || {};
   if (!country || !intent) return res.status(400).json({ error: 'country and intent are required' });
 
+  const requestedIntent = String(intent);
+  const dbIntentSlug = Object.entries(CANONICAL_INTENT_SLUGS).find(([, canonical]) => canonical === requestedIntent)?.[0] || requestedIntent;
   const [{ data: countryRow, error: countryError }, { data: intentRow, error: intentError }] = await Promise.all([
     supabase.from('countries').select('id,slug,name').eq('slug', String(country)).maybeSingle(),
-    supabase.from('intents').select('id,slug,label').eq('slug', String(intent)).maybeSingle(),
+    supabase.from('intents').select('id,slug,label').eq('slug', dbIntentSlug).maybeSingle(),
   ]);
   if (countryError) throw countryError;
   if (intentError) throw intentError;
@@ -272,9 +274,11 @@ async function handleCountryIntentRankings(req, res) {
     }).filter((row) => !row.force_exclude && row.availability_status === 'available');
 
     hydrated.sort((a, b) => {
-      const ar = Number.isInteger(Number(a.manual_rank)) ? Number(a.manual_rank) : 9999;
-      const br = Number.isInteger(Number(b.manual_rank)) ? Number(b.manual_rank) : 9999;
-      if (ar !== br) return ar - br;
+      if (rankingMode === 'manual') {
+        const ar = Number.isInteger(Number(a.manual_rank)) ? Number(a.manual_rank) : 9999;
+        const br = Number.isInteger(Number(b.manual_rank)) ? Number(b.manual_rank) : 9999;
+        if (ar !== br) return ar - br;
+      }
       const af = Number(a.final_rank ?? 9999);
       const bf = Number(b.final_rank ?? 9999);
       if (af !== bf) return af - bf;
@@ -286,7 +290,9 @@ async function handleCountryIntentRankings(req, res) {
     }
 
     if (rankingMode === 'automatic') {
-      const automaticPool = hydrated.filter((row) => baseMap.has(Number(row.broker_id)) || row.force_include);
+      const automaticPool = hydrated
+        .filter((row) => baseMap.has(Number(row.broker_id)) || row.force_include)
+        .sort((a, b) => Number(b.final_score) - Number(a.final_score) || Number(a.broker_id) - Number(b.broker_id));
       return res.status(200).json(automaticPool.slice(0, 9).map((r, index) => ({ ...r, final_rank: index + 1 })));
     }
 
@@ -294,7 +300,7 @@ async function handleCountryIntentRankings(req, res) {
     const selected = manuallyRanked.length
       ? [...manuallyRanked, ...hydrated.filter((row) => !manuallyRanked.some((m) => m.broker_id === row.broker_id))].slice(0, 9)
       : hydrated.slice(0, 9);
-    return res.status(200).json(selected.map((r, index) => ({ ...r, final_rank: Number(r.manual_rank ?? index + 1) })));
+    return res.status(200).json(selected.map((r, index) => ({ ...r, final_rank: index + 1 })));
   }
 
   if (!(await requireRole(req, res, CONTENT_WRITE))) return;
