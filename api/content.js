@@ -5,6 +5,21 @@ const CONTENT_WRITE = ['super_admin', 'admin', 'content_admin'];
 const SITE_ORIGIN = 'https://piprank.com';
 
 function slugify(value) { return String(value ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''); }
+const CANONICAL_INTENT_SLUGS = {
+  beginners: 'forex-brokers-for-beginners',
+  'low-spread': 'low-spread-forex-brokers',
+  mt4: 'mt4-forex-brokers',
+  mt5: 'mt5-forex-brokers',
+  gold: 'gold-forex-brokers',
+  ecn: 'ecn-forex-brokers',
+  'copy-trading': 'copy-trading-forex-brokers',
+  scalping: 'forex-brokers-for-scalping',
+  'swing-trading': 'forex-brokers-for-swing-trading',
+  'high-leverage': 'high-leverage-forex-brokers',
+  islamic: 'islamic-forex-brokers',
+};
+const canonicalIntentSlug = (slug) => CANONICAL_INTENT_SLUGS[String(slug)] || String(slug);
+
 function stripHtmlText(value) {
   return String(value ?? '')
     .replace(/<[^>]+>/g, ' ')
@@ -48,7 +63,7 @@ async function handleIntents(req,res){
     if(slug && !intents?.[0]) return res.status(404).json({error:'Category not found'});
 
     const rows=intents??[];
-    const slugs=rows.map((i)=>i.slug).filter(Boolean);
+    const slugs=rows.map((i)=>canonicalIntentSlug(i.slug)).filter(Boolean);
     const {data:docs,error:docError}=slugs.length
       ? await supabase.from('content_documents')
           .select('content_key,slug,title,blocks,seo_title,seo_description,indexable,published')
@@ -57,7 +72,7 @@ async function handleIntents(req,res){
       : {data:[],error:null};
     if(docError) throw docError;
     const bySlug=new Map((docs??[]).map((d)=>[d.slug,d]));
-    const result=rows.map((intent)=>canonicalIntentResponse(intent,bySlug.get(intent.slug)));
+    const result=rows.map((intent)=>canonicalIntentResponse(intent,bySlug.get(canonicalIntentSlug(intent.slug))));
     return slug ? res.status(200).json(result[0]) : res.status(200).json(result);
   }
 
@@ -76,7 +91,7 @@ async function handleIntents(req,res){
     const {data,error}=await supabase.from('intents').insert(payload).select('id,slug,label,icon,sort_order').single();
     if(error)throw error;
     const year=new Date().getFullYear();
-    const contentKey=`best-for:${data.slug}`;
+    const canonicalSlug=canonicalIntentSlug(data.slug);\n    const contentKey=`best-for:${canonicalSlug}`;
     const canonical={
       content_key:contentKey,
       content_type:'global-best-for',
@@ -101,7 +116,7 @@ async function handleIntents(req,res){
       await supabase.from('intents').delete().eq('id',data.id);
       throw docError;
     }
-    return res.status(201).json(canonicalIntentResponse(data,canonical));
+    return res.status(201).json(canonicalIntentResponse(data,{...canonical,slug:canonicalSlug}));
   }
 
   if(req.method==='PUT'){
@@ -123,7 +138,7 @@ async function handleIntents(req,res){
     if(!intent)return res.status(404).json({error:'Category not found'});
     const {error}=await supabase.from('intents').delete().eq('id',Number(id));
     if(error)throw error;
-    const {error:docError}=await supabase.from('content_documents').delete().eq('content_key',`best-for:${intent.slug}`).eq('content_type','global-best-for');
+    const {error:docError}=await supabase.from('content_documents').delete().eq('content_key',`best-for:${canonicalIntentSlug(intent.slug)}`).eq('content_type','global-best-for');
     if(docError)throw docError;
     return res.status(200).json({ok:true});
   }
