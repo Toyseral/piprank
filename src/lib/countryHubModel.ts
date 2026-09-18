@@ -34,10 +34,14 @@ export async function fetchCountryHubPageModel(slug: string): Promise<CountryHub
     country,
     countryDocument,
     availableBrokers: (() => {
-      const availableIds = new Set(availability.filter((row) => row.status === 'available' && row.is_available !== false).map((row) => Number(row.broker_id)));
-      return brokers.filter((broker) => availableIds.has(Number(broker.id)));
+      // Eligibility is opt-out: brokers are eligible unless country data explicitly
+      // marks them unavailable/restricted or is_available=false.
+      const ineligibleIds = new Set(availability
+        .filter((row) => row.is_available === false || ['unavailable', 'restricted'].includes(String(row.status || '').toLowerCase()))
+        .map((row) => Number(row.broker_id)));
+      return brokers.filter((broker) => !ineligibleIds.has(Number(broker.id)));
     })(),
-    topBrokers: topBrokers.filter((row) => row.availability_status === 'available' && row.broker),
+    topBrokers: topBrokers.filter((row) => row.broker && row.availability_status !== 'unavailable' && row.availability_status !== 'restricted'),
     countryGuides: countryGuides.filter((doc) => doc.content_type === 'country-guide'),
     countryBestFor: countryBestFor.filter((doc) => doc.content_type === 'country-best-for'),
     localizedGuides: localizedGuides.filter((doc) => doc.content_type === 'localized-guide'),
