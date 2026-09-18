@@ -91,13 +91,14 @@ async function handleIntents(req,res){
     const {data,error}=await supabase.from('intents').insert(payload).select('id,slug,label,icon,sort_order').single();
     if(error)throw error;
     const year=new Date().getFullYear();
-    const canonicalSlug=canonicalIntentSlug(data.slug);\n    const contentKey=`best-for:${canonicalSlug}`;
+    const canonicalSlug=canonicalIntentSlug(data.slug);
+    const contentKey=`best-for:${canonicalSlug}`;
     const canonical={
       content_key:contentKey,
       content_type:'global-best-for',
       country_slug:null,
-      topic_slug:data.slug,
-      slug:data.slug,
+      topic_slug:canonicalSlug,
+      slug:canonicalSlug,
       title:`Best Forex Brokers for ${data.label} (${year})`,
       excerpt:`Compare forex brokers for ${data.label.toLowerCase()} traders.`,
       html:'',
