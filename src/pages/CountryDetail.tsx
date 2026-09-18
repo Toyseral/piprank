@@ -81,8 +81,9 @@ export default function CountryDetail() {
   const faqs = model?.faqs ?? [];
   const guides = model?.countryGuides ?? [];
   const bestFor = model?.countryBestFor ?? [];
-  const localizedGuides = model?.localizedGuides ?? [];
-  const localizedBestFor = model?.localizedBestFor ?? [];
+  // Localized documents are intentionally not mixed into the default country hub.
+  // The hub has no locale selector, so rendering every locale here would create
+  // duplicate/competing navigation. They remain discoverable through canonical localized routes.
 
   const seo = country && document
     ? countrySeo(
@@ -149,7 +150,12 @@ export default function CountryDetail() {
       {document.blocks?.length > 0 && (
         <section className="border-b border-line bg-white">
           <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:py-16">
-            <PageBlocksRenderer blocks={document.blocks as any} brokers={brokers} countrySlug={country.slug} className="piprank-rich-content" />
+            <PageBlocksRenderer
+              blocks={document.blocks.filter((block: any) => !['broker_card', 'broker_grid', 'comparison_table'].includes(block?.type)) as any}
+              brokers={brokers}
+              countrySlug={country.slug}
+              className="piprank-rich-content"
+            />
           </div>
         </section>
       )}
@@ -171,23 +177,23 @@ export default function CountryDetail() {
         </section>
       )}
 
-      {(bestFor.length > 0 || localizedBestFor.length > 0) && (
+      {bestFor.length > 0 && (
         <section className="border-b border-line bg-white">
           <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:py-16">
             <SectionIntro eyebrow="Choose by trading need" title={`Best forex brokers in ${country.name} by need`} copy="Explore the country-specific broker pages for the features and trading styles that matter to you." />
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {[...bestFor, ...localizedBestFor].slice(0, 9).map((doc) => <BestForCard key={doc.content_key} doc={doc} countrySlug={country.slug} />)}
+              {bestFor.slice(0, 9).map((doc) => <BestForCard key={doc.content_key} doc={doc} countrySlug={country.slug} />)}
             </div>
           </div>
         </section>
       )}
 
-      {(guides.length > 0 || localizedGuides.length > 0) && (
+      {guides.length > 0 && (
         <section className="border-b border-line bg-paper">
           <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:py-16">
             <SectionIntro eyebrow="Forex broker guides" title={`Forex broker guides for ${country.name}`} copy="Country-specific guides live in the canonical guide system and are kept separate from the country hub itself." />
             <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-              {[...guides, ...localizedGuides].slice(0, 9).map((doc) => <GuideCard key={doc.content_key} doc={doc} countrySlug={country.slug} />)}
+              {guides.slice(0, 9).map((doc) => <GuideCard key={doc.content_key} doc={doc} countrySlug={country.slug} />)}
             </div>
           </div>
         </section>
