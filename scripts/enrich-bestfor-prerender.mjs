@@ -103,13 +103,14 @@ async function main() {
   if (!existsSync(DIST)) throw new Error('dist/ does not exist. Run vite build first.');
 
   const supabase = createClient(url, key);
-  const [docsRes, brokersRes, countriesRes, rankingsRes, overridesRes, availabilityRes] = await Promise.all([
+  const [docsRes, brokersRes, countriesRes, rankingsRes, overridesRes, availabilityRes, settingsRes] = await Promise.all([
     supabase.from('content_documents').select('id,content_type,country_slug,slug,settings,published,indexable').in('content_type', ['global-best-for', 'country-best-for', 'localized-best-for']).eq('published', true).eq('indexable', true),
     supabase.from('brokers').select('id,name,slug,tagline,rating,trust_score,min_deposit,spread_eurusd,commission_value,commission,max_leverage,payments,regulations,health,platforms,best_for,assets,scalping,islamic_account,copy_trading,hedging,account_types,demo_account'),
     supabase.from('countries').select('slug,recommended,publishing_state').eq('publishing_state', 'published'),
     supabase.from('country_intent_broker_final_rankings').select('final_rank,broker_id,countries!inner(slug),intents!inner(slug)'),
     supabase.from('country_intent_broker_overrides').select('broker_id,manual_rank,force_include,force_exclude,countries!inner(slug),intents!inner(slug)'),
     supabase.from('broker_country_availability').select('broker_id,status,countries!inner(slug)'),
+    supabase.from('country_intent_ranking_settings').select('ranking_mode,countries!inner(slug),intents!inner(slug)'),
   ]);
   if (docsRes.error) throw docsRes.error;
   if (brokersRes.error) throw brokersRes.error;
@@ -117,6 +118,7 @@ async function main() {
   if (rankingsRes.error) throw rankingsRes.error;
   if (overridesRes.error) throw overridesRes.error;
   if (availabilityRes.error) throw availabilityRes.error;
+  const settingsMap = new Map((settingsRes.data || []).map((row) => [`${row.countries?.slug}:${row.intents?.slug}`, row.ranking_mode === 'manual' ? 'manual' : 'automatic']));
 
   const countries = new Map((countriesRes.data || []).map((country) => [country.slug, country]));
   const rankingMap = new Map();
@@ -158,6 +160,7 @@ async function main() {
     const country = doc.country_slug ? countries.get(doc.country_slug) : null;
     const intentSlug = rankingIntentSlug(doc.slug, doc);
     const rankingKey = country ? country.slug + ':' + intentSlug : '';
+    const rankingMode = country ? (settingsMap.get(rankingKey) || 'automatic') : 'automatic';
     const baseRows = country ? (rankingMap.get(rankingKey) || []) : [];
     const overrides = country ? (overrideMap.get(rankingKey) || []) : [];
     const rankingRows = baseRows
@@ -165,7 +168,7 @@ async function main() {
         const override = overrides.find((item) => Number(item.broker_id) === Number(row.broker_id));
         return {
           ...row,
-          manual_rank: override?.manual_rank ?? null,
+          manual_rank: rankingMode === 'manual' ? (override?.manual_rank ?? null) : null,
           force_exclude: Boolean(override?.force_exclude),
           availability_status: availabilityMap.get(country.slug + ':' + row.broker_id) || 'available',
         };
@@ -175,11 +178,13 @@ async function main() {
       .filter((row) => !row.force_exclude)
       .filter((row) => (availabilityMap.get(country.slug + ':' + row.broker_id) || 'available') === 'available')
       .filter((row) => !rankingRows.some((existing) => Number(existing.broker_id) === Number(row.broker_id)))
-      .filter((row) => Boolean(row.force_include) || (Number.isInteger(Number(row.manual_rank)) && Number(row.manual_rank) >= 1 && Number(row.manual_rank) <= 9))
+      .filter((row) => rankingMode === 'manual'
+        ? (Number.isInteger(Number(row.manual_rank)) && Number(row.manual_rank) >= 1 && Number(row.manual_rank) <= 9) || Boolean(row.force_include)
+        : Boolean(row.force_include))
       .map((row) => ({
         broker_id: Number(row.broker_id),
-        final_rank: Number.isInteger(Number(row.manual_rank)) ? Number(row.manual_rank) : null,
-        manual_rank: Number.isInteger(Number(row.manual_rank)) ? Number(row.manual_rank) : null,
+        final_rank: rankingMode === 'manual' && Number.isInteger(Number(row.manual_rank)) ? Number(row.manual_rank) : null,
+        manual_rank: rankingMode === 'manual' && Number.isInteger(Number(row.manual_rank)) ? Number(row.manual_rank) : null,
         force_include: Boolean(row.force_include),
         availability_status: 'available',
       }));
