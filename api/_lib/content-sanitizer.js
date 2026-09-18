@@ -1,7 +1,7 @@
 const ALLOWED_TAGS = new Set(['p','br','strong','em','b','i','u','s','blockquote','ul','ol','li','h2','h3','h4','a','img','figure','figcaption','table','thead','tbody','tr','th','td','hr','code','pre','mark','span','div']);
 const ALLOWED_ATTRS = new Set(['href','title','target','rel','src','alt','width','height','loading','colspan','rowspan','class']);
 const BLOCK_TYPES = new Set(['richtext','heading','image','table','callout','divider','links','structured_broker_data','broker_card','broker_grid','comparison_table','broker_cta','piprank_verdict']);
-const EDITORIAL_SECTIONS = new Set(['editorial','pricing','platforms','trust','accounts','funding','introduction','why_these_brokers','who_its_for','who_its_not_for','detailed_analysis','methodology']);
+const EDITORIAL_SECTIONS = new Set(['editorial','pricing','platforms','trust','accounts','funding','introduction','why_these_brokers','who_its_for','who_its_not_for','detailed_analysis','methodology','additional']);
 const BLOCK_KEYS = {
   richtext: ['id','type','title','html','editorialSection'], heading: ['id','type','title','editorialSection'], image: ['id','type','title','src','alt','editorialSection'], table: ['id','type','title','rows','editorialSection'], callout: ['id','type','title','html','tone','editorialSection'], divider: ['id','type','title','editorialSection'], links: ['id','type','title','links','editorialSection'], structured_broker_data: ['id','type','title','brokerId','section','editorialSection'], broker_card: ['id','type','title','brokerId','variant','editorialSection'], broker_grid: ['id','type','title','brokerIds','variant','editorialSection'], comparison_table: ['id','type','title','brokerIds','fields','ctaLabel','showCta','editorialSection'], broker_cta: ['id','type','title','brokerId','variant','ctaLabel','ctaHref','headline','buttonLabel','editorialSection'], piprank_verdict: ['id','type','title','html','editorialSection'],
 };
@@ -63,7 +63,7 @@ export function sanitizeBlocks(blocks) { return Array.isArray(blocks) ? blocks.m
 export function sanitizePublicSettings(settings) {
   if (!settings || typeof settings !== 'object' || Array.isArray(settings)) return {};
   const output = {};
-  const keys = ['locale','languageCode','icon','label','criteria','sections','faqs','ranking_intent_slug','canonicalIntentSlug','image','rankingMode','pinnedBrokerSlugs','excludedBrokerSlugs','comparisonFields','role','short_bio','expertise','credentials','links','photo_url','display_order','author_slug','reviewed_by_slug','fact_checked_by_slug'];
+  const keys = ['locale','languageCode','icon','label','criteria','faqs','ranking_intent_slug','canonicalIntentSlug','image','rankingMode','pinnedBrokerSlugs','excludedBrokerSlugs','comparisonFields','role','short_bio','expertise','credentials','links','photo_url','display_order','author_slug','reviewed_by_slug','fact_checked_by_slug'];
   for (const key of keys) {
     const value = settings[key]; if (value === undefined || value === null) continue;
     if (key === 'rankingMode') { output[key] = value === 'manual' ? 'manual' : 'auto'; continue; }
@@ -75,7 +75,6 @@ export function sanitizePublicSettings(settings) {
     if (key === 'comparisonFields') { output[key] = Array.isArray(value) ? value.filter((item) => typeof item === 'string' && COMPARISON_SETTING_FIELDS.has(item)).slice(0, 20) : []; continue; }
     if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') { output[key] = typeof value === 'string' ? cleanText(value, key === 'short_bio' ? 2000 : 500) : value; continue; }
     if (key === 'criteria') { output[key] = cleanStringArray(value, 100, 300); continue; }
-    if (key === 'sections') { output[key] = Array.isArray(value) ? value.filter((item) => item && typeof item === 'object' && !Array.isArray(item)).map((item) => ({ title: item.title ? cleanText(item.title, 300) : undefined, html: item.html ? sanitizeHtml(item.html) : undefined })).slice(0, 100) : []; continue; }
     if (key === 'faqs') { output[key] = Array.isArray(value) ? value.filter((item) => item && typeof item === 'object' && !Array.isArray(item)).map((item) => ({ q: cleanText(item.q, 500), a: cleanText(item.a, 2000) })).filter((item) => item.q && item.a).slice(0, 100) : []; }
   }
   return output;
