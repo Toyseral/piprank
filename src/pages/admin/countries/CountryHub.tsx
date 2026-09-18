@@ -87,6 +87,13 @@ function CountryHubEditor({ country, document, token, onClose, onSaved, notify }
     return out.url;
   };
 
+  const faqs = Array.isArray(form.settings?.faqs)
+    ? form.settings.faqs.filter((faq): faq is { q: string; a: string } => Boolean(faq && typeof faq === 'object' && typeof faq.q === 'string' && typeof faq.a === 'string'))
+    : [];
+
+  const setFaqs = (next: { q: string; a: string }[]) =>
+    setForm((current) => ({ ...current, settings: { ...(current.settings || {}), faqs: next } }));
+
   const save = async () => {
     if (String(form.title || '').trim().length < 8) return setError('Write a useful page H1/title.');
     setBusy(true); setError('');
@@ -132,7 +139,24 @@ function CountryHubEditor({ country, document, token, onClose, onSaved, notify }
           <label><span className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-slate-400">SEO title</span><input value={form.seo_title || ''} onChange={e=>setForm({...form,seo_title:e.target.value})} className="h-10 w-full rounded-xl border border-line bg-paper px-3 text-sm outline-none focus:border-emerald-500"/></label>
           <label><span className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-slate-400">SEO description</span><textarea value={form.seo_description || ''} onChange={e=>setForm({...form,seo_description:e.target.value})} rows={2} className="w-full rounded-xl border border-line bg-paper px-3 py-2.5 text-sm outline-none focus:border-emerald-500"/></label>
         </div>
-        <div className="mt-4 flex items-center justify-between rounded-xl border border-line bg-paper p-4"><div><p className="text-sm font-bold text-ink-900">Index this country page</p><p className="text-xs text-slate-500">Publishing state remains controlled by the country entity.</p></div><span className={`rounded-full px-3 py-1 text-xs font-bold ${form.indexable ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-500'}`}>{form.indexable ? 'Indexable' : 'Noindex'}</span></div>
+        <div className="mt-5 rounded-2xl border border-line bg-paper p-4">
+  <div className="flex items-center justify-between gap-3">
+    <div><p className="text-sm font-bold text-ink-900">Country FAQs</p><p className="text-xs text-slate-500">Canonical FAQ ownership lives in this hub document.</p></div>
+    <button type="button" onClick={()=>setFaqs([...faqs,{q:'',a:''}])} className="inline-flex items-center gap-1 rounded-lg bg-white px-3 py-1.5 text-xs font-bold text-ink-900 ring-1 ring-line"><Plus size={13}/> Add FAQ</button>
+  </div>
+  <div className="mt-3 space-y-3">
+    {faqs.map((faq,index)=><div key={index} className="rounded-xl border border-line bg-white p-3">
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1 space-y-2">
+          <input value={faq.q} onChange={e=>{const next=[...faqs];next[index]={...next[index],q:e.target.value};setFaqs(next);}} placeholder="Question" className="h-10 w-full rounded-lg border border-line bg-paper px-3 text-sm outline-none focus:border-emerald-500"/>
+          <textarea value={faq.a} onChange={e=>{const next=[...faqs];next[index]={...next[index],a:e.target.value};setFaqs(next);}} placeholder="Answer" rows={3} className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-emerald-500"/>
+        </div>
+        <button type="button" onClick={()=>setFaqs(faqs.filter((_,i)=>i!==index))} className="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600" title="Remove FAQ"><Trash2 size={15}/></button>
+      </div>
+    </div>)}
+    {!faqs.length && <p className="rounded-xl border border-dashed border-line bg-white p-4 text-xs text-slate-400">No country FAQs yet.</p>}
+  </div>
+</div><div className="mt-4 flex items-center justify-between rounded-xl border border-line bg-paper p-4"><div><p className="text-sm font-bold text-ink-900">Index this country page</p><p className="text-xs text-slate-500">Publishing state remains controlled by the country entity.</p></div><span className={`rounded-full px-3 py-1 text-xs font-bold ${form.indexable ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-500'}`}>{form.indexable ? 'Indexable' : 'Noindex'}</span></div>
         <button onClick={save} disabled={busy} className="mt-5 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-ink-950 text-sm font-bold text-white disabled:opacity-60">{busy&&<Loader2 size={15} className="animate-spin"/>}Save country hub</button>
       </div>
     </div>
