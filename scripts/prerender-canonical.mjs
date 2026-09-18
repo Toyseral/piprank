@@ -165,19 +165,22 @@ async function main() {
 
   const shell = readFileSync(join(DIST, 'index.html'), 'utf8');
   const supabase = createClient(url, key);
-  const [brokersRes, countriesRes, docsRes, authorsRes] = await Promise.all([
+  const [brokersRes, countriesRes, rankingsRes, docsRes, authorsRes] = await Promise.all([
     supabase.from('brokers').select('id,name,slug,tagline,rating,trust_score,min_deposit,spread_eurusd,max_leverage,platforms,regulations,commission,website'),
     supabase.from('countries').select('id,slug,name,flag,publishing_state,updated_at').eq('publishing_state', 'published'),
+    supabase.from('country_broker_final_rankings').select('country_id,broker_id,final_rank,final_score,availability_status,editorial_note').order('final_rank', { ascending: true, nullsFirst: false }).order('final_score', { ascending: false }),
     supabase.from('content_documents').select('id,content_key,content_type,country_slug,topic_slug,slug,title,excerpt,html,blocks,settings,seo_title,seo_description,indexable,published,updated_at').in('content_type', ['guide', 'global-best-for', 'country-guide', 'country-best-for', 'localized-guide', 'localized-best-for', 'broker', 'country']).eq('published', true).eq('indexable', true),
     supabase.from('content_documents').select('id,content_key,content_type,slug,title,excerpt,settings').eq('content_type', 'author').eq('published', true),
   ]);
   if (brokersRes.error) throw brokersRes.error;
   if (countriesRes.error) throw countriesRes.error;
+  if (rankingsRes.error) throw rankingsRes.error;
   if (docsRes.error) throw docsRes.error;
   if (authorsRes.error) throw authorsRes.error;
 
   const brokers = brokersRes.data || [];
   const countries = countriesRes.data || [];
+  const rankings = rankingsRes.data || [];
   const docs = docsRes.data || [];
   const authorsByKey = new Map((authorsRes.data || []).map((author) => [author.content_key, normalizePublicDocument(author)]));
   const brokersById = new Map(brokers.map((broker) => [Number(broker.id), broker]));
@@ -219,8 +222,28 @@ async function main() {
     const title = doc.seo_title || doc.title || `Best Forex Brokers in ${country.name} | ${SITE_NAME}`;
     const description = doc.seo_description || doc.excerpt || `Compare forex brokers available to traders in ${country.name}, including regulation, costs, platforms and account features.`;
     const faqs = Array.isArray(doc.settings?.faqs) ? doc.settings.faqs.filter((faq) => faq?.q && faq?.a) : [];
-    const content = `<main><nav><a href="/">Home</a> › <a href="/countries">Countries</a> › <span>${esc(country.name)}</span></nav><p>${esc(country.flag || '')} ${esc(country.name)}</p><h1>${esc(doc.title || title)}</h1>${doc.excerpt ? `<p>${esc(doc.excerpt)}</p>` : ''}${renderDocument(doc, brokersById)}${faqs.length ? `<h2>Frequently Asked Questions</h2>${faqs.map((faq) => `<details><summary>${esc(faq.q)}</summary><p>${esc(faq.a)}</p></details>`).join('')}` : ''}<p><a href="/countries">Browse all countries</a></p></main>`;
-    const ld = [pageJsonLd(title, description, path), breadcrumbJsonLd([{ name: 'Home', path: '/' }, { name: country.name, path }])];
+    const countryRows = rankings
+      .filter((row) => Number(row.country_id) === Number(country.id) && row.availability_status !== 'unavailable' && row.availability_status !== 'restricted')
+      .map((row) => ({ ...row, broker: brokersById.get(Number(row.broker_id)) }))
+      .filter((row) => row.broker)
+      .slice(0, 9);
+    const countryGuideDocs = countryGuides.filter((item) => item.country_slug === country.slug).slice(0, 9);
+    const countryBestForDocs = countryBestFors.filter((item) => item.country_slug === country.slug).slice(0, 9);
+    const editorialBlocks = Array.isArray(doc.blocks)
+      ? doc.blocks.filter((block) => !['broker_card', 'broker_grid', 'comparison_table'].includes(block?.type))
+      : [];
+    const rankingHtml = countryRows.length
+      ? `<section><h2>Forex brokers available in ${esc(country.name)}</h2><ol>${countryRows.map((row) => `<li><a href="/brokers/${esc(row.broker.slug)}">${esc(row.broker.name)}</a>${row.editorial_note ? ` — ${esc(row.editorial_note)}` : ''}</li>`).join('')}</ol><p><a href="/find-my-broker">Get matched with a broker</a> · <a href="/compare">Compare brokers</a></p></section>`
+      : '';
+    const bestForHtml = countryBestForDocs.length
+      ? `<section><h2>Best forex brokers in ${esc(country.name)} by need</h2><ul>${countryBestForDocs.map((item) => `<li><a href="/${esc(country.slug)}/${esc(item.slug)}">${esc(item.title)}</a>${item.excerpt ? ` — ${esc(item.excerpt)}` : ''}</li>`).join('')}</ul></section>`
+      : '';
+    const guidesHtml = countryGuideDocs.length
+      ? `<section><h2>Forex broker guides for ${esc(country.name)}</h2><ul>${countryGuideDocs.map((item) => `<li><a href="/${esc(country.slug)}/guides/${esc(item.slug)}">${esc(item.title)}</a>${item.excerpt ? ` — ${esc(item.excerpt)}` : ''}</li>`).join('')}</ul></section>`
+      : '';
+    const compareHtml = `<section><h2>Compare brokers available in ${esc(country.name)}</h2><p>Review pricing, platforms, trust signals and other broker data side by side.</p><p><a href="/compare">Open broker comparison</a> · <a href="/methodology">Read PipRank methodology</a></p></section>`;
+    const content = `<main><nav><a href="/">Home</a> › <a href="/countries">Countries</a> › <span>${esc(country.name)}</span></nav><p>${esc(country.flag || '')} ${esc(country.name)} forex brokers</p><h1>${esc(doc.title || title)}</h1>${doc.excerpt ? `<p>${esc(doc.excerpt)}</p>` : ''}${editorialBlocks.map((block) => renderBlock(block, brokersById)).join('')} ${rankingHtml}${bestForHtml}${guidesHtml}${faqs.length ? `<section><h2>Frequently Asked Questions</h2>${faqs.map((faq) => `<details><summary>${esc(faq.q)}</summary><p>${esc(faq.a)}</p></details>`).join('')}</section>` : ''}${compareHtml}<p><a href="/find-my-broker">Find the broker that fits you</a></p><p><a href="/countries">Browse all countries</a></p></main>`;
+    const ld = [pageJsonLd(title, description, path), breadcrumbJsonLd([{ name: 'Home', path: '/' }, { name: 'Countries', path: '/countries' }, { name: country.name, path }])];
     if (faqs.length) ld.push(faqJsonLd(faqs));
     if (writePage(shell, writtenPaths, path, { title, description }, content, ld)) written++;
   }
