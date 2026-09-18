@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { RotateCcw, Search, SlidersHorizontal } from 'lucide-react';
 import type { Broker } from '../lib/types';
-import { fetchBrokers, fetchCountry } from '../lib/api';
+import { fetchBrokers, fetchCountry, fetchCountryBrokerRankings } from '../lib/api';
 import { useGeo } from '../lib/GeoContext';
 import BrokerCard from '../components/BrokerCard';
 import Reveal from '../components/Reveal';
@@ -50,6 +50,7 @@ export default function Brokers() {
   const [cap, setCap] = useState(0);
   const { country: activeGeo } = useGeo();
   const [localizedCountry, setLocalizedCountry] = useState<import('../lib/types').CountryPage | null>(null);
+  const [localizedRankings, setLocalizedRankings] = useState<import('../lib/types').CountryBrokerRanking[]>([]);
 
   useEffect(() => {
     fetchBrokers()
@@ -59,8 +60,8 @@ export default function Brokers() {
   }, []);
 
   useEffect(() => {
-    if (!activeGeo) { setLocalizedCountry(null); return; }
-    fetchCountry(activeGeo.slug).then(setLocalizedCountry).catch(() => setLocalizedCountry(null));
+    if (!activeGeo) { setLocalizedCountry(null); setLocalizedRankings([]); return; }
+    Promise.all([fetchCountry(activeGeo.slug), fetchCountryBrokerRankings(activeGeo.slug)]).then(([country, rankings]) => { setLocalizedCountry(country); setLocalizedRankings(rankings); }).catch(() => { setLocalizedCountry(null); setLocalizedRankings([]); });
   }, [activeGeo]);
 
   useSEO(staticPageSeo.brokers, [
@@ -73,7 +74,7 @@ export default function Brokers() {
 
   const results = useMemo(() => {
     const query = q.trim().toLowerCase();
-    const availableSlugs = new Set(localizedCountry?.available_broker_slugs ?? brokers.map((broker) => broker.slug));
+    const availableSlugs = new Set(localizedCountry ? localizedRankings.map((row) => row.broker?.slug).filter((slug): slug is string => Boolean(slug)) : brokers.map((broker) => broker.slug));
     const source = localizedCountry ? brokers.filter((b) => availableSlugs.has(b.slug)) : brokers;
     let list = source.filter((b) => {
       if (query && !b.name.toLowerCase().includes(query) && !b.tagline.toLowerCase().includes(query))
@@ -102,7 +103,7 @@ export default function Brokers() {
       }
     });
     return list;
-  }, [brokers, localizedCountry, q, sort, platforms, features, tier1, cap]);
+  }, [brokers, localizedCountry, localizedRankings, q, sort, platforms, features, tier1, cap]);
 
   const toggleStr = (list: string[], set: (v: string[]) => void, value: string) => {
     set(list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
