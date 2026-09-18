@@ -34,13 +34,26 @@ function rankBrokers(brokers, doc, country, rankingRows) {
   return buildBestForPageModel({ document: doc, brokers, country, intentSlug, rankingRows }).ranked;
 }
 
-function comparisonTable(ranked) {
+function comparisonTable(ranked, doc) {
   if (ranked.length < 2) return '';
-  return `<section class="piprank-prerender-comparison"><h2>Compare these forex brokers</h2><div class="overflow-x-auto"><table><thead><tr><th>Broker</th><th>PipRank score</th><th>Rating</th><th>Trust</th><th>EUR/USD spread</th><th>Minimum deposit</th></tr></thead><tbody>${ranked.map((b) =>
-    `<tr><th><a href="/brokers/${esc(b.slug)}">${esc(b.name)}</a></th><td>${pipRankScore(b)}/100</td><td>${esc(b.rating ?? '—')}/5</td><td>${esc(b.trust_score ?? '—')}/100</td><td>${esc(b.spread_eurusd ?? '—')} pips</td><td>${esc(b.min_deposit ?? '—')}</td></tr>`
-  ).join('')}</tbody></table></div></section>`;
+  const settings = sanitizePublicSettings(doc?.settings);
+  const requested = Array.isArray(settings.comparisonFields) && settings.comparisonFields.length ? settings.comparisonFields : ['min_deposit', 'spread_eurusd', 'commission', 'max_leverage'];
+  const fields = requested.filter((field) => ['min_deposit', 'spread_eurusd', 'commission', 'max_leverage', 'platforms', 'payments', 'regulations'].includes(field));
+  const labels = { min_deposit: 'Minimum deposit', spread_eurusd: 'EUR/USD spread', commission: 'Commission', max_leverage: 'Max leverage', platforms: 'Platforms', payments: 'Payment methods', regulations: 'Regulation' };
+  const value = (broker, field) => {
+    if (field === 'min_deposit') return broker.min_deposit ?? '—';
+    if (field === 'spread_eurusd') return (broker.spread_eurusd ?? '—') + 'p';
+    if (field === 'commission') return broker.commission || '—';
+    if (field === 'max_leverage') return broker.max_leverage || '—';
+    if (field === 'platforms') return (broker.platforms || []).map((p) => typeof p === 'object' ? p?.name : p).filter(Boolean).join(', ') || '—';
+    if (field === 'payments') return (broker.payments || []).join(', ') || '—';
+    if (field === 'regulations') return (broker.regulations || []).map((r) => r?.body).filter(Boolean).join(', ') || '—';
+    return '—';
+  };
+  const headers = fields.map((field) => '<th>' + esc(labels[field]) + '</th>').join('');
+  const rows = ranked.map((b) => '<tr><th><a href="/brokers/' + esc(b.slug) + '">' + esc(b.name) + '</a></th>' + fields.map((field) => '<td>' + esc(value(b, field)) + '</td>').join('') + '</tr>').join('');
+  return '<section class="piprank-prerender-comparison"><h2>Compare these forex brokers</h2><div class="overflow-x-auto"><table><thead><tr><th>Broker</th>' + headers + '</tr></thead><tbody>' + rows + '</tbody></table></div></section>';
 }
-
 function rankingSection(ranked, doc) {
   if (!ranked.length) return '';
   const label = String(doc.slug || '').replaceAll('-', ' ');
