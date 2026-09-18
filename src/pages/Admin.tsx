@@ -2342,6 +2342,20 @@ const GUIDE_CATEGORIES = ['Basics', 'Risk', 'Psychology', 'Platforms', 'Costs', 
 const GUIDE_LEVELS = ['Beginner', 'Intermediate', 'Advanced', 'All levels'];
 
 
+const INTENT_PUBLIC_SLUGS: Record<string, string> = {
+  beginners: 'forex-brokers-for-beginners',
+  'low-spread': 'low-spread-forex-brokers',
+  mt4: 'mt4-forex-brokers',
+  mt5: 'mt5-forex-brokers',
+  gold: 'gold-forex-brokers',
+  ecn: 'ecn-forex-brokers',
+  'copy-trading': 'copy-trading-forex-brokers',
+  scalping: 'forex-brokers-for-scalping',
+  'swing-trading': 'forex-brokers-for-swing-trading',
+  'high-leverage': 'high-leverage-forex-brokers',
+  islamic: 'islamic-forex-brokers',
+};
+
 const ICON_OPTIONS = [
   { value: 'beginners', label: 'Beginners (graduation cap)' },
   { value: 'low-spread', label: 'Low spreads (percent)' },
@@ -2445,7 +2459,7 @@ function IntentEditor({
           </p>
           {intent?.slug && (
             <a
-              href={`/${intent.slug}`}
+              href={`/${INTENT_PUBLIC_SLUGS[intent.slug] ?? intent.slug}`}
               target="_blank"
               rel="noreferrer"
               className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-white px-3 py-2 text-xs font-bold text-emerald-800 hover:bg-emerald-100"
