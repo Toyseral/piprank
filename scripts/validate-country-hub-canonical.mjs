@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
-if (process.env.VERCEL_ENV !== 'production' && process.env.CI !== 'true') {
-  console.log('[validate-country-hub-canonical] Non-production build — skipped.');
+if (process.env.VERCEL_ENV !== 'production') {
+  console.log('[validate-country-hub-canonical] Non-production build — skipped (CI has no production database credentials).');
   process.exit(0);
 }
 const url=process.env.NEXT_PUBLIC_SUPABASE_URL;
