@@ -76,7 +76,7 @@ export function brokerMatchesTopic(broker, topicOrKey) {
 }
 
 export function rankCountryTopicBrokers(brokers, country, topic) {
-  const recommendedSlugs = Array.isArray(country?.recommended) ? country.recommended.map((x) => x.slug) : [];
+  const recommendedSlugs = Array.isArray(country?.recommended) ? country.recommended.map((x) => typeof x === 'string' ? x : x?.slug).filter(Boolean) : [];
   const countryPool = brokers.filter((broker) => recommendedSlugs.includes(broker.slug));
   const eligible = countryPool.filter((broker) => brokerMatchesTopic(broker, topic));
   return eligible.sort((a, b) => {
