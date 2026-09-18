@@ -41,9 +41,9 @@ function matchesIntent(broker, intentSlug) {
   return wanted.some((token) => haystack.includes(token));
 }
 
-function rankBrokers(brokers, doc, country) {
+function rankBrokers(brokers, doc, country, rankingRows) {
   const intentSlug = rankingIntentSlug(doc.slug, doc);
-  return buildBestForPageModel({ document: doc, brokers, country, intentSlug }).ranked;
+  return buildBestForPageModel({ document: doc, brokers, country, intentSlug, rankingRows }).ranked;
 }
 
 function comparisonTable(ranked) {
@@ -106,12 +106,24 @@ async function main() {
     supabase.from('content_documents').select('id,content_type,country_slug,slug,settings,published,indexable').in('content_type', ['global-best-for', 'country-best-for', 'localized-best-for']).eq('published', true).eq('indexable', true),
     supabase.from('brokers').select('id,name,slug,tagline,rating,trust_score,min_deposit,spread_eurusd,commission_value,health,platforms,best_for'),
     supabase.from('countries').select('slug,recommended,publishing_state').eq('publishing_state', 'published'),
+    supabase.from('country_intent_broker_final_rankings').select('final_rank,broker_id,countries!inner(slug),intents!inner(slug)'),
   ]);
   if (docsRes.error) throw docsRes.error;
   if (brokersRes.error) throw brokersRes.error;
   if (countriesRes.error) throw countriesRes.error;
+  if (rankingsRes.error) throw rankingsRes.error;
 
   const countries = new Map((countriesRes.data || []).map((country) => [country.slug, country]));
+  const rankingMap = new Map();
+  for (const row of rankingsRes.data || []) {
+    const countrySlug = row.countries?.slug;
+    const intentSlug = row.intents?.slug;
+    if (!countrySlug || !intentSlug) continue;
+    const key = `${countrySlug}:${intentSlug}`;
+    const rows = rankingMap.get(key) || [];
+    rows.push({ broker_id: row.broker_id, final_rank: row.final_rank });
+    rankingMap.set(key, rows);
+  }
 
   let enriched = 0;
   for (const doc of docsRes.data || []) {
@@ -121,7 +133,9 @@ async function main() {
     if (!existsSync(file)) continue;
     const html = readFileSync(file, 'utf8');
     const country = doc.country_slug ? countries.get(doc.country_slug) : null;
-    const ranked = rankBrokers(brokersRes.data || [], doc, country);
+    const intentSlug = rankingIntentSlug(doc.slug, doc);
+    const rankingRows = country ? (rankingMap.get(`${country.slug}:${intentSlug}`) || []) : [];
+    const ranked = rankBrokers(brokersRes.data || [], doc, country, rankingRows);
     const extra = `${rankingSection(ranked, doc)}${comparisonTable(ranked)}${detailSection(ranked, doc)}${criteriaSection(doc)}`;
     const output = inject(html, extra);
     if (output !== html) {
