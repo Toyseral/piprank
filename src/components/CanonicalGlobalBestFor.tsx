@@ -29,7 +29,7 @@ function blocksOf(doc: ContentDocument | null) {
 function criteriaOf(doc: ContentDocument | null): string[] {
   const block = blocksOf(doc).find((item) => item.id === 'intent-migration:criteria');
   const html = typeof block?.html === 'string' ? block.html : '';
-  return [...html.matchAll(/<li[^>]*>([\\s\\S]*?)<\\/li>/gi)]
+  return [...html.matchAll(/<li[^>]*>([\s\S]*?)<\\/li>/gi)]
     .map((match) => textFromHtml(match[1]))
     .filter(Boolean);
 }
@@ -38,8 +38,8 @@ function faqsOf(doc: ContentDocument | null): { q: string; a: string }[] {
     .filter((item) => String(item.id || '').startsWith('intent-migration:faq-'))
     .map((item) => {
       const html = typeof item.html === 'string' ? item.html : '';
-      const question = html.match(/<h3[^>]*>([\\s\\S]*?)<\\/h3>/i)?.[1] || '';
-      const answer = html.match(/<p[^>]*>([\\s\\S]*?)<\\/p>/i)?.[1] || '';
+      const question = html.match(/<h3[^>]*>([\s\S]*?)<\\/h3>/i)?.[1] || '';
+      const answer = html.match(/<p[^>]*>([\s\S]*?)<\\/p>/i)?.[1] || '';
       return { q: textFromHtml(question), a: textFromHtml(answer) };
     })
     .filter((item) => item.q && item.a);
