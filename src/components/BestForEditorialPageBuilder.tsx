@@ -1,10 +1,17 @@
 import { useMemo, useState } from 'react';
+import { pipRankScore } from '../lib/score';
 import PageBuilder, { type PageBlock } from './PageBuilder';
 import type { Broker } from '../lib/types';
 
-type BestForSection = 'introduction' | 'why_these_brokers' | 'who_its_for' | 'who_its_not_for' | 'detailed_analysis' | 'methodology' | 'additional';
+type BestForSection = 'introduction' | 'why_these_brokers' | 'who_its_for' | 'who_its_not_for' | 'detailed_analysis' | 'methodology' | 'additional' | 'ranking_copy' | 'comparison_copy' | 'broker_analysis_copy';
 type Props = { value?: unknown[]; onChange: (blocks: PageBlock[]) => void; onUploadImage?: (file: File) => Promise<string>; brokers?: Broker[]; analysisBrokers?: Broker[] };
 type ScopedBlock = PageBlock & { editorialSection?: string };
+
+const COPY_SECTIONS: { key: BestForSection; label: string; description: string; id: string }[] = [
+  { key: 'ranking_copy', label: 'Ranking intro', description: 'Short copy shown above the ranked broker list.', id: 'bestfor-copy:ranking' },
+  { key: 'comparison_copy', label: 'Comparison intro', description: 'Short copy shown above the broker comparison table.', id: 'bestfor-copy:comparison' },
+  { key: 'broker_analysis_copy', label: 'Broker analysis intro', description: 'Short copy shown above the detailed broker analysis.', id: 'bestfor-copy:brokerAnalysis' },
+];
 
 const BASE_SECTIONS: { key: BestForSection; label: string; description: string }[] = [
   { key: 'introduction', label: 'Introduction', description: 'Opening explanation before the rankings.' },
@@ -23,13 +30,35 @@ const brokerSlugFromKey = (key: string) => isBrokerKey(key) ? key.slice('broker:
 
 export default function BestForEditorialPageBuilder({ value, onChange, onUploadImage, analysisBrokers = [] }: Props) {
   const allBlocks = useMemo(() => Array.isArray(value) ? value as ScopedBlock[] : [], [value]);
-  const sections = useMemo(() => [
-    ...BASE_SECTIONS,
-    ...analysisBrokers.slice(0, 9).map((broker, index) => ({ key: `broker:${broker.slug}`, label: `${index + 1}. ${broker.name}`, description: `Editorial analysis displayed inside the ${broker.name} recommendation module.` })),
-  ], [analysisBrokers]);
+  const brokerSections = useMemo(() => {
+    const existingSlugs = allBlocks
+      .map((block) => String(block.id || ''))
+      .filter((id) => id.startsWith('bestfor-broker:'))
+      .map((id) => id.slice('bestfor-broker:'.length).split(':')[0]);
+    const ordered = [...analysisBrokers].sort((a, b) => {
+      const aExisting = existingSlugs.indexOf(a.slug);
+      const bExisting = existingSlugs.indexOf(b.slug);
+      if (aExisting !== -1 || bExisting !== -1) {
+        if (aExisting === -1) return 1;
+        if (bExisting === -1) return -1;
+        return aExisting - bExisting;
+      }
+      return pipRankScore(b) - pipRankScore(a);
+    });
+    return ordered.slice(0, 9).map((broker, index) => ({
+      key: `broker:${broker.slug}`,
+      label: `${index + 1}. ${broker.name}`,
+      description: `Editorial analysis displayed inside the ${broker.name} recommendation module.`,
+    }));
+  }, [analysisBrokers, allBlocks]);
+  const sections = useMemo(() => [...COPY_SECTIONS, ...BASE_SECTIONS, ...brokerSections], [brokerSections]);
   const [activeSection, setActiveSection] = useState<string>('introduction');
   const active = sections.find((section) => section.key === activeSection) || sections[0];
   const activeBlocks = useMemo(() => {
+    const copySection = COPY_SECTIONS.find((section) => section.key === activeSection);
+    if (copySection) {
+      return allBlocks.filter((block) => String(block.id || '') === copySection.id);
+    }
     if (isBrokerKey(activeSection)) {
       const slug = brokerSlugFromKey(activeSection);
       return allBlocks.filter((block) => block.editorialSection === 'detailed_analysis' && String(block.id || '').startsWith(`bestfor-broker:${slug}:`));
@@ -38,6 +67,17 @@ export default function BestForEditorialPageBuilder({ value, onChange, onUploadI
   }, [activeSection, allBlocks]);
 
   const replaceActiveSection = (next: PageBlock[]) => {
+    const copySection = COPY_SECTIONS.find((section) => section.key === activeSection);
+    if (copySection) {
+      const copyBlock = next[0];
+      const preserved = allBlocks.filter((block) => String(block.id || '') !== copySection.id);
+      if (!copyBlock) {
+        onChange(preserved as PageBlock[]);
+        return;
+      }
+      onChange([{ ...copyBlock, id: copySection.id, type: 'richtext' }, ...preserved] as PageBlock[]);
+      return;
+    }
     if (isBrokerKey(activeSection)) {
       const slug = brokerSlugFromKey(activeSection);
       const prefix = `bestfor-broker:${slug}:`;
@@ -66,12 +106,15 @@ export default function BestForEditorialPageBuilder({ value, onChange, onUploadI
         <div className="border-b border-line bg-white p-2 sm:p-3">
           <div className="flex gap-1 overflow-x-auto pb-1">
             {sections.map((section) => {
-              const count = isBrokerKey(section.key)
-                ? allBlocks.filter((block) => block.editorialSection === 'detailed_analysis' && String(block.id || '').startsWith(`bestfor-broker:${brokerSlugFromKey(section.key)}:`)).length
-                : allBlocks.filter((block) => sectionOf(block) === section.key && !String(block.id || '').startsWith('bestfor-broker:') && !isCopyBlock(block)).length;
+              const copySection = COPY_SECTIONS.find((item) => item.key === section.key);
+              const count = copySection
+                ? allBlocks.filter((block) => String(block.id || '') === copySection.id).length
+                : isBrokerKey(section.key)
+                  ? allBlocks.filter((block) => block.editorialSection === 'detailed_analysis' && String(block.id || '').startsWith(`bestfor-broker:${brokerSlugFromKey(section.key)}:`)).length
+                  : allBlocks.filter((block) => sectionOf(block) === section.key && !String(block.id || '').startsWith('bestfor-broker:') && !isCopyBlock(block)).length;
               const selected = activeSection === section.key;
               const isBroker = isBrokerKey(section.key);
-              return <button key={section.key} type="button" onClick={() => setActiveSection(section.key)} className={`shrink-0 rounded-xl px-3 py-2.5 text-left transition ${selected ? 'bg-ink-950 text-white shadow-soft' : isBroker ? 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100' : 'text-slate-600 hover:bg-paper'}`}><span className="block text-xs font-bold">{section.label}</span><span className={`mt-0.5 block text-[10px] ${selected ? 'text-slate-300' : 'text-slate-400'}`}>{count} block{count === 1 ? '' : 's'}</span></button>;
+              return <button key={section.key} type="button" onClick={() => setActiveSection(section.key)} className={`shrink-0 rounded-xl px-3 py-2.5 text-left transition ${selected ? 'bg-ink-950 text-white shadow-soft' : isBroker ? 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100' : copySection ? 'bg-amber-50 text-amber-800 hover:bg-amber-100' : 'text-slate-600 hover:bg-paper'}`}><span className="block text-xs font-bold">{section.label}</span><span className={`mt-0.5 block text-[10px] ${selected ? 'text-slate-300' : 'text-slate-400'}`}>{count} block{count === 1 ? '' : 's'}</span></button>;
             })}
           </div>
         </div>

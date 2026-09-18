@@ -2,7 +2,9 @@ import { Eye, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import type { ContentDocument, Intent } from '../../lib/types';
 import supabase from '../../lib/supabase';
-import PageBuilder, { blocksToHtml, type PageBlock } from '../../components/PageBuilder';
+import BestForEditorialPageBuilder from '../../components/BestForEditorialPageBuilder';
+import { blocksToHtml, type PageBlock } from '../../components/PageBuilder';
+import type { Broker } from '../../lib/types';
 
 const GLOBAL_BEST_FOR_PATHS: Record<string, string> = {
   'eur-usd': 'eur-usd-forex-brokers',
@@ -25,6 +27,7 @@ const GLOBAL_BEST_FOR_PATHS: Record<string, string> = {
 
 type Props = {
   guides: ContentDocument[];
+  brokers: Broker[];
   onNewGuide: () => void;
   onEditGuide: (guide: ContentDocument) => void;
   /** Intent metadata is editable here; canonical page ownership remains in content_documents. */
@@ -36,6 +39,7 @@ type Props = {
 
 export default function GlobalHub({
   guides,
+  brokers,
   onNewGuide,
   onEditGuide,
   intents = [],
@@ -196,6 +200,7 @@ export default function GlobalHub({
       {editing && (
         <GlobalBestForEditor
           document={editing === 'new' ? null : editing}
+          brokers={brokers}
           onClose={() => setEditing(null)}
           onSaved={async () => {
             setEditing(null);
@@ -228,10 +233,12 @@ async function deleteGlobalBestFor(id: number, reload: () => Promise<void>, setE
 
 function GlobalBestForEditor({
   document,
+  brokers,
   onClose,
   onSaved,
 }: {
   document: ContentDocument | null;
+  brokers: Broker[];
   onClose: () => void;
   onSaved: () => Promise<void>;
 }) {
@@ -362,7 +369,13 @@ function GlobalBestForEditor({
 
           <div className="mt-5">
             <span className="mb-1 block text-[10px] font-bold uppercase text-slate-400">Page content</span>
-            <PageBuilder value={blocks} onChange={(next) => { setBlocks(next); set({ blocks: next, html: blocksToHtml(next) }); }} onUploadImage={uploadImage} />
+            <BestForEditorialPageBuilder
+              value={blocks}
+              brokers={brokers}
+              analysisBrokers={brokers}
+              onChange={(next) => { setBlocks(next); set({ blocks: next, html: blocksToHtml(next) }); }}
+              onUploadImage={uploadImage}
+            />
           </div>
 
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
