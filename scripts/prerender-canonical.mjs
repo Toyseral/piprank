@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { requireSiteUrlForProduction } from './seo-config.mjs';
 import { sanitizeBlocks, sanitizeHtml, sanitizePublicSettings } from '../api/_lib/content-sanitizer.js';
-import { reviewerFor } from '../src/lib/team.ts';
+
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DIST = join(ROOT, 'dist');
@@ -85,10 +85,18 @@ function renderBlock(block, brokersById) {
   return '';
 }
 
+function deterministicReviewer(fallbackKey) {
+  let hash = 0;
+  const value = String(fallbackKey || '');
+  for (let i = 0; i < value.length; i++) hash = (hash * 31 + value.charCodeAt(i)) >>> 0;
+  return ['r-adeyemi', 'j-okafor', 'l-mensah', 's-nwachukwu'][hash % 4];
+}
+
 function reviewerForDocument(doc, authorsByKey, fallbackKey) {
   const settings = doc?.settings || {};
   const slug = String(settings.reviewed_by_slug || settings.author_slug || '').trim().toLowerCase();
-  const fallback = fallbackKey ? reviewerFor(fallbackKey) : null;
+  const fallbackSlug = fallbackKey ? deterministicReviewer(fallbackKey) : null;
+  const fallback = fallbackSlug ? { slug: fallbackSlug, title: fallbackSlug } : null;
   const author = slug ? authorsByKey.get(`author:${slug}`) : null;
   return author || (fallback ? { slug: fallback.slug, title: fallback.penName, settings: { role: fallback.role, short_bio: fallback.bio } } : null);
 }
@@ -213,12 +221,13 @@ async function main() {
   }
 
   for (const doc of globalBestFors) {
+    const author = reviewerForDocument(doc, authorsByKey, `best-for-${doc.slug}`);
     const path = `/${doc.slug}`;
     const title = doc.seo_title || `${doc.title} | ${SITE_NAME}`;
     const description = doc.seo_description || doc.excerpt || '';
     const faqs = Array.isArray(doc.settings?.faqs) ? doc.settings.faqs : [];
-    const content = `<main><h1>${esc(doc.title)}</h1>${doc.excerpt ? `<p>${esc(doc.excerpt)}</p>` : ''}${renderDocument(doc, brokersById)}${faqs.length ? `<h2>Frequently Asked Questions</h2>${faqs.map((faq) => `<details><summary>${esc(faq.q)}</summary><p>${esc(faq.a)}</p></details>`).join('')}` : ''}</main>`;
-    if (writePage(shell, writtenPaths, path, { title, description }, content, [pageJsonLd(title, description, path), ...(faqs.length ? [faqJsonLd(faqs)] : [])])) written++;
+    const content = `<main><h1>${esc(doc.title)}</h1>${doc.excerpt ? `<p>${esc(doc.excerpt)}</p>` : ''}${attributionHtml(author)}${renderDocument(doc, brokersById)}${faqs.length ? `<h2>Frequently Asked Questions</h2>${faqs.map((faq) => `<details><summary>${esc(faq.q)}</summary><p>${esc(faq.a)}</p></details>`).join('')}` : ''}</main>`;
+    if (writePage(shell, writtenPaths, path, { title, description }, content, [pageJsonLd(title, description, path), ...(reviewerJsonLd(author) ? [{ ...pageJsonLd(title, description, path), author: reviewerJsonLd(author) }] : []), ...(faqs.length ? [faqJsonLd(faqs)] : [])])) written++;
   }
 
   for (const doc of countryGuides) {
