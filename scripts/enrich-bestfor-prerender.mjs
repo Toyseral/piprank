@@ -3,7 +3,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { sanitizePublicSettings } from '../api/_lib/content-sanitizer.js';
-import { buildBestForPageModel, rankingIntentSlug } from '../src/lib/bestForModel.js';
+import { buildBestForPageModel, pipRankScore, rankingIntentSlug } from '../src/lib/bestForModel.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DIST = join(ROOT, 'dist');
@@ -64,7 +64,7 @@ function rankingSection(ranked, doc) {
 function detailSection(ranked, doc) {
   if (!ranked.length) return '';
   return `<section class="piprank-prerender-analysis"><h2>Detailed broker analysis</h2>${ranked.map((b, i) =>
-    `<article id="bestfor-${esc(b.slug)}"><h3>${i + 1}. ${esc(b.name)}</h3><p>${esc(b.tagline || '')}</p><ul><li>PipRank score: ${pipRankScore(b)}/100</li><li>Rating: ${esc(b.rating ?? '—')}/5</li><li>Trust score: ${esc(b.trust_score ?? '—')}/100</li><li>EUR/USD spread: ${esc(b.spread_eurusd ?? '—')} pips</li><li>Minimum deposit: ${esc(b.min_deposit ?? '—')}</li><li>Platforms: ${esc((b.platforms || []).join(', ') || '—')}</li></ul><p><a href="/brokers/${esc(b.slug)}">Read the full ${esc(b.name)} review</a></p></article>`
+    `<article id="bestfor-${esc(b.slug)}"><h3>${i + 1}. ${esc(b.name)}</h3><p>${esc(b.tagline || '')}</p><ul><li>PipRank score: ${pipRankScore(b)}/100</li><li>Rating: ${esc(b.rating ?? '—')}/5</li><li>Trust score: ${esc(b.trust_score ?? '—')}/100</li><li>EUR/USD spread: ${esc(b.spread_eurusd ?? '—')} pips</li><li>Minimum deposit: ${esc(b.min_deposit ?? '—')}</li><li>Platforms: ${esc((b.platforms || []).map((p) => typeof p === 'object' ? p?.name : p).filter(Boolean).join(', ') || '—')}</li></ul><p><a href="/brokers/${esc(b.slug)}">Read the full ${esc(b.name)} review</a></p></article>`
   ).join('')}</section>`;
 }
 
