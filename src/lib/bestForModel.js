@@ -49,7 +49,8 @@ export function rankGlobalBestFor(brokers, doc, intentSlug) {
 export function rankCountryBestFor(brokers, country, doc, intentSlug, rankingRows = []) {
   if (!country) return [];
   const brokerById = new Map((brokers || []).map((broker) => [Number(broker.id), broker]));
-  const manualRows = (rankingRows || [])
+  const normalizedRows = (rankingRows || []).filter((row) => row && Number.isInteger(Number(row.broker_id)));
+  const manualRows = normalizedRows
     .filter((row) => Number.isInteger(Number(row.manual_rank)) && Number(row.manual_rank) >= 1 && Number(row.manual_rank) <= 9)
     .sort((a, b) => Number(a.manual_rank) - Number(b.manual_rank));
   const settings = settingsOf(doc);
@@ -60,14 +61,25 @@ export function rankCountryBestFor(brokers, country, doc, intentSlug, rankingRow
       .filter((broker) => Boolean(broker) && !excluded.has(broker.slug));
   }
 
+  // The public ranking API has already applied country availability, force exclusions,
+  // and automatic top-9 eligibility. When rows are present, treat them as the
+  // authoritative public ranking instead of recomputing from legacy country data.
+  if (normalizedRows.length > 0) {
+    const rankById = new Map(normalizedRows.map((row, index) => [
+      Number(row.broker_id),
+      Number.isFinite(Number(row.final_rank)) ? Number(row.final_rank) : index + 1
+    ]));
+    return normalizedRows
+      .map((row) => brokerById.get(Number(row.broker_id)))
+      .filter((broker) => Boolean(broker) && !excluded.has(broker.slug))
+      .sort((a, b) => (rankById.get(Number(a.id)) ?? 9999) - (rankById.get(Number(b.id)) ?? 9999));
+  }
+
   const topic = getCountrySeoTopic(intentSlug);
   if (!topic) return [];
   const base = rankCountryTopicBrokers(brokers || [], country, topic);
   const eligiblePool = base.filter((broker) => !excluded.has(broker.slug));
-  const rankById = new Map((rankingRows || []).map((row, index) => [
-    Number(row.broker_id),
-    Number.isFinite(Number(row.final_rank)) ? Number(row.final_rank) : index + 1
-  ]));
+  const rankById = new Map();
   return [...eligiblePool].sort((a, b) => {
     const ar = rankById.get(Number(a.id)); const br = rankById.get(Number(b.id));
     if (ar !== undefined && br !== undefined) return ar - br;
