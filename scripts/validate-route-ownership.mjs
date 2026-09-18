@@ -1,6 +1,107 @@
-import { STATIC_PATHS, canonicalKeyForDocument, canonicalPathForDocument, cleanSlug, localeOf, retiredKeyMatches, isCanonicalContentType } from '../src/lib/canonical-route-registry.mjs';
+import { canonicalKeyForDocument, canonicalPathForDocument, isCanonicalContentType, isRetiredContentType, retiredKeyMatches, localeOf } from '../src/lib/canonical-route-registry.mjs';
+import { createClient } from '@supabase/supabase-js';
 
+const CANONICAL_TYPES = new Set([
+  'guide',
+  'global-best-for',
+  'country-guide',
+  'country-best-for',
+  'localized-guide',
+  'localized-best-for',
+  'broker',
+  'country',
+  'compare',
+]);
 
+const STATIC_PATHS = new Set([
+  '/',
+  '/brokers',
+  '/countries',
+  '/compare',
+  '/guides',
+  '/methodology',
+  '/quiz',
+  '/tools',
+  '/promotions',
+  '/about',
+  '/authors',
+]);
+
+const RETIRED_TYPES = new Set(['country-topic', 'localized-seo']);
+
+function localeOf(doc) {
+  return String(doc?.settings?.locale || doc?.settings?.languageCode || '').trim().toLowerCase();
+}
+
+function clean(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function canonicalKeyForDocument(doc) {
+  const country = clean(doc.country_slug);
+  const slug = clean(doc.slug);
+  const locale = localeOf(doc);
+  switch (doc.content_type) {
+    case 'guide': return slug && !country ? `guide:${slug}` : null;
+    case 'global-best-for': return slug && !country ? `best-for:${slug}` : null;
+    case 'country-guide': return country && slug ? `country-guide:${country}:${slug}` : null;
+    case 'country-best-for': return country && slug ? `country-best-for:${country}:${slug}` : null;
+    case 'localized-guide': return country && locale && slug ? `localized-guide:${country}:${locale}:${slug}` : null;
+    case 'localized-best-for': return country && locale && slug ? `localized-best-for:${country}:${locale}:${slug}` : null;
+    case 'broker': return slug ? `broker:${slug}:main` : null;
+    case 'country': return country || slug ? `country:${country || slug}:hub` : null;
+    case 'compare': return slug ? `compare:${slug}` : null;
+    default: return null;
+  }
+}
+
+function canonicalPathForDocument(doc) {
+  const country = clean(doc.country_slug);
+  const slug = clean(doc.slug);
+  const locale = localeOf(doc);
+  switch (doc.content_type) {
+    case 'guide': return slug && !country ? `/guides/${encodeURIComponent(slug)}` : null;
+    case 'global-best-for': return slug && !country ? `/${encodeURIComponent(slug)}` : null;
+    case 'country-guide': return country && slug ? `/${encodeURIComponent(country)}/guides/${encodeURIComponent(slug)}` : null;
+    case 'country-best-for': return country && slug ? `/${encodeURIComponent(country)}/${encodeURIComponent(slug)}` : null;
+    case 'localized-guide': return country && locale && slug ? `/${encodeURIComponent(country)}/${encodeURIComponent(locale)}/guides/${encodeURIComponent(slug)}` : null;
+    case 'localized-best-for': return country && locale && slug ? `/${encodeURIComponent(country)}/${encodeURIComponent(locale)}/${encodeURIComponent(slug)}` : null;
+    case 'broker': return slug ? `/brokers/${encodeURIComponent(slug)}` : null;
+    case 'country': return country || slug ? `/${encodeURIComponent(country || slug)}` : null;
+    case 'compare': return slug ? `/compare/${encodeURIComponent(slug)}` : null;
+    default: return null;
+  }
+}
+
+function fail(errors) {
+  if (!errors.length) return;
+  console.error('[validate-route-ownership] FAILED');
+  for (const error of errors) console.error(` - ${error}`);
+  process.exit(1);
+}
+
+async function main() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) {
+    if (process.env.VERCEL_ENV === 'production') {
+      throw new Error('Supabase credentials are required for route ownership validation.');
+    }
+    console.log('[validate-route-ownership] Non-production build without Supabase credentials — skipped (CI has no production database credentials).');
+    return;
+  }
+
+  const supabase = createClient(url, key);
+  const [{ data: docs, error: docError }, { data: countries, error: countryError }, { data: intents, error: intentError }] = await Promise.all([
+    supabase.from('content_documents').select('id,content_key,content_type,country_slug,slug,topic_slug,published,indexable,settings'),
+    supabase.from('countries').select('slug,publishing_state'),
+    supabase.from('intents').select('slug'),
+  ]);
+  if (docError) throw new Error(`Route ownership content query failed: ${docError.message}`);
+  if (countryError) throw new Error(`Route ownership country query failed: ${countryError.message}`);
+  if (intentError) throw new Error(`Route ownership intent query failed: ${intentError.message}`);
+
+  const rows = docs || [];
   const errors = [];
   const ownedPaths = new Map();
   const ownedKeys = new Map();
