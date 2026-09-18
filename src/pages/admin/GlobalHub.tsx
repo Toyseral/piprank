@@ -200,6 +200,7 @@ export default function GlobalHub({
       {editing && (
         <GlobalBestForEditor
           document={editing === 'new' ? null : editing}
+          brokers={brokers}
           onClose={() => setEditing(null)}
           onSaved={async () => {
             setEditing(null);
@@ -232,10 +233,12 @@ async function deleteGlobalBestFor(id: number, reload: () => Promise<void>, setE
 
 function GlobalBestForEditor({
   document,
+  brokers,
   onClose,
   onSaved,
 }: {
   document: ContentDocument | null;
+  brokers: Broker[];
   onClose: () => void;
   onSaved: () => Promise<void>;
 }) {
