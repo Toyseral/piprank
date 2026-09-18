@@ -37,21 +37,28 @@ async function main() {
   const staticPaths = ['/', '/brokers', '/countries', '/compare', '/guides', '/methodology', '/quiz', '/tools', '/promotions', '/about', '/authors'];
   const urls = staticPaths.map((loc) => ({ loc }));
 
-  const [brokersResult, countriesResult, documentsResult] = await Promise.all([
+  const [brokersResult, countriesResult, documentsResult, countryDocumentsResult] = await Promise.all([
     supabase.from('brokers').select('slug, rating, updated_at'),
     supabase.from('countries').select('id, slug, updated_at, publishing_state'),
     supabase.from('content_documents').select('content_type, country_slug, topic_slug, slug, published, indexable, updated_at, content_key, settings').in('content_type', CANONICAL_CONTENT_TYPES).eq('published', true).eq('indexable', true),
+    supabase.from('content_documents').select('country_slug, slug, published, indexable, updated_at').eq('content_type', 'country'),
   ]);
-  for (const result of [brokersResult, countriesResult, documentsResult]) {
+  for (const result of [brokersResult, countriesResult, documentsResult, countryDocumentsResult]) {
     if (result.error) throw new Error(`[generate-sitemap] Supabase query failed: ${result.error.message}`);
   }
 
   const brokers = brokersResult.data ?? [];
   const countries = countriesResult.data ?? [];
   const documents = documentsResult.data ?? [];
+  const countryDocuments = new Map((countryDocumentsResult.data ?? []).filter((doc) => doc.country_slug).map((doc) => [doc.country_slug, doc]));
 
   for (const broker of brokers) if (broker.slug) urls.push({ loc: `/brokers/${broker.slug}`, lastmod: cleanDate(broker.updated_at) });
-  for (const country of countries) if (country.slug && country.publishing_state === 'published') urls.push({ loc: `/${country.slug}`, lastmod: cleanDate(country.updated_at) });
+  for (const country of countries) {
+    if (!country.slug || country.publishing_state !== 'published') continue;
+    const document = countryDocuments.get(country.slug);
+    if (!document?.published || !document?.indexable) continue;
+    urls.push({ loc: `/${country.slug}`, lastmod: cleanDate(document.updated_at || country.updated_at) });
+  }
 
   for (const document of documents) {
     const path = canonicalPathForDocument(document);
