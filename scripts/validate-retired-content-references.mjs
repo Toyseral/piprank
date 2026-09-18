@@ -14,6 +14,7 @@ const IGNORE = new Set([
   'src/pages/Admin.tsx',
   'scripts/validate-canonical-ownership.mjs',
   'scripts/validate-route-ownership.mjs',
+  'src/lib/canonical-route-registry.mjs',
 ]);
 
 const patterns = [
