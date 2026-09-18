@@ -340,7 +340,7 @@ export default function Home() {
             {countries.map((c, i) => (
               <Reveal key={c.slug} delay={Math.min(i, 4) * 0.05}>
                 <Link
-                  to={`/countries/${c.slug}`}
+                  to={`/${c.slug}`}
                   className="group flex h-full flex-col rounded-2xl border border-line bg-white p-5 transition hover:-translate-y-1 hover:border-emerald-300 hover:shadow-soft-lg"
                 >
                   <span className="text-3xl">{c.flag}</span>
