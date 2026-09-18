@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { requireSiteUrlForProduction } from './seo-config.mjs';
 import { sanitizeBlocks, sanitizeHtml, sanitizePublicSettings } from '../api/_lib/content-sanitizer.js';
+import { reviewerFor } from '../src/lib/team.ts';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DIST = join(ROOT, 'dist');
@@ -84,6 +85,28 @@ function renderBlock(block, brokersById) {
   return '';
 }
 
+function reviewerForDocument(doc, authorsByKey, fallbackKey) {
+  const settings = doc?.settings || {};
+  const slug = String(settings.reviewed_by_slug || settings.author_slug || '').trim().toLowerCase();
+  const fallback = fallbackKey ? reviewerFor(fallbackKey) : null;
+  const author = slug ? authorsByKey.get(`author:${slug}`) : null;
+  return author || (fallback ? { slug: fallback.slug, title: fallback.penName, settings: { role: fallback.role, short_bio: fallback.bio } } : null);
+}
+
+function attributionHtml(author, label = 'Written & reviewed by') {
+  if (!author) return '';
+  const settings = author.settings || {};
+  const slug = String(author.slug || '').trim();
+  return `<aside class="piprank-attribution"><strong>${esc(label)} ${esc(author.title || '')}</strong>${settings.role ? `<span> · ${esc(settings.role)}</span>` : ''}${settings.short_bio ? `<p>${esc(settings.short_bio)}</p>` : ''}${slug ? `<a href="/authors#${encodeURIComponent(slug)}">View author profile</a>` : ''}</aside>`;
+}
+
+function reviewerJsonLd(author) {
+  if (!author) return null;
+  const settings = author.settings || {};
+  const slug = String(author.slug || '').trim();
+  return { '@type': 'Person', name: author.title || '', ...(settings.role ? { jobTitle: settings.role } : {}), ...(slug ? { url: absolute(`/authors#${encodeURIComponent(slug)}`) } : {}), ...(settings.photo_url ? { image: settings.photo_url } : {}) };
+}
+
 function renderDocument(doc, brokersById) {
   const blocks = Array.isArray(doc.blocks) ? doc.blocks.map((block) => renderBlock(block, brokersById)).join('\n') : '';
   return blocks || doc.html || '';
@@ -126,18 +149,21 @@ async function main() {
 
   const shell = readFileSync(join(DIST, 'index.html'), 'utf8');
   const supabase = createClient(url, key);
-  const [brokersRes, countriesRes, docsRes] = await Promise.all([
+  const [brokersRes, countriesRes, docsRes, authorsRes] = await Promise.all([
     supabase.from('brokers').select('id,name,slug,tagline,rating,trust_score,min_deposit,spread_eurusd,max_leverage,platforms,regulations,commission,website'),
     supabase.from('countries').select('id,slug,name,recommended,intro,publishing_state').eq('publishing_state', 'published'),
     supabase.from('content_documents').select('id,content_key,content_type,country_slug,topic_slug,slug,title,excerpt,html,blocks,settings,seo_title,seo_description,indexable,published,updated_at').in('content_type', ['guide', 'global-best-for', 'country-guide', 'country-best-for', 'localized-guide', 'localized-best-for', 'broker', 'country']).eq('published', true).eq('indexable', true),
+    supabase.from('content_documents').select('id,content_key,content_type,slug,title,excerpt,settings').eq('content_type', 'author').eq('published', true),
   ]);
   if (brokersRes.error) throw brokersRes.error;
   if (countriesRes.error) throw countriesRes.error;
   if (docsRes.error) throw docsRes.error;
+  if (authorsRes.error) throw authorsRes.error;
 
   const brokers = brokersRes.data || [];
   const countries = countriesRes.data || [];
   const docs = docsRes.data || [];
+  const authorsByKey = new Map((authorsRes.data || []).map((author) => [author.content_key, normalizePublicDocument(author)]));
   const brokersById = new Map(brokers.map((broker) => [Number(broker.id), broker]));
   const countriesBySlug = new Map(countries.map((country) => [country.slug, country]));
   const publicDocs = docs.map(normalizePublicDocument);
@@ -181,8 +207,9 @@ async function main() {
     const title = doc.seo_title || `${doc.title} | ${SITE_NAME} Guides`;
     const description = doc.seo_description || doc.excerpt || '';
     const faqs = Array.isArray(doc.settings?.faqs) ? doc.settings.faqs : [];
-    const content = `<main><nav><a href="/">Home</a> › <a href="/guides">Guides</a> › <span>${esc(doc.title)}</span></nav><h1>${esc(doc.title)}</h1>${doc.excerpt ? `<p>${esc(doc.excerpt)}</p>` : ''}${renderDocument(doc, brokersById)}${faqs.length ? `<h2>Frequently Asked Questions</h2>${faqs.map((faq) => `<details><summary>${esc(faq.q)}</summary><p>${esc(faq.a)}</p></details>`).join('')}` : ''}</main>`;
-    if (writePage(shell, writtenPaths, path, { title, description }, content, [pageJsonLd(title, description, path, 'Article'), breadcrumbJsonLd([{ name: 'Home', path: '/' }, { name: 'Guides', path: '/guides' }, { name: doc.title, path }]), ...(faqs.length ? [faqJsonLd(faqs)] : [])])) written++;
+    const author = reviewerForDocument(doc, authorsByKey, `guide-${doc.slug}`);
+    const content = `<main><nav><a href="/">Home</a> › <a href="/guides">Guides</a> › <span>${esc(doc.title)}</span></nav><h1>${esc(doc.title)}</h1>${doc.excerpt ? `<p>${esc(doc.excerpt)}</p>` : ''}${attributionHtml(author)}${renderDocument(doc, brokersById)}${faqs.length ? `<h2>Frequently Asked Questions</h2>${faqs.map((faq) => `<details><summary>${esc(faq.q)}</summary><p>${esc(faq.a)}</p></details>`).join('')}` : ''}</main>`;
+    if (writePage(shell, writtenPaths, path, { title, description }, content, [pageJsonLd(title, description, path, 'Article'), breadcrumbJsonLd([{ name: 'Home', path: '/' }, { name: 'Guides', path: '/guides' }, { name: doc.title, path }]), ...(faqs.length ? [faqJsonLd(faqs)] : []), ...(reviewerJsonLd(author) ? [{ ...pageJsonLd(title, description, path, 'Article'), author: reviewerJsonLd(author) }] : [])])) written++;
   }
 
   for (const doc of globalBestFors) {
