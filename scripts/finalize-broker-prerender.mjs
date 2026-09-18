@@ -41,6 +41,13 @@ function articleSchema(seo, reviewer = null) {
 }
 function breadcrumbSchema(broker) { return { '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [{ '@type': 'ListItem', position: 1, name: 'Home', item: absolute('/') }, { '@type': 'ListItem', position: 2, name: 'Forex Brokers', item: absolute('/brokers') }, { '@type': 'ListItem', position: 3, name: broker.name, item: absolute(`/brokers/${broker.slug}`) }] }; }
 
+function reviewerSlugFor(brokerSlug) {
+  let hash = 0;
+  const value = String(brokerSlug || '');
+  for (let i = 0; i < value.length; i++) hash = (hash * 31 + value.charCodeAt(i)) >>> 0;
+  return ['r-adeyemi', 'j-okafor', 'l-mensah', 's-nwachukwu'][hash % 4];
+}
+
 const EDITORIAL_SECTIONS = new Set(['editorial', 'pricing', 'platforms', 'trust', 'accounts', 'funding']);
 function blockSection(block) { return EDITORIAL_SECTIONS.has(block?.editorialSection) ? block.editorialSection : 'editorial'; }
 function blockHtml(block) {
@@ -116,14 +123,7 @@ function normalizeDocument(document) {
 function reviewerFrom(document, authorByKey, broker) {
   const settings = document?.settings || {};
   const explicitSlug = String(settings.reviewed_by_slug || settings.author_slug || '').trim();
-  const fallbackSlug = explicitSlug || String(broker.slug ? ({
-    'interactive-brokers': 'r-adeyemi',
-    octa: 'j-okafor',
-    pepperstone: 'j-okafor',
-    oanda: 'l-mensah',
-    tickmill: 's-nwachukwu',
-    exness: 'r-adeyemi',
-  }[broker.slug] || 'r-adeyemi') : 'r-adeyemi');
+  const fallbackSlug = explicitSlug || reviewerSlugFor(broker.slug);
   const author = authorByKey.get(`author:${fallbackSlug}`);
   if (!author?.published) return null;
   const settingsAuthor = author.settings || {};
