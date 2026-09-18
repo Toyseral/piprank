@@ -16,6 +16,41 @@ async function handleAvailability(req, res) {
     if (!broker_id && !country_slug) return res.status(400).json({ error: 'broker_id or country_slug is required' });
     const { data, error } = await query;
     if (error) throw error;
+
+    // Country availability is an override model: every broker is available by
+    // default, and only an explicit country row changes that state. Returning
+    // the complete country matrix keeps the admin editor and ranking engine on
+    // the same source of truth without requiring N x M seed rows in the DB.
+    if (broker_id) {
+      const { data: countries, error: countryError } = await supabase
+        .from('countries')
+        .select('id,slug,name')
+        .order('name', { ascending: true });
+      if (countryError) throw countryError;
+      const byCountry = new Map((data ?? []).map((row) => [Number(row.country_id), row]));
+      return res.status(200).json((countries ?? []).map((country) => {
+        const row = byCountry.get(Number(country.id));
+        return row
+          ? { ...row, note: row.note ?? row.notes ?? '', country_slug: country.slug, country_name: country.name, countries: undefined }
+          : {
+              id: 0,
+              broker_id: Number(broker_id),
+              country_id: Number(country.id),
+              is_available: true,
+              status: 'available',
+              notes: null,
+              note: '',
+              source_url: null,
+              verified: false,
+              verified_at: null,
+              priority: 0,
+              updated_at: null,
+              country_slug: country.slug,
+              country_name: country.name,
+            };
+      }));
+    }
+
     return res.status(200).json((data ?? []).map((row) => ({
       ...row,
       note: row.note ?? row.notes ?? '',
