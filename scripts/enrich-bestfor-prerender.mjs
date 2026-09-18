@@ -86,7 +86,7 @@ function rankBrokers(brokers, doc, countryRecommended) {
     ranked.sort((a, b) => {
       const ai = order.has(a.slug) ? order.get(a.slug) : Number.MAX_SAFE_INTEGER;
       const bi = order.has(b.slug) ? order.get(b.slug) : Number.MAX_SAFE_INTEGER;
-      return ai - bi || pipRankScore(b) - score(a);
+      return ai - bi || pipRankScore(b) - pipRankScore(a);
     });
   }
   return ranked.slice(0, 9);
@@ -95,7 +95,7 @@ function rankBrokers(brokers, doc, countryRecommended) {
 function comparisonTable(ranked) {
   if (ranked.length < 2) return '';
   return `<section class="piprank-prerender-comparison"><h2>Compare these forex brokers</h2><div class="overflow-x-auto"><table><thead><tr><th>Broker</th><th>PipRank score</th><th>Rating</th><th>Trust</th><th>EUR/USD spread</th><th>Minimum deposit</th></tr></thead><tbody>${ranked.map((b) =>
-    `<tr><th><a href="/brokers/${esc(b.slug)}">${esc(b.name)}</a></th><td>${score(b)}/100</td><td>${esc(b.rating ?? '—')}/5</td><td>${esc(b.trust_score ?? '—')}/100</td><td>${esc(b.spread_eurusd ?? '—')} pips</td><td>${esc(b.min_deposit ?? '—')}</td></tr>`
+    `<tr><th><a href="/brokers/${esc(b.slug)}">${esc(b.name)}</a></th><td>${pipRankScore(b)}/100</td><td>${esc(b.rating ?? '—')}/5</td><td>${esc(b.trust_score ?? '—')}/100</td><td>${esc(b.spread_eurusd ?? '—')} pips</td><td>${esc(b.min_deposit ?? '—')}</td></tr>`
   ).join('')}</tbody></table></div></section>`;
 }
 
@@ -103,14 +103,14 @@ function rankingSection(ranked, doc) {
   if (!ranked.length) return '';
   const label = String(doc.slug || '').replaceAll('-', ' ');
   return `<section class="piprank-prerender-ranking"><h2>Best forex brokers for ${esc(label)}</h2><ol>${ranked.map((b, i) =>
-    `<li><strong>#${i + 1} <a href="/brokers/${esc(b.slug)}">${esc(b.name)}</a></strong> — PipRank score ${score(b)}/100. ${esc(b.tagline || '')}</li>`
+    `<li><strong>#${i + 1} <a href="/brokers/${esc(b.slug)}">${esc(b.name)}</a></strong> — PipRank score ${pipRankScore(b)}/100. ${esc(b.tagline || '')}</li>`
   ).join('')}</ol></section>`;
 }
 
 function detailSection(ranked, doc) {
   if (!ranked.length) return '';
   return `<section class="piprank-prerender-analysis"><h2>Detailed broker analysis</h2>${ranked.map((b, i) =>
-    `<article id="bestfor-${esc(b.slug)}"><h3>${i + 1}. ${esc(b.name)}</h3><p>${esc(b.tagline || '')}</p><ul><li>PipRank score: ${score(b)}/100</li><li>Rating: ${esc(b.rating ?? '—')}/5</li><li>Trust score: ${esc(b.trust_score ?? '—')}/100</li><li>EUR/USD spread: ${esc(b.spread_eurusd ?? '—')} pips</li><li>Minimum deposit: ${esc(b.min_deposit ?? '—')}</li><li>Platforms: ${esc((b.platforms || []).join(', ') || '—')}</li></ul><p><a href="/brokers/${esc(b.slug)}">Read the full ${esc(b.name)} review</a></p></article>`
+    `<article id="bestfor-${esc(b.slug)}"><h3>${i + 1}. ${esc(b.name)}</h3><p>${esc(b.tagline || '')}</p><ul><li>PipRank score: ${pipRankScore(b)}/100</li><li>Rating: ${esc(b.rating ?? '—')}/5</li><li>Trust score: ${esc(b.trust_score ?? '—')}/100</li><li>EUR/USD spread: ${esc(b.spread_eurusd ?? '—')} pips</li><li>Minimum deposit: ${esc(b.min_deposit ?? '—')}</li><li>Platforms: ${esc((b.platforms || []).join(', ') || '—')}</li></ul><p><a href="/brokers/${esc(b.slug)}">Read the full ${esc(b.name)} review</a></p></article>`
   ).join('')}</section>`;
 }
 
@@ -150,7 +150,7 @@ async function main() {
   const supabase = createClient(url, key);
   const [docsRes, brokersRes, countriesRes] = await Promise.all([
     supabase.from('content_documents').select('id,content_type,country_slug,slug,settings,published,indexable').in('content_type', ['global-best-for', 'country-best-for', 'localized-best-for']).eq('published', true).eq('indexable', true),
-    supabase.from('brokers').select('id,name,slug,tagline,rating,trust_score,min_deposit,spread_eurusd,platforms,best_for'),
+    supabase.from('brokers').select('id,name,slug,tagline,rating,trust_score,min_deposit,spread_eurusd,commission_value,health,platforms,best_for'),
     supabase.from('countries').select('slug,recommended,publishing_state').eq('publishing_state', 'published'),
   ]);
   if (docsRes.error) throw docsRes.error;
