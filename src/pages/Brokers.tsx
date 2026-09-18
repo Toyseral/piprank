@@ -101,9 +101,6 @@ export default function Brokers() {
           return b.rating - a.rating;
       }
     });
-    if (localizedCountry && recommendedOrder.size) {
-      list.sort((a, b) => (recommendedOrder.get(a.slug) ?? 99) - (recommendedOrder.get(b.slug) ?? 99));
-    }
     return list;
   }, [brokers, localizedCountry, q, sort, platforms, features, tier1, cap]);
 
