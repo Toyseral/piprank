@@ -6,18 +6,30 @@ import { sanitizePublicSettings } from '../api/_lib/content-sanitizer.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DIST = join(ROOT, 'dist');
-const SITE_NAME = 'PipRank';
 
 const esc = (value) => String(value ?? '')
   .replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
   .replaceAll('"', '&quot;').replaceAll("'", '&#39;');
 
-const score = (broker) => {
-  const rating = Number(broker.rating || 0);
+const healthScore = (broker) => Math.round(
+  Number(broker.health?.regulation || 0) * 0.3 +
+  Number(broker.health?.withdrawals || 0) * 0.2 +
+  Number(broker.health?.execution || 0) * 0.15 +
+  Number(broker.health?.longevity || 0) * 0.15 +
+  Number(broker.health?.support || 0) * 0.1 +
+  Number(broker.health?.sentiment || 0) * 0.1
+);
+const allInCost = (broker) => Math.round(
+  (Number(broker.spread_eurusd || 0) + Number(broker.commission_value || 0) / 10) * 100
+) / 100;
+const pipRankScore = (broker) => {
+  const cost = Math.max(0, 100 - allInCost(broker) * 12);
+  const deposit = Math.max(0, 100 - Math.min(Number(broker.min_deposit || 0), 500) / 5);
   const trust = Number(broker.trust_score || 0);
-  const spread = Number(broker.spread_eurusd || 0);
+  const health = healthScore(broker);
+  const rating = Math.min(100, Number(broker.rating || 0) * 20);
   return Math.max(1, Math.min(99, Math.round(
-    rating * 4 + trust * 0.55 + Math.max(0, 30 - spread * 3)
+    trust * 0.28 + health * 0.28 + cost * 0.18 + deposit * 0.08 + rating * 0.18
   )));
 };
 
@@ -64,7 +76,7 @@ function rankBrokers(brokers, doc, countryRecommended) {
   );
 
   const ranked = [...base].sort((a, b) =>
-    score(b) - score(a) ||
+    pipRankScore(b) - pipRankScore(a) ||
     Number(b.trust_score || 0) - Number(a.trust_score || 0) ||
     String(a.name).localeCompare(String(b.name))
   );
@@ -74,7 +86,7 @@ function rankBrokers(brokers, doc, countryRecommended) {
     ranked.sort((a, b) => {
       const ai = order.has(a.slug) ? order.get(a.slug) : Number.MAX_SAFE_INTEGER;
       const bi = order.has(b.slug) ? order.get(b.slug) : Number.MAX_SAFE_INTEGER;
-      return ai - bi || score(b) - score(a);
+      return ai - bi || pipRankScore(b) - score(a);
     });
   }
   return ranked.slice(0, 9);
@@ -160,7 +172,7 @@ async function main() {
     if (!existsSync(file)) continue;
     const html = readFileSync(file, 'utf8');
     const ranked = rankBrokers(brokersRes.data || [], doc, countries.get(doc.country_slug));
-    const extra = `${rankingSection(ranked, doc)}${comparisonTable(ranked)}${detailSection(ranked, doc)}${criteriaSection(doc)}${faqSection(doc)}`;
+    const extra = `${rankingSection(ranked, doc)}${comparisonTable(ranked)}${detailSection(ranked, doc)}${criteriaSection(doc)}`;
     const output = inject(html, extra);
     if (output !== html) {
       writeFileSync(file, output, 'utf8');
