@@ -79,15 +79,15 @@ async function main() {
     const intentSlug = rankingIntentSlug(doc.slug, doc);
     const rankingRows = country ? (rankingMap.get(`${country.slug}:${intentSlug}`) || []) : [];
     const model = buildBestForPageModel({ document: doc, brokers: brokersRes.data || [], country, intentSlug, rankingRows });
-    const actual = rankingNames(readFileSync(file, 'utf8')).slice(0, 9);
+    const html = readFileSync(file, 'utf8');
+    const actual = rankingNames(html).slice(0, 9);
     const expected = model.top9.map((broker) => broker.name);
     if (actual.join('\n') !== expected.join('\n')) failures.push(`${path}: expected [${expected.join(', ')}] but prerender contains [${actual.join(', ')}]`);
-    if (expected.length > 0 && !hasClass(readFileSync(file, 'utf8'), 'piprank-prerender-ranking')) failures.push(`${path}: ranking section missing`);
-    if (expected.length > 1 && !hasClass(readFileSync(file, 'utf8'), 'piprank-prerender-comparison')) failures.push(`${path}: comparison section missing`);
-    if (model.criteria.length > 0 && !hasClass(readFileSync(file, 'utf8'), 'piprank-prerender-criteria')) failures.push(`${path}: criteria section missing`);
+    if (expected.length > 0 && !hasClass(html, 'piprank-prerender-ranking')) failures.push(`${path}: ranking section missing`);
+    if (expected.length > 1 && !hasClass(html, 'piprank-prerender-comparison')) failures.push(`${path}: comparison section missing`);
+    if (model.criteria.length > 0 && !hasClass(html, 'piprank-prerender-criteria')) failures.push(`${path}: criteria section missing`);
     if (expected.length > 0 && !hasClass(html, 'piprank-prerender-verdict')) failures.push(`${path}: verdict section missing`);
     const expectedTitles = expectedAdditionalTitles(doc);
-    const html = readFileSync(file, 'utf8');
     for (const title of expectedTitles) {
       const escapedTitle = title.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;');
       if (!html.includes('<h3>' + escapedTitle + '</h3>')) failures.push(`${path}: additional section missing: ${title}`);
