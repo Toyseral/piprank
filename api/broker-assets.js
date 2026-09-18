@@ -68,19 +68,26 @@ async function handleAvailability(req, res) {
     const rows = Array.isArray(body.rows) ? body.rows : [];
     const { error: delError } = await supabase.from('broker_country_availability').delete().eq('broker_id', broker_id);
     if (delError) throw delError;
-    if (rows.length) {
-      const payload = rows
-        .filter((r) => r?.country_id)
-        .map((r) => ({
-          broker_id,
-          country_id: Number(r.country_id),
-          is_available: !['unavailable'].includes(r.status),
-          status: ['available', 'restricted', 'unavailable', 'unknown'].includes(r.status) ? r.status : 'unknown',
-          notes: r.note ? String(r.note).slice(0, 500) : null,
-          note: r.note ? String(r.note).slice(0, 500) : null,
-          priority: Number.isFinite(Number(r.priority)) ? Number(r.priority) : 0,
-          updated_at: new Date().toISOString(),
-        }));
+
+    // Availability is sparse: a missing row means "available". Do not persist
+    // synthetic default rows returned by the GET matrix (available + no note +
+    // priority 0), otherwise the admin editor would recreate an N x M matrix
+    // every time a broker is saved.
+    const payload = rows
+      .filter((r) => Number.isInteger(Number(r?.country_id)) && Number(r.country_id) > 0)
+      .map((r) => ({
+        broker_id,
+        country_id: Number(r.country_id),
+        is_available: !['unavailable'].includes(r.status),
+        status: ['available', 'restricted', 'unavailable', 'unknown'].includes(r.status) ? r.status : 'unknown',
+        notes: r.note ? String(r.note).slice(0, 500) : null,
+        note: r.note ? String(r.note).slice(0, 500) : null,
+        priority: Number.isFinite(Number(r.priority)) ? Number(r.priority) : 0,
+        updated_at: new Date().toISOString(),
+      }))
+      .filter((row) => row.status !== 'available' || row.notes !== null || row.priority !== 0);
+
+    if (payload.length) {
       const { error } = await supabase.from('broker_country_availability').insert(payload);
       if (error) throw error;
     }
