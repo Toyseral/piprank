@@ -18,7 +18,7 @@ const empty=[];
 for(const c of countries||[]){
  const d=byKey.get(`country:${c.slug}:hub`);
  if(!d){missing.push(c.slug);continue;}
- if(!String(d.title||'').trim() || (!Array.isArray(d.blocks) && !String(d.html||'').trim())) empty.push(c.slug);
+ if(!String(d.title||'').trim() || (!(Array.isArray(d.blocks) && d.blocks.length) && !String(d.html||'').trim())) empty.push(c.slug);
 }
 if(missing.length || empty.length){
  console.error('[validate-country-hub-canonical] FAILED');
