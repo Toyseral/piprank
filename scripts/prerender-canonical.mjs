@@ -268,7 +268,7 @@ async function main() {
     const path = `/${doc.country_slug}/${encodeURIComponent(locale)}/guides/${doc.slug}`;
     const title = doc.seo_title || doc.title;
     const description = doc.seo_description || doc.excerpt || '';
-    const content = `<main><h1>${esc(doc.title)}</h1>${doc.excerpt ? `<p>${esc(doc.excerpt)}</p>` : ''}${renderDocument(doc, brokersById)}</main>`;
+    const content = `<main><h1>${esc(doc.title)}</h1>${doc.excerpt ? `<p>${esc(doc.excerpt)}</p>` : ''}${attributionHtml(author)}${renderDocument(doc, brokersById)}</main>`;
     if (writePage(shell, writtenPaths, path, { title, description }, content, [pageJsonLd(title, description, path, 'Article', reviewerJsonLd(author))])) written++;
   }
 
