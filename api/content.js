@@ -5,12 +5,98 @@ const CONTENT_WRITE = ['super_admin', 'admin', 'content_admin'];
 const SITE_ORIGIN = 'https://piprank.com';
 
 function slugify(value) { return String(value ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''); }
+function stripHtmlText(value) {
+  return String(value ?? '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/\\s+/g, ' ')
+    .trim();
+}
+
+function canonicalIntentResponse(intent, document) {
+  const blocks = Array.isArray(document?.blocks) ? document.blocks : [];
+  const intro = blocks
+    .filter((b) => b && b.type === 'richtext' && typeof b.html === 'string')
+    .map((b) => stripHtmlText(b.html))
+    .filter(Boolean)
+    .slice(0, 2);
+
+  return {
+    id: intent.id,
+    slug: intent.slug,
+    label: intent.label,
+    icon: intent.icon,
+    sort_order: intent.sort_order ?? 0,
+    // Compatibility read model only. These values come from the canonical
+    // content_documents record; intents no longer own editorial fields.
+    title: document?.title || `Best Forex Brokers for ${intent.label}`,
+    meta_title: document?.seo_title ?? null,
+    meta_description: document?.seo_description ?? null,
+    intro,
+    indexable: document?.indexable ?? true,
+  };
+}
+
 async function handleIntents(req,res){
-  if(req.method==='GET'){const {slug}=req.query;if(slug){const {data,error}=await supabase.from('intents').select('*').eq('slug',slug).single();if(error||!data)return res.status(404).json({error:'Category not found'});return res.status(200).json(data);}const {data,error}=await supabase.from('intents').select('*').order('id',{ascending:true});if(error)throw error;return res.status(200).json(data);}
+  if(req.method==='GET'){
+    const {slug}=req.query;
+    let query=supabase.from('intents').select('id,slug,label,icon,sort_order').order('sort_order',{ascending:true}).order('id',{ascending:true});
+    if(slug) query=query.eq('slug',slug).limit(1);
+    const {data:intents,error}=await query;
+    if(error) throw error;
+    if(slug && !intents?.[0]) return res.status(404).json({error:'Category not found'});
+
+    const rows=intents??[];
+    const slugs=rows.map((i)=>i.slug).filter(Boolean);
+    const {data:docs,error:docError}=slugs.length
+      ? await supabase.from('content_documents')
+          .select('content_key,slug,title,blocks,seo_title,seo_description,indexable,published')
+          .eq('content_type','global-best-for')
+          .in('slug',slugs)
+      : {data:[],error:null};
+    if(docError) throw docError;
+    const bySlug=new Map((docs??[]).map((d)=>[d.slug,d]));
+    const result=rows.map((intent)=>canonicalIntentResponse(intent,bySlug.get(intent.slug)));
+    return slug ? res.status(200).json(result[0]) : res.status(200).json(result);
+  }
+
   if(!(await requireRole(req,res,CONTENT_WRITE)))return;
-  if(req.method==='POST'){const body=req.body??{};if(!body.label||String(body.label).trim().length<2)return res.status(400).json({error:'Label is required'});const payload={label:String(body.label).trim(),slug:body.slug?slugify(body.slug):slugify(body.label),title:String(body.title??`Best Forex Brokers for ${body.label} (2026)`),meta_title:body.meta_title?String(body.meta_title).trim():null,meta_description:body.meta_description?String(body.meta_description).trim():null,icon:String(body.icon??'beginners'),intro:Array.isArray(body.intro)?body.intro.filter(Boolean):[],criteria:Array.isArray(body.criteria)?body.criteria.filter(Boolean):[],sections:Array.isArray(body.sections)?body.sections:[],faqs:Array.isArray(body.faqs)?body.faqs:[],indexable:body.indexable===undefined?true:Boolean(body.indexable),sort_order:Number.isFinite(Number(body.sort_order))?Number(body.sort_order):0};const {data,error}=await supabase.from('intents').insert(payload).select().single();if(error)throw error;return res.status(201).json(data);}
-  if(req.method==='PUT'){const {id,...fields}=req.body??{};if(!id)return res.status(400).json({error:'id is required'});delete fields.slug;const {data,error}=await supabase.from('intents').update(fields).eq('id',Number(id)).select().single();if(error)throw error;return res.status(200).json(data);}
-  if(req.method==='DELETE'){const {id}=req.body??{};if(!id)return res.status(400).json({error:'id is required'});const {error}=await supabase.from('intents').delete().eq('id',Number(id));if(error)throw error;return res.status(200).json({ok:true});}
+
+  const taxonomyKeys=['label','icon','sort_order'];
+  if(req.method==='POST'){
+    const body=req.body??{};
+    if(!body.label||String(body.label).trim().length<2)return res.status(400).json({error:'Label is required'});
+    const payload={
+      label:String(body.label).trim(),
+      slug:body.slug?slugify(body.slug):slugify(body.label),
+      icon:String(body.icon??'beginners'),
+      sort_order:Number.isFinite(Number(body.sort_order))?Number(body.sort_order):0
+    };
+    const {data,error}=await supabase.from('intents').insert(payload).select('id,slug,label,icon,sort_order').single();
+    if(error)throw error;
+    return res.status(201).json(canonicalIntentResponse(data,null));
+  }
+
+  if(req.method==='PUT'){
+    const {id,...body}=req.body??{};
+    if(!id)return res.status(400).json({error:'id is required'});
+    const fields={};
+    for(const key of taxonomyKeys) if(body[key]!==undefined) fields[key]=key==='label'?String(body[key]).trim():key==='icon'?String(body[key]):Number(body[key]);
+    if(fields.label!==undefined && fields.label.length<2)return res.status(400).json({error:'Label is required'});
+    const {data,error}=await supabase.from('intents').update(fields).eq('id',Number(id)).select('id,slug,label,icon,sort_order').single();
+    if(error)throw error;
+    return res.status(200).json(canonicalIntentResponse(data,null));
+  }
+
+  if(req.method==='DELETE'){
+    const {id}=req.body??{};
+    if(!id)return res.status(400).json({error:'id is required'});
+    const {error}=await supabase.from('intents').delete().eq('id',Number(id));
+    if(error)throw error;
+    return res.status(200).json({ok:true});
+  }
+
   return res.status(405).json({error:'Method not allowed'});
 }
 function isMissingPublishingStateColumn(error){return error&&(error.code==='PGRST204'||/publishing_state/i.test(String(error.message||error.details||'')));}
