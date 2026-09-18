@@ -292,13 +292,8 @@ export default function Quiz() {
   const results = useMemo(() => {
     if (!done) return [];
     const a = answers as Answers;
-    const recNotes = new Map((country?.recommended ?? []).map((r) => [r.slug, r.note]));
-    const recRank = new Map((country?.recommended ?? []).map((r, i) => [r.slug, i]));
-    // Hard rule: with a country selected, only locally-eligible brokers can be recommended.
-    const blocked = new Set(country?.unavailable ?? []);
-    const pool = country
-      ? brokers.filter((b) => recNotes.has(b.slug))
-      : brokers.filter((b) => !blocked.has(b.slug));
+    const availableSlugs = new Set(country?.available_broker_slugs ?? brokers.map((broker) => broker.slug));
+    const pool = country ? brokers.filter((broker) => availableSlugs.has(broker.slug)) : brokers;
     return pool
       .map((b) => {
         const { score, reasons } = scoreBroker(b, a);
