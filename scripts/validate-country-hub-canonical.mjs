@@ -18,11 +18,11 @@ const empty=[];
 for(const c of countries||[]){
  const d=byKey.get(`country:${c.slug}:hub`);
  if(!d){missing.push(c.slug);continue;}
- if(!Array.isArray(d.blocks)||!d.blocks.length) empty.push(c.slug);
+ if(!String(d.title||'').trim() || (!Array.isArray(d.blocks) && !String(d.html||'').trim())) empty.push(c.slug);
 }
 if(missing.length || empty.length){
  console.error('[validate-country-hub-canonical] FAILED');
- console.error(JSON.stringify({missing, empty},null,2));
+ console.error(JSON.stringify({missing, invalid: empty},null,2));
  process.exit(1);
 }
 console.log(`[validate-country-hub-canonical] OK — ${countries?.length||0} countries have canonical hub documents.`);
