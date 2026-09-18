@@ -25,7 +25,7 @@ export default function CountryDetail() {
   const document = model?.countryDocument ?? null;
   const brokers = model?.availableBrokers ?? [];
   const ranked: CountryBrokerRanking[] = model?.topBrokers ?? [];
-  const seo = country ? countrySeo(country, `/${country.slug}`) : null;
+  const seo = country && document ? countrySeo({ ...country, seo_title: document.seo_title ?? country.seo_title, seo_description: document.seo_description ?? country.seo_description }, `/${country.slug}`) : null;
 
   useSEO(seo, seo && country ? [
     buildBreadcrumbJsonLd([{ name: 'Home', path: '/' }, { name: 'Countries', path: '/countries' }, { name: country.name, path: `/${country.slug}` }]),
@@ -41,7 +41,7 @@ export default function CountryDetail() {
       <nav className="flex gap-1.5 text-xs text-slate-400"><Link to="/">Home</Link><span>/</span><Link to="/countries">Countries</Link><span>/</span><span className="text-ink-900">{country.name}</span></nav>
       <header className="mt-6 rounded-3xl bg-ink-950 p-7 text-white sm:p-10">
         <p className="text-xs font-bold uppercase tracking-widest text-emerald-300">{country.flag} {country.name}</p>
-        <h1 className="mt-2 font-display text-3xl font-bold sm:text-4xl">Best Forex Brokers in {country.name}</h1>
+        <h1 className="mt-2 font-display text-3xl font-bold sm:text-4xl">{document.title}</h1>
         {document.excerpt && <p className="mt-3 max-w-3xl text-slate-300">{document.excerpt}</p>}
       </header>
       <article className="mt-8 rounded-3xl border border-line bg-white p-6 sm:p-9"><PageBlocksRenderer blocks={document.blocks as any} brokers={brokers} countrySlug={country.slug} className="piprank-rich-content space-y-8" /></article>
