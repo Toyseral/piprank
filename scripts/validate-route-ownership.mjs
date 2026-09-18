@@ -83,10 +83,10 @@ async function main() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) {
-    if (process.env.VERCEL_ENV === 'production' || process.env.CI === 'true') {
+    if (process.env.VERCEL_ENV === 'production') {
       throw new Error('Supabase credentials are required for route ownership validation.');
     }
-    console.log('[validate-route-ownership] Non-production build without Supabase credentials — skipped.');
+    console.log('[validate-route-ownership] Non-production build without Supabase credentials — skipped (CI has no production database credentials).');
     return;
   }
 
