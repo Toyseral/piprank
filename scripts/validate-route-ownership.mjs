@@ -29,50 +29,6 @@ const STATIC_PATHS = new Set([
 
 const RETIRED_TYPES = new Set(['country-topic', 'localized-seo']);
 
-function localeOf(doc) {
-  return String(doc?.settings?.locale || doc?.settings?.languageCode || '').trim().toLowerCase();
-}
-
-function clean(value) {
-  return String(value || '').trim().toLowerCase();
-}
-
-function canonicalKeyForDocument(doc) {
-  const country = clean(doc.country_slug);
-  const slug = clean(doc.slug);
-  const locale = localeOf(doc);
-  switch (doc.content_type) {
-    case 'guide': return slug && !country ? `guide:${slug}` : null;
-    case 'global-best-for': return slug && !country ? `best-for:${slug}` : null;
-    case 'country-guide': return country && slug ? `country-guide:${country}:${slug}` : null;
-    case 'country-best-for': return country && slug ? `country-best-for:${country}:${slug}` : null;
-    case 'localized-guide': return country && locale && slug ? `localized-guide:${country}:${locale}:${slug}` : null;
-    case 'localized-best-for': return country && locale && slug ? `localized-best-for:${country}:${locale}:${slug}` : null;
-    case 'broker': return slug ? `broker:${slug}:main` : null;
-    case 'country': return country || slug ? `country:${country || slug}:hub` : null;
-    case 'compare': return slug ? `compare:${slug}` : null;
-    default: return null;
-  }
-}
-
-function canonicalPathForDocument(doc) {
-  const country = clean(doc.country_slug);
-  const slug = clean(doc.slug);
-  const locale = localeOf(doc);
-  switch (doc.content_type) {
-    case 'guide': return slug && !country ? `/guides/${encodeURIComponent(slug)}` : null;
-    case 'global-best-for': return slug && !country ? `/${encodeURIComponent(slug)}` : null;
-    case 'country-guide': return country && slug ? `/${encodeURIComponent(country)}/guides/${encodeURIComponent(slug)}` : null;
-    case 'country-best-for': return country && slug ? `/${encodeURIComponent(country)}/${encodeURIComponent(slug)}` : null;
-    case 'localized-guide': return country && locale && slug ? `/${encodeURIComponent(country)}/${encodeURIComponent(locale)}/guides/${encodeURIComponent(slug)}` : null;
-    case 'localized-best-for': return country && locale && slug ? `/${encodeURIComponent(country)}/${encodeURIComponent(locale)}/${encodeURIComponent(slug)}` : null;
-    case 'broker': return slug ? `/brokers/${encodeURIComponent(slug)}` : null;
-    case 'country': return country || slug ? `/${encodeURIComponent(country || slug)}` : null;
-    case 'compare': return slug ? `/compare/${encodeURIComponent(slug)}` : null;
-    default: return null;
-  }
-}
-
 function fail(errors) {
   if (!errors.length) return;
   console.error('[validate-route-ownership] FAILED');
