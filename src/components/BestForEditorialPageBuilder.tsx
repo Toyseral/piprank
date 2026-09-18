@@ -17,6 +17,7 @@ const BASE_SECTIONS: { key: BestForSection; label: string; description: string }
 ];
 
 const sectionOf = (block: ScopedBlock) => block.editorialSection || 'introduction';
+const isCopyBlock = (block: ScopedBlock) => String(block.id || '').startsWith('bestfor-copy:');
 const isBrokerKey = (key: string) => key.startsWith('broker:');
 const brokerSlugFromKey = (key: string) => isBrokerKey(key) ? key.slice('broker:'.length) : '';
 
@@ -33,7 +34,7 @@ export default function BestForEditorialPageBuilder({ value, onChange, onUploadI
       const slug = brokerSlugFromKey(activeSection);
       return allBlocks.filter((block) => block.editorialSection === 'detailed_analysis' && String(block.id || '').startsWith(`bestfor-broker:${slug}:`));
     }
-    return allBlocks.filter((block) => sectionOf(block) === activeSection && !String(block.id || '').startsWith('bestfor-broker:'));
+    return allBlocks.filter((block) => sectionOf(block) === activeSection && !String(block.id || '').startsWith('bestfor-broker:') && !isCopyBlock(block));
   }, [activeSection, allBlocks]);
 
   const replaceActiveSection = (next: PageBlock[]) => {
@@ -67,7 +68,7 @@ export default function BestForEditorialPageBuilder({ value, onChange, onUploadI
             {sections.map((section) => {
               const count = isBrokerKey(section.key)
                 ? allBlocks.filter((block) => block.editorialSection === 'detailed_analysis' && String(block.id || '').startsWith(`bestfor-broker:${brokerSlugFromKey(section.key)}:`)).length
-                : allBlocks.filter((block) => sectionOf(block) === section.key && !String(block.id || '').startsWith('bestfor-broker:')).length;
+                : allBlocks.filter((block) => sectionOf(block) === section.key && !String(block.id || '').startsWith('bestfor-broker:') && !isCopyBlock(block)).length;
               const selected = activeSection === section.key;
               const isBroker = isBrokerKey(section.key);
               return <button key={section.key} type="button" onClick={() => setActiveSection(section.key)} className={`shrink-0 rounded-xl px-3 py-2.5 text-left transition ${selected ? 'bg-ink-950 text-white shadow-soft' : isBroker ? 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100' : 'text-slate-600 hover:bg-paper'}`}><span className="block text-xs font-bold">{section.label}</span><span className={`mt-0.5 block text-[10px] ${selected ? 'text-slate-300' : 'text-slate-400'}`}>{count} block{count === 1 ? '' : 's'}</span></button>;
