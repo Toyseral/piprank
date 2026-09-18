@@ -99,8 +99,8 @@ export default function CanonicalGlobalBestFor({ route }: Props) {
   useSEO(seo, seo && doc ? [
     buildWebPageJsonLd(seo),
     buildBreadcrumbJsonLd([{ name: 'Home', path: '/' }, { name: doc.title, path: seo.path }]),
-    buildItemListJsonLd(doc.title, ranked.slice(0, 10).map((broker) => ({ name: broker.name, path: `/brokers/${broker.slug}` }))),
-    ...(faqs.length ? [buildFAQPageJsonLd(faqs.map((faq: any) => ({ question: faq.q, answer: faq.a })))] : []),
+    buildItemListJsonLd(doc.title, ranked.slice(0, 10).map((broker: Broker) => ({ name: broker.name, path: `/brokers/${broker.slug}` }))),
+    ...(faqs.length ? [buildFAQPageJsonLd(faqs.map((faq: { q: string; a: string }) => ({ question: faq.q, answer: faq.a })))] : []),
   ] : undefined);
 
   if (loading) return <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6"><div className="h-64 animate-pulse rounded-3xl border border-line bg-white" /></div>;
