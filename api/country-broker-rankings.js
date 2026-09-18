@@ -15,16 +15,16 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(204).end();
 
   try {
-    const country = String(req.query?.country || '');
-    if (!country) return res.status(400).json({ error: 'country is required' });
+    const country = String(req.query?.country || '').trim().toLowerCase();
+    if (!country || !/^[a-z0-9-]{1,80}$/.test(country)) return res.status(400).json({ error: 'invalid country' });
+
+    const isAdmin = String(req.query?.admin || '') === 'true';
+    if (isAdmin && !(await requireRole(req, res, CONTENT_WRITE))) return;
 
     const { data: countryRow, error: countryError } = await supabase
       .from('countries').select('id,slug,name').eq('slug', country).maybeSingle();
     if (countryError) throw countryError;
     if (!countryRow) return res.status(404).json({ error: 'Country not found' });
-
-    const isAdmin = String(req.query?.admin || '') === 'true';
-    if (isAdmin && !(await requireRole(req, res, CONTENT_WRITE))) return;
 
     if (req.method === 'GET') {
       const requests = [
@@ -93,7 +93,12 @@ export default async function handler(req, res) {
     }
 
     const brokerId = Number(req.body?.broker_id);
-    if (!brokerId) return res.status(400).json({ error: 'broker_id is required' });
+    if (!Number.isInteger(brokerId) || brokerId < 1) return res.status(400).json({ error: 'broker_id must be a positive integer' });
+
+    const { data: brokerExists, error: brokerExistsError } = await supabase
+      .from('brokers').select('id').eq('id', brokerId).maybeSingle();
+    if (brokerExistsError) throw brokerExistsError;
+    if (!brokerExists) return res.status(404).json({ error: 'Broker not found' });
 
     if (req.method === 'PUT') {
       const { data: availability, error: availabilityError } = await supabase
@@ -116,6 +121,11 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'manual_rank must be between 1 and 9' });
       }
 
+      const scoreAdjustment = Number(req.body?.score_adjustment ?? 0);
+      if (!Number.isFinite(scoreAdjustment) || scoreAdjustment < -100 || scoreAdjustment > 100) {
+        return res.status(400).json({ error: 'score_adjustment must be a finite number between -100 and 100' });
+      }
+
       if (manualRank !== null) {
         await supabase.from('country_broker_overrides')
           .update({ manual_rank: null, updated_at: new Date().toISOString() })
@@ -128,7 +138,7 @@ export default async function handler(req, res) {
         force_include: Boolean(req.body?.force_include),
         force_exclude: Boolean(req.body?.force_exclude),
         manual_rank: manualRank,
-        score_adjustment: Number(req.body?.score_adjustment || 0),
+        score_adjustment: scoreAdjustment,
         featured_override: req.body?.featured_override === null || req.body?.featured_override === '' ? null : Boolean(req.body?.featured_override),
         editorial_note: req.body?.editorial_note ? String(req.body.editorial_note).slice(0, 2000) : null,
         updated_at: new Date().toISOString(),
