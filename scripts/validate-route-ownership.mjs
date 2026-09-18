@@ -101,6 +101,32 @@ async function main() {
       else ownedKeys.set(expectedKey, doc.id);
     }
 
+    if (type === 'localized-best-for') {
+      const settings = doc.settings && typeof doc.settings === 'object' ? doc.settings : {};
+      const intentSlug = clean(settings.canonicalIntentSlug || settings.intent_slug || doc.topic_slug);
+      const owner = rows.find((candidate) =>
+        clean(candidate.content_type) === 'global-best-for' &&
+        clean(candidate.slug) === intentSlug &&
+        !candidate.country_slug
+      );
+      if (!intentSlug) {
+        errors.push(`Localized Best-For is missing canonical intent identity: ${doc.id}`);
+      } else if (!intentSlugs.has(intentSlug)) {
+        errors.push(`Localized Best-For references missing intent: ${doc.id} -> ${intentSlug}`);
+      } else if (!owner) {
+        errors.push(`Localized Best-For references missing global Best-For owner: ${doc.id} -> ${intentSlug}`);
+      }
+      const sourceOwnerId = Number(settings.source_best_for_id);
+      if (Number.isInteger(sourceOwnerId) && owner && Number(owner.id) !== sourceOwnerId) {
+        errors.push(`Localized Best-For source_best_for_id does not match canonical owner: ${doc.id}`);
+      }
+    }
+    if (type === 'country-best-for') {
+      const intentSlug = clean(doc.topic_slug || doc.settings?.canonicalIntentSlug || doc.settings?.intent_slug);
+      if (!intentSlug) errors.push(`Country Best-For is missing ranking intent: ${doc.id}`);
+      else if (!intentSlugs.has(intentSlug)) errors.push(`Country Best-For references missing intent: ${doc.id} -> ${intentSlug}`);
+    }
+
     if (doc.published && doc.indexable !== false) {
       if (type === 'localized-guide' || type === 'localized-best-for') {
         if (!doc.country_slug || !localeOf(doc)) errors.push(`Published localized document is missing country/locale: ${doc.id}`);
