@@ -33,7 +33,7 @@ Verification is separate from eligibility.
 
 Legacy country SEO/content fields are compatibility sources only during migration. Do not create new country-hub content in `intro`, `seo_intro`, `seo_sections`, `facts`, `recommended`, `unavailable`, or `available_broker_slugs`.
 
-`seo_title`, `seo_description`, and `seo_faqs` may remain temporary fallbacks until their consumers and admin editors migrate.
+`seo_faqs` remains a temporary read fallback only for legacy data; the admin editor now writes canonical `settings.faqs`. Country SEO title/description are canonical document fields.
 
 `country-topic` remains retired.
 
