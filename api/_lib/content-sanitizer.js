@@ -63,12 +63,13 @@ export function sanitizeBlocks(blocks) { return Array.isArray(blocks) ? blocks.m
 export function sanitizePublicSettings(settings) {
   if (!settings || typeof settings !== 'object' || Array.isArray(settings)) return {};
   const output = {};
-  const keys = ['locale','languageCode','icon','label','criteria','sections','faqs','ranking_intent_slug','canonicalIntentSlug','image','rankingMode','pinnedBrokerSlugs','excludedBrokerSlugs','comparisonFields','role','short_bio','expertise','credentials','links','photo_url','display_order'];
+  const keys = ['locale','languageCode','icon','label','criteria','sections','faqs','ranking_intent_slug','canonicalIntentSlug','image','rankingMode','pinnedBrokerSlugs','excludedBrokerSlugs','comparisonFields','role','short_bio','expertise','credentials','links','photo_url','display_order','author_slug','reviewed_by_slug','fact_checked_by_slug'];
   for (const key of keys) {
     const value = settings[key]; if (value === undefined || value === null) continue;
     if (key === 'rankingMode') { output[key] = value === 'manual' ? 'manual' : 'auto'; continue; }
     if (key === 'pinnedBrokerSlugs' || key === 'excludedBrokerSlugs' || key === 'expertise' || key === 'credentials') { output[key] = cleanStringArray(value, 100, 500); continue; }
     if (key === 'links') { output[key] = Array.isArray(value) ? value.slice(0, 20).map((item) => ({ label: cleanText(item?.label, 120), href: safeUrl(item?.href) || '#' })).filter((item) => item.label) : []; continue; }
+    if (key === 'author_slug' || key === 'reviewed_by_slug' || key === 'fact_checked_by_slug') { output[key] = cleanText(value, 80).toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 80); continue; }
     if (key === 'display_order') { output[key] = Number.isFinite(Number(value)) ? Math.max(0, Math.min(10000, Number(value))) : 0; continue; }
     if (key === 'photo_url') { output[key] = safeUrl(value, { image: true }); continue; }
     if (key === 'comparisonFields') { output[key] = Array.isArray(value) ? value.filter((item) => typeof item === 'string' && COMPARISON_SETTING_FIELDS.has(item)).slice(0, 20) : []; continue; }
