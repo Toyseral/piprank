@@ -25,7 +25,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import type { Broker, CountryPage } from '../lib/types';
-import { fetchBrokers, fetchCountry } from '../lib/api';
+import { fetchBrokers, fetchCountry, fetchCountryBrokerRankings } from '../lib/api';
 import { GEO_OPTIONS, getGeo, setGeoPreference } from '../lib/geo';
 import { useGeo } from '../lib/GeoContext';
 import { track } from '../lib/track';
@@ -231,6 +231,7 @@ export default function Quiz() {
   const [done, setDone] = useState(false);
   const [geoSlug, setGeoSlug] = useState<string>(getGeo()?.slug ?? '');
   const [country, setCountry] = useState<CountryPage | null>(null);
+  const [countryRankings, setCountryRankings] = useState<import('../lib/types').CountryBrokerRanking[]>([]);
   const [loaderLine, setLoaderLine] = useState(0);
   const { country: activeGeo } = useGeo();
 
@@ -251,13 +252,20 @@ export default function Quiz() {
   }, [activeGeo, geoSlug]);
 
   useEffect(() => {
-    if (!geoSlug) {
+    if (!geoSlug || geoSlug === 'global') {
       setCountry(null);
+      setCountryRankings([]);
       return;
     }
-    fetchCountry(geoSlug)
-      .then(setCountry)
-      .catch(() => setCountry(null));
+    Promise.all([fetchCountry(geoSlug), fetchCountryBrokerRankings(geoSlug)])
+      .then(([countryRow, rankingRows]) => {
+        setCountry(countryRow);
+        setCountryRankings(rankingRows);
+      })
+      .catch(() => {
+        setCountry(null);
+        setCountryRankings([]);
+      });
   }, [geoSlug]);
 
   // loader line rotation
@@ -292,8 +300,8 @@ export default function Quiz() {
   const results = useMemo(() => {
     if (!done) return [];
     const a = answers as Answers;
-    const availableSlugs = new Set(country?.available_broker_slugs ?? brokers.map((broker) => broker.slug));
-    const availableOrder = new Map((country?.available_broker_slugs ?? brokers.map((broker) => broker.slug)).map((slug, index) => [slug, index]));
+    const availableOrder = new Map(countryRankings.map((row, index) => [row.broker?.slug ?? '', row.final_rank ?? index + 1]));
+    const availableSlugs = new Set(countryRankings.map((row) => row.broker?.slug).filter((slug): slug is string => Boolean(slug)));
     const pool = country ? brokers.filter((broker) => availableSlugs.has(broker.slug)) : brokers;
     return pool
       .map((b) => {
@@ -309,7 +317,7 @@ export default function Quiz() {
       })
       .sort((x, y) => y.score - x.score)
       .slice(0, 3);
-  }, [done, answers, brokers, country]);
+  }, [done, answers, brokers, country, countryRankings]);
 
   // results_view — feeds the recommendation-presentation effectiveness metric
   useEffect(() => {

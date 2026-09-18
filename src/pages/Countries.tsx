@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, Globe2, MapPin, ShieldCheck } from 'lucide-react';
+import { ArrowRight, Globe2, MapPin } from 'lucide-react';
 import { GEO_OPTIONS, getGeo, setGeoPreference } from '../lib/geo';
-import type { Broker, CountryPage } from '../lib/types';
+import type { Broker, CountryPage, CountryBrokerRanking } from '../lib/types';
 import { fetchBrokers, fetchCountries } from '../lib/api';
 import Monogram from '../components/Monogram';
 import Reveal from '../components/Reveal';
@@ -13,14 +13,20 @@ export default function Countries() {
   const navigate = useNavigate();
   const [countries, setCountries] = useState<CountryPage[]>([]);
   const [brokers, setBrokers] = useState<Broker[]>([]);
+  const [rankingsByCountry, setRankingsByCountry] = useState<Record<string, CountryBrokerRanking[]>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
     Promise.all([fetchCountries(), fetchBrokers()])
-      .then(([c, b]) => {
+      .then(async ([c, b]) => {
         setCountries(c);
         setBrokers(b);
+        const rankingEntries = await Promise.all(c.map(async (country) => {
+          try { return [country.slug, await import('../lib/api').then(({ fetchCountryBrokerRankings }) => fetchCountryBrokerRankings(country.slug))] as const; }
+          catch { return [country.slug, []] as const; }
+        }));
+        setRankingsByCountry(Object.fromEntries(rankingEntries));
       })
       .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load'))
       .finally(() => setLoading(false));
@@ -36,7 +42,7 @@ export default function Countries() {
     ]),
     buildItemListJsonLd(
       'Forex brokers by country',
-      countries.map((c) => ({ name: c.name, path: `/countries/${c.slug}` })),
+      countries.map((c) => ({ name: c.name, path: `/${c.slug}` })),
     ),
   ]);
 
@@ -62,7 +68,7 @@ export default function Countries() {
               const v = e.target.value;
               if (!v) return;
               setGeoPreference(v);
-              navigate(`/countries/${v}`);
+              navigate(`/${v}`);
             }}
             className="rounded-lg border border-line bg-white px-2.5 py-1.5 text-xs font-bold text-ink-900 outline-none transition focus:border-emerald-500"
           >
@@ -89,25 +95,18 @@ export default function Countries() {
       ) : (
         <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {countries.map((c, i) => {
-            const recs = c.recommended
-              .map((r) => bySlug.get(r.slug))
+            const recs = (rankingsByCountry[c.slug] ?? [])
+              .map((row) => row.broker ?? bySlug.get(row.broker?.slug ?? ''))
               .filter((b): b is Broker => !!b)
               .slice(0, 3);
-            const regulator = c.facts.find((f) => f.label.toLowerCase().includes('regulator'));
             return (
               <Reveal key={c.slug} delay={Math.min(i, 4) * 0.05}>
                 <Link
-                  to={`/countries/${c.slug}`}
+                  to={`/${c.slug}`}
                   className="group flex h-full flex-col rounded-2xl border border-line bg-white p-5 transition hover:-translate-y-1 hover:border-emerald-300 hover:shadow-soft-lg"
                 >
                   <span className="text-4xl">{c.flag}</span>
                   <p className="mt-4 font-display text-lg font-bold text-ink-900">{c.name}</p>
-                  {regulator && (
-                    <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-slate-500">
-                      <ShieldCheck size={12} className="text-emerald-600" />
-                      {regulator.value}
-                    </p>
-                  )}
                   <div className="mt-4 flex items-center">
                     {recs.map((b, bi) => (
                       <div key={b.slug} style={{ marginLeft: bi === 0 ? 0 : -8 }} className="rounded-xl ring-2 ring-white">

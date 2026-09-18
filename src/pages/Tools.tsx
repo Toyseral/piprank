@@ -442,7 +442,7 @@ export default function Tools() {
         <p className="text-sm font-medium text-emerald-900">
           Every result above moves with your broker's spread. See who charges the least to trade.
         </p>
-        <ButtonLink variant="dark" size="md" icon={ArrowRight} iconRight to="/best/low-spread" className="shrink-0">
+        <ButtonLink variant="dark" size="md" icon={ArrowRight} iconRight to="/low-spread-forex-brokers" className="shrink-0">
           Lowest-spread brokers
         </ButtonLink>
       </div>

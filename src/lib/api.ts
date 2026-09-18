@@ -1,4 +1,4 @@
-import type { Broker, BrokerCountryAvailability, BrokerCountryVerification, CountryPage, Intent, Review, ContentDocument, CountryLanguage, CountryIntentBrokerRanking, BrokerPlatform, BrokerPlatforms } from './types';
+import type { Broker, BrokerCountryAvailability, BrokerCountryVerification, CountryPage, Intent, Review, ContentDocument, CountryLanguage, CountryIntentBrokerRanking, BrokerPlatform, BrokerPlatforms, CountryBrokerRanking } from './types';
 
 async function get<T>(url: string, token?: string): Promise<T> {
   const res = await fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : undefined });
@@ -97,3 +97,5 @@ export const fetchContentDocuments = (params?: { type?: string; country?: string
   const suffix = query.toString();
   return get<ContentDocument[]>(`/api/content-documents${suffix ? `?${suffix}` : ''}`);
 };
+
+export const fetchCountryBrokerRankings = (countrySlug: string) => get<CountryBrokerRanking[]>(`/api/country-broker-rankings?country=${encodeURIComponent(countrySlug)}`);

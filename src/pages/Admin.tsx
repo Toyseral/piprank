@@ -55,7 +55,6 @@ import CountryGuides from './admin/CountryGuides';
 import AuthorHub from './admin/AuthorHub';
 import GlobalHub from './admin/GlobalHub';
 import CountryHub from './admin/countries/CountryHub';
-import CountryEditor from './admin/countries/CountryEditor';
 import AdminSidebar from './admin/components/AdminSidebar';
 import AffiliateLinksTab from './admin/AffiliateLinksTab';
 import UnifiedGuideEditor from '../components/admin/UnifiedGuideEditor';
@@ -397,7 +396,6 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');
   const [editingBroker, setEditingBroker] = useState<Broker | null | 'new'>(null);
-  const [editingCountry, setEditingCountry] = useState<CountryPage | null | 'new'>(null);
   const [editingIntent, setEditingIntent] = useState<Intent | null | 'new'>(null);
   const [editingBrokerContent, setEditingBrokerContent] = useState<Broker | null>(null);
   const [contentDocs, setContentDocs] = useState<ContentDocument[]>([]);
@@ -478,6 +476,47 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
     notify(msg);
     await load();
   };
+
+  const createCountry = useCallback(async () => {
+    const name = window.prompt('Country name');
+    if (!name?.trim()) return;
+    const slug = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    if (!slug) return;
+    try {
+      const countryRes = await fetch('/api/content?resource=countries', {
+        method: 'POST',
+        headers: headers(),
+        body: JSON.stringify({ name: name.trim(), slug, flag: '🌍', publishing_state: 'draft' }),
+      });
+      const country = await countryRes.json().catch(() => ({}));
+      if (!countryRes.ok) throw new Error(country.error || 'Could not create country');
+      const docRes = await fetch('/api/content-documents', {
+        method: 'POST',
+        headers: headers(),
+        body: JSON.stringify({
+          content_key: `country:${slug}:hub`,
+          content_type: 'country',
+          country_slug: slug,
+          slug,
+          title: `Best Forex Brokers in ${name.trim()}`,
+          excerpt: '',
+          html: '',
+          blocks: [],
+          seo_title: `Best Forex Brokers in ${name.trim()} | PipRank`,
+          seo_description: null,
+          indexable: false,
+          published: false,
+          settings: { faqs: [] },
+        }),
+      });
+      const document = await docRes.json().catch(() => ({}));
+      if (!docRes.ok) throw new Error(document.error || 'Country created, but canonical hub document could not be created');
+      notify('Country created as a draft with a canonical hub document');
+      await load();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Could not create country');
+    }
+  }, [headers, load, notify]);
 
   const brokerName = useMemo(() => {
     const map = new Map<number, Broker>();
@@ -640,8 +679,6 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
                       contentDocs={contentDocs}
                       token={session.access_token}
                       notify={notify}
-                      onNewCountry={() => setEditingCountry('new')}
-                      onEditCountry={(c) => setEditingCountry(c)}
                     />
                     <div className="mt-8">
                       <div className="mb-4">
@@ -738,24 +775,6 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
           token={session.access_token}
           onClose={() => setEditingBrokerContent(null)}
           onSave={async () => {}} />
-      )}
-      {editingCountry && (
-        <CountryEditor
-          country={editingCountry === 'new' ? null : editingCountry}
-          brokers={brokers}
-          onClose={() => setEditingCountry(null)}
-          onSave={async (fields, isNew) => {
-            await mutate('/api/countries', isNew ? 'POST' : 'PUT', fields, isNew ? 'Country published' : 'Country saved');
-            if (isNew) setEditingCountry(null);
-          }}
-          DrawerShell={DrawerShell}
-          FieldLabel={FieldLabel}
-          TextInput={TextInput}
-          StringList={StringList}
-          IconRemove={IconRemove}
-          SeoSectionsEditor={SeoSectionsEditor}
-          FaqListEditor={FaqListEditor}
-        />
       )}
       {editingContentDoc && (
         editingContentDoc !== 'new' && editingContentDoc.content_type === 'guide' ? (
