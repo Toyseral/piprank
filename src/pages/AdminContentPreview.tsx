@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import type { Session } from '@supabase/supabase-js';
 import type { ContentDocument } from '../lib/types';
 import type { CanonicalRoute } from '../lib/canonicalHub/types';
 import ContentRenderer from '../components/ContentRenderer';
@@ -13,7 +12,6 @@ export default function AdminContentPreview() {
   const { id } = useParams<{ id: string }>();
   const [state, setState] = useState<PreviewState>('loading');
   const [message, setMessage] = useState('');
-  const [session, setSession] = useState<Session | null>(null);
   const [route, setRoute] = useState<CanonicalRoute | null>(null);
 
   useEffect(() => {
@@ -24,7 +22,6 @@ export default function AdminContentPreview() {
       if (!active) return;
 
       const currentSession = data.session;
-      setSession(currentSession);
       if (!currentSession) {
         setState('error');
         setMessage('Your admin session has expired. Sign in again to preview this draft.');
