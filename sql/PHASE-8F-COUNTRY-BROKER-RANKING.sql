@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS public.country_broker_ranking_settings (
 CREATE TABLE IF NOT EXISTS public.country_broker_overrides (
   id BIGSERIAL PRIMARY KEY,
   country_id BIGINT NOT NULL REFERENCES public.countries(id) ON DELETE CASCADE,
-  broker_id INTEGER NOT NULL REFERENCES public.brokers(id) ON DELETE CASCADE,
+  broker_id BIGINT NOT NULL REFERENCES public.brokers(id) ON DELETE CASCADE,
   force_include BOOLEAN NOT NULL DEFAULT FALSE,
   force_exclude BOOLEAN NOT NULL DEFAULT FALSE,
   manual_rank INTEGER,
