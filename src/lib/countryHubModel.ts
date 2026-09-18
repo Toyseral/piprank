@@ -1,4 +1,4 @@
-import type { Broker, ContentDocument, CountryPage, CountryBrokerRanking } from './types';
+import type { Broker, ContentDocument, CountryPage, CountryBrokerRanking, FAQ } from './types';
 import { fetchBrokers, fetchCountry, fetchCountryBrokerAvailability, fetchCountryBrokerRankings } from './api';
 import { fetchPublishedContentDocument, fetchPublishedContentDocuments } from './canonicalContent';
 
@@ -11,6 +11,12 @@ export type CountryHubPageModel = {
   countryBestFor: ContentDocument[];
   localizedGuides: ContentDocument[];
   localizedBestFor: ContentDocument[];
+  /** Canonical FAQ source is the country hub document; legacy countries.seo_faqs is migration fallback only. */
+  faqs: FAQ[];
+  /** Country comparison pages are dynamic /compare/:pair routes, not country-owned documents. */
+  comparisonPath: '/compare';
+  /** Methodology is global and linked from country hubs; it is not duplicated per country. */
+  methodologyPath: '/methodology';
 };
 
 export async function fetchCountryHubPageModel(slug: string): Promise<CountryHubPageModel | null> {
@@ -30,6 +36,10 @@ export async function fetchCountryHubPageModel(slug: string): Promise<CountryHub
 
   if (!countryDocument) return null;
 
+  const documentSettings = countryDocument.settings || {};
+  const documentFaqs = Array.isArray(documentSettings.faqs) ? documentSettings.faqs : [];
+  const legacyFaqs = Array.isArray(country.seo_faqs) ? country.seo_faqs : [];
+
   return {
     country,
     countryDocument,
@@ -46,5 +56,8 @@ export async function fetchCountryHubPageModel(slug: string): Promise<CountryHub
     countryBestFor: countryBestFor.filter((doc) => doc.content_type === 'country-best-for'),
     localizedGuides: localizedGuides.filter((doc) => doc.content_type === 'localized-guide'),
     localizedBestFor: localizedBestFor.filter((doc) => doc.content_type === 'localized-best-for'),
+    faqs: (documentFaqs.length ? documentFaqs : legacyFaqs).filter((faq): faq is FAQ => Boolean(faq && typeof faq.q === 'string' && typeof faq.a === 'string')),
+    comparisonPath: '/compare',
+    methodologyPath: '/methodology',
   };
 }
