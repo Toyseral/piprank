@@ -9,7 +9,7 @@ export type CountryHubPageModel = {
   topBrokers: CountryBrokerRanking[];
   countryGuides: ContentDocument[];
   countryBestFor: ContentDocument[];
-  /** Canonical FAQ source is the country hub document; legacy countries.seo_faqs is migration fallback only. */
+  /** Canonical FAQ source is the country hub document. */
   faqs: FAQ[];
   /** Country comparison pages are dynamic /compare/:pair routes, not country-owned documents. */
   comparisonPath: '/compare';
@@ -49,7 +49,7 @@ export async function fetchCountryHubPageModel(slug: string): Promise<CountryHub
     topBrokers: topBrokers.filter((row) => row.broker && row.availability_status !== 'unavailable' && row.availability_status !== 'restricted'),
     countryGuides: countryGuides.filter((doc) => doc.content_type === 'country-guide'),
     countryBestFor: countryBestFor.filter((doc) => doc.content_type === 'country-best-for'),
-    faqs: (documentFaqs.length ? documentFaqs : legacyFaqs).filter((faq): faq is FAQ => Boolean(faq && typeof faq.q === 'string' && typeof faq.a === 'string')),
+    faqs: documentFaqs.filter((faq): faq is FAQ => Boolean(faq && typeof faq.q === 'string' && typeof faq.a === 'string')),
     comparisonPath: '/compare',
     methodologyPath: '/methodology',
   };
