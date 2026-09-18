@@ -1,5 +1,3 @@
-import { getCountrySeoTopic, rankCountryTopicBrokers } from '../data/countrySeoMatrix.js';
-
 /** @typedef {import('./types').Broker} Broker */
 /** @typedef {import('./types').CountryPage} CountryPage */
 /** @typedef {import('./types').CountryIntentBrokerRanking} CountryIntentBrokerRanking */
@@ -91,18 +89,10 @@ export function rankCountryBestFor(brokers, country, doc, intentSlug, rankingRow
       .sort((a, b) => (rankById.get(Number(a.id)) ?? 9999) - (rankById.get(Number(b.id)) ?? 9999));
   }
 
-  const topic = getCountrySeoTopic(intentSlug);
-  if (!topic) return [];
-  const base = rankCountryTopicBrokers(brokers || [], country, topic);
-  const eligiblePool = base.filter((broker) => !excluded.has(broker.slug));
-  const rankById = new Map();
-  return [...eligiblePool].sort((a, b) => {
-    const ar = rankById.get(Number(a.id)); const br = rankById.get(Number(b.id));
-    if (ar !== undefined && br !== undefined) return ar - br;
-    if (ar !== undefined) return -1;
-    if (br !== undefined) return 1;
-    return Number(b.rating || 0) - Number(a.rating || 0) || Number(b.trust_score || 0) - Number(a.trust_score || 0);
-  });
+  // Country rankings are canonical and intent-specific. Never fall back to the retired
+  // country-topic matrix: an empty API result must not silently produce a different
+  // ranking context from the page's country + intent identity.
+  return [];
 }
 
 /** @param {BestForPageModelInput} input */
