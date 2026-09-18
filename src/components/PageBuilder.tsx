@@ -12,7 +12,7 @@ export type BrokerCardVariant = 'default' | 'compact' | 'featured';
 export type BrokerCtaVariant = 'primary' | 'dark' | 'soft';
 export type ComparisonField = 'rating' | 'trust_score' | 'min_deposit' | 'spread_eurusd' | 'commission' | 'max_leverage' | 'platforms' | 'payments' | 'regulations';
 export type BrokerEditorialSection = 'editorial' | 'pricing' | 'platforms' | 'trust' | 'accounts' | 'funding';
-export type BestForEditorialSection = 'introduction' | 'why_these_brokers' | 'who_its_for' | 'who_its_not_for' | 'detailed_analysis' | 'methodology';
+export type BestForEditorialSection = 'introduction' | 'why_these_brokers' | 'who_its_for' | 'who_its_not_for' | 'detailed_analysis' | 'methodology' | 'additional';
 export type PageEditorialSection = BrokerEditorialSection | BestForEditorialSection;
 export type PageBuilderContext = 'default' | 'guide' | 'best-for' | 'broker-editorial';
 
