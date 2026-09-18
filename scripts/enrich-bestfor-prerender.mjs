@@ -146,7 +146,7 @@ async function main() {
     const intentSlug = rankingIntentSlug(doc.slug, doc);
     const rankingRows = country ? (rankingMap.get(`${country.slug}:${intentSlug}`) || []) : [];
     const ranked = rankBrokers(brokersRes.data || [], doc, country, rankingRows);
-    const extra = `${rankingSection(ranked, doc)}${comparisonTable(ranked)}${detailSection(ranked, doc)}${criteriaSection(doc)}${additionalSections(doc)}`;
+    const extra = `${rankingSection(ranked, doc)}${comparisonTable(ranked, doc)}${detailSection(ranked, doc)}${criteriaSection(doc)}${additionalSections(doc)}${ranked.map((broker) => verdictSection(broker, intentSlug)).join('')}`;
     const output = inject(html, extra);
     if (output !== html) {
       writeFileSync(file, output, 'utf8');
