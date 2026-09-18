@@ -36,10 +36,8 @@ export default async function handler(req, res) {
       if (isAdmin) {
         requests.push(
           supabase.from('broker_country_availability')
-            .select('broker_id')
+            .select('broker_id,status,is_available')
             .eq('country_id', countryRow.id)
-            .eq('status', 'available')
-            .eq('is_available', true)
         );
       }
 
@@ -63,8 +61,10 @@ export default async function handler(req, res) {
       if (isAdmin) {
         const availabilityResult = results[3];
         if (availabilityResult.error) throw availabilityResult.error;
-        const eligibleIds = new Set((availabilityResult.data || []).map((row) => Number(row.broker_id)));
-        const eligibleBrokers = brokers.filter((broker) => eligibleIds.has(Number(broker.id)));
+        const ineligibleIds = new Set((availabilityResult.data || [])
+          .filter((row) => row.is_available === false || ['unavailable', 'restricted'].includes(String(row.status || '').toLowerCase()))
+          .map((row) => Number(row.broker_id)));
+        const eligibleBrokers = brokers.filter((broker) => !ineligibleIds.has(Number(broker.id)));
         return res.status(200).json({ ranking_mode: rankingMode, rows: hydrated, eligible_brokers: eligibleBrokers });
       }
 
@@ -103,8 +103,11 @@ export default async function handler(req, res) {
         .eq('broker_id', brokerId)
         .maybeSingle();
       if (availabilityError) throw availabilityError;
-      if (!availability || availability.status !== 'available' || availability.is_available !== true) {
-        return res.status(400).json({ error: 'Broker must have explicit available country eligibility before it can be ranked.' });
+      const explicitlyIneligible = Boolean(availability && (
+        availability.is_available === false || ['unavailable', 'restricted'].includes(String(availability.status || '').toLowerCase())
+      ));
+      if (explicitlyIneligible && !Boolean(req.body?.force_exclude)) {
+        return res.status(400).json({ error: 'This broker is explicitly ineligible for this country. Change country eligibility first or leave it excluded.' });
       }
 
       const manualRank = req.body?.manual_rank === null || req.body?.manual_rank === ''
