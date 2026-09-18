@@ -13,6 +13,7 @@ const BASE_SECTIONS: { key: BestForSection; label: string; description: string }
   { key: 'who_its_not_for', label: 'Who This Is Not For', description: 'Explain important limitations and cases where the page may not fit.' },
   { key: 'detailed_analysis', label: 'Additional Analysis', description: 'General long-form editorial analysis for the page.' },
   { key: 'methodology', label: 'Methodology Notes', description: 'Optional supporting notes. The canonical methodology page remains the source of truth.' },
+  { key: 'additional', label: 'Additional Content', description: 'Supporting editorial content migrated from the legacy Best-For section store.' },
 ];
 
 const sectionOf = (block: ScopedBlock) => block.editorialSection || 'introduction';
