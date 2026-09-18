@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import type { CountryPage, CountryBrokerRanking } from '../lib/types';
+import type { CountryBrokerRanking } from '../lib/types';
 import { fetchCountryHubPageModel, type CountryHubPageModel } from '../lib/countryHubModel';
-import { fetchPublishedContentDocument } from '../lib/canonicalContent';
 import PageBlocksRenderer from '../components/PageBlocksRenderer';
 import BrokerCard from '../components/BrokerCard';
 import { useSEO } from '../hooks/useSEO';
