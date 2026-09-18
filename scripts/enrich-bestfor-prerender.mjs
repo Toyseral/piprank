@@ -108,11 +108,15 @@ async function main() {
     supabase.from('brokers').select('id,name,slug,tagline,rating,trust_score,min_deposit,spread_eurusd,commission_value,commission,max_leverage,payments,regulations,health,platforms,best_for,assets,scalping,islamic_account,copy_trading,hedging,account_types,demo_account'),
     supabase.from('countries').select('slug,recommended,publishing_state').eq('publishing_state', 'published'),
     supabase.from('country_intent_broker_final_rankings').select('final_rank,broker_id,countries!inner(slug),intents!inner(slug)'),
+    supabase.from('country_intent_broker_overrides').select('broker_id,manual_rank,force_exclude,countries!inner(slug),intents!inner(slug)'),
+    supabase.from('broker_country_availability').select('broker_id,status,countries!inner(slug)'),
   ]);
   if (docsRes.error) throw docsRes.error;
   if (brokersRes.error) throw brokersRes.error;
   if (countriesRes.error) throw countriesRes.error;
   if (rankingsRes.error) throw rankingsRes.error;
+  if (overridesRes.error) throw overridesRes.error;
+  if (availabilityRes.error) throw availabilityRes.error;
 
   const countries = new Map((countriesRes.data || []).map((country) => [country.slug, country]));
   const rankingMap = new Map();
@@ -126,6 +130,24 @@ async function main() {
     rankingMap.set(key, rows);
   }
 
+  const overrideMap = new Map();
+  for (const row of overridesRes.data || []) {
+    const countrySlug = row.countries?.slug;
+    const intentSlug = row.intents?.slug;
+    if (!countrySlug || !intentSlug) continue;
+    const key = countrySlug + ':' + intentSlug;
+    const rows = overrideMap.get(key) || [];
+    rows.push(row);
+    overrideMap.set(key, rows);
+  }
+
+  const availabilityMap = new Map();
+  for (const row of availabilityRes.data || []) {
+    const countrySlug = row.countries?.slug;
+    if (!countrySlug) continue;
+    availabilityMap.set(countrySlug + ':' + row.broker_id, row.status || 'available');
+  }
+
   let enriched = 0;
   for (const doc of docsRes.data || []) {
     const path = canonicalPath(doc);
@@ -135,8 +157,32 @@ async function main() {
     const html = readFileSync(file, 'utf8');
     const country = doc.country_slug ? countries.get(doc.country_slug) : null;
     const intentSlug = rankingIntentSlug(doc.slug, doc);
-    const rankingRows = country ? (rankingMap.get(`${country.slug}:${intentSlug}`) || []) : [];
-    const ranked = rankBrokers(brokersRes.data || [], doc, country, rankingRows);
+    const rankingKey = country ? country.slug + ':' + intentSlug : '';
+    const baseRows = country ? (rankingMap.get(rankingKey) || []) : [];
+    const overrides = country ? (overrideMap.get(rankingKey) || []) : [];
+    const rankingRows = baseRows
+      .map((row) => {
+        const override = overrides.find((item) => Number(item.broker_id) === Number(row.broker_id));
+        return {
+          ...row,
+          manual_rank: override?.manual_rank ?? null,
+          force_exclude: Boolean(override?.force_exclude),
+          availability_status: availabilityMap.get(country.slug + ':' + row.broker_id) || 'available',
+        };
+      })
+      .filter((row) => !row.force_exclude && row.availability_status === 'available');
+    const manualOnlyRows = overrides
+      .filter((row) => Number.isInteger(Number(row.manual_rank)) && Number(row.manual_rank) >= 1 && Number(row.manual_rank) <= 9)
+      .filter((row) => !row.force_exclude && (availabilityMap.get(country.slug + ':' + row.broker_id) || 'available') === 'available')
+      .filter((row) => !rankingRows.some((existing) => Number(existing.broker_id) === Number(row.broker_id)))
+      .map((row) => ({
+        broker_id: Number(row.broker_id),
+        final_rank: Number(row.manual_rank),
+        manual_rank: Number(row.manual_rank),
+        availability_status: 'available',
+      }));
+    const dedupedRankingRows = [...rankingRows, ...manualOnlyRows];
+    const ranked = rankBrokers(brokersRes.data || [], doc, country, dedupedRankingRows);
     const extra = `${rankingSection(ranked, doc)}${comparisonTable(ranked, doc)}${detailSection(ranked, doc)}${criteriaSection(doc)}${ranked.map((broker) => verdictSection(broker, intentSlug)).join('')}`;
     const output = inject(html, extra);
     if (output !== html) {
