@@ -3,6 +3,7 @@ import { getCountrySeoTopic, rankCountryTopicBrokers } from '../data/countrySeoM
 /** @typedef {import('./types').Broker} Broker */
 /** @typedef {import('./types').CountryPage} CountryPage */
 /** @typedef {import('./types').CountryIntentBrokerRanking} CountryIntentBrokerRanking */
+/** @typedef {{ document: any, brokers: Broker[], country?: CountryPage | null, intentSlug: string, rankingRows?: CountryIntentBrokerRanking[] }} BestForPageModelInput */
 
 export function healthScore(broker) {
   const h = broker?.health || {};
@@ -104,7 +105,8 @@ export function rankCountryBestFor(brokers, country, doc, intentSlug, rankingRow
   });
 }
 
-export function buildBestForPageModel({ document, brokers, country, intentSlug, rankingRows = [] }) {
+/** @param {BestForPageModelInput} input */
+export function buildBestForPageModel({ document, brokers, country = null, intentSlug, rankingRows = [] }) {
   const ranked = country ? rankCountryBestFor(brokers, country, document, intentSlug, rankingRows) : rankGlobalBestFor(brokers, document, intentSlug);
   const settings = settingsOf(document);
   return {
