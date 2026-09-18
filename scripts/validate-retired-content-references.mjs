@@ -13,6 +13,7 @@ const IGNORE = new Set([
   'api/content-documents.js',
   'src/pages/Admin.tsx',
   'scripts/validate-canonical-ownership.mjs',
+  'scripts/validate-route-ownership.mjs',
 ]);
 
 const patterns = [

@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
-if (process.env.VERCEL_ENV !== 'production' && process.env.CI !== 'true') {
-  console.log('[validate-country-hub-canonical] Non-production build — skipped.');
+if (process.env.VERCEL_ENV !== 'production') {
+  console.log('[validate-country-hub-canonical] Non-production build — skipped (CI has no production database credentials).');
   process.exit(0);
 }
 const url=process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -14,14 +14,15 @@ const {data:docs,error:de}=await supabase.from('content_documents').select('cont
 if(de) throw de;
 const byKey=new Map((docs||[]).map(d=>[d.content_key,d]));
 const missing=[];
+const empty=[];
 for(const c of countries||[]){
  const d=byKey.get(`country:${c.slug}:hub`);
  if(!d){missing.push(c.slug);continue;}
  if(!Array.isArray(d.blocks)||!d.blocks.length) empty.push(c.slug);
 }
-if(missing.length){
+if(missing.length || empty.length){
  console.error('[validate-country-hub-canonical] FAILED');
- console.error(JSON.stringify({missing},null,2));
+ console.error(JSON.stringify({missing, empty},null,2));
  process.exit(1);
 }
 console.log(`[validate-country-hub-canonical] OK — ${countries?.length||0} countries have canonical hub documents.`);
