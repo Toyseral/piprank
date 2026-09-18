@@ -26,8 +26,18 @@ export default async function handler(req, res) {
   try {
     if (req.method === 'GET') {
       const requestedSlug = String(req.query?.slug ?? '').trim().toLowerCase();
-      if (requestedSlug) { const { data, error } = await supabase.from('brokers').select(PUBLIC_BROKER_FIELDS).eq('slug', requestedSlug).maybeSingle(); if (error) throw error; if (!data) return res.status(404).json({ error: 'Broker not found' }); return res.status(200).json(normalizeBroker(data)); }
-      const { data, error } = await supabase.from('brokers').select(PUBLIC_BROKER_FIELDS).order('rating', { ascending: false }); if (error) throw error; return res.status(200).json((data ?? []).map(normalizeBroker));
+      const { data: media, error: mediaError } = await supabase.from('broker_media').select('broker_id, logo_url');
+      if (mediaError) throw mediaError;
+      const logoMap = new Map((media ?? []).map((row) => [Number(row.broker_id), row.logo_url ?? null]));
+      if (requestedSlug) {
+        const { data, error } = await supabase.from('brokers').select(PUBLIC_BROKER_FIELDS).eq('slug', requestedSlug).maybeSingle();
+        if (error) throw error;
+        if (!data) return res.status(404).json({ error: 'Broker not found' });
+        return res.status(200).json(normalizeBroker({ ...data, logo_url: logoMap.get(Number(data.id)) ?? data.logo_url ?? null }));
+      }
+      const { data, error } = await supabase.from('brokers').select(PUBLIC_BROKER_FIELDS).order('rating', { ascending: false });
+      if (error) throw error;
+      return res.status(200).json((data ?? []).map((broker) => normalizeBroker({ ...broker, logo_url: logoMap.get(Number(broker.id)) ?? broker.logo_url ?? null })));
     }
     if (!(await requireRole(req, res, BROKER_WRITE))) return;
     if (req.method === 'POST') { const body = req.body ?? {}; if (!body.name || String(body.name).trim().length < 2) return res.status(400).json({ error: 'Broker name is required' }); const payload = { ...BROKER_DEFAULTS, ...pickBrokerFields(body), name: String(body.name).trim(), slug: body.slug ? slugify(body.slug) : slugify(body.name), platforms: normalizePlatforms(body.platforms ?? BROKER_DEFAULTS.platforms) }; const { data, error } = await supabase.from('brokers').insert(payload).select().single(); if (error) throw error; return res.status(201).json(normalizeBroker(data)); }
