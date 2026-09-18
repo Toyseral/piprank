@@ -180,6 +180,151 @@ async function handleLocalizationGlossary(req,res){if(req.method==='GET'){const 
   return res.status(405).json({error:'Method not allowed'});
 }
 async function handleLocalizationHealth(req,res){if(req.method!=='GET')return res.status(405).json({error:'Method not allowed'});const actor=await requireRole(req,res,CONTENT_WRITE);if(!actor)return;const {data:docs,error}=await supabase.from('content_documents').select('id,country_slug,content_type,slug,title,blocks,html,seo_description,published,indexable,updated_at').in('content_type',['localized-guide','localized-best-for']);if(error)throw error;const issues=[];for(const p of docs??[]){const contentLen=String(p.html||'').trim().length;const blockCount=Array.isArray(p.blocks)?p.blocks.length:0;if(p.published&&contentLen<MIN_LOCALIZED_CONTENT_LENGTH&&blockCount<1)issues.push({id:p.id,type:'thin_published',message:'Published localized document has thin content',slug:p.slug,country:p.country_slug});if(p.published&&p.indexable&&!String(p.seo_description||'').trim())issues.push({id:p.id,type:'missing_meta',message:'Published/indexable localized document has no meta description',slug:p.slug,country:p.country_slug});}return res.status(200).json({totals:{pages:(docs??[]).length,published:(docs??[]).filter(p=>p.published).length,issues:issues.length},issues});}
-async function handleCountryIntentRankings(req,res){if(req.method==='GET'){const {country,intent}=req.query;let query=supabase.from('country_intent_broker_final_rankings').select('*, countries!inner(slug,name), intents!inner(slug,label), brokers!inner(id,name,slug,rating,trust_score,brand_color,logo_url)').order('final_rank',{ascending:true});if(country)query=query.eq('countries.slug',String(country));if(intent)query=query.eq('intents.slug',String(intent));const {data,error}=await query;if(error)throw error;const brokerIds=[...new Set((data??[]).map((row)=>Number(row.broker_id)).filter((id)=>Number.isInteger(id)&&id>0))];let logoMap=new Map();if(brokerIds.length){const {data:media,error:mediaError}=await supabase.from('broker_media').select('broker_id, logo_url').in('broker_id',brokerIds);if(mediaError)throw mediaError;logoMap=new Map((media??[]).map((row)=>[Number(row.broker_id),row.logo_url??null]));}return res.status(200).json((data??[]).map(r=>({...r,countries:undefined,intents:undefined,broker:r.brokers?{...r.brokers,logo_url:logoMap.get(Number(r.broker_id))??r.brokers.logo_url??null}:r.brokers,brokers:undefined})));}if(!(await requireRole(req,res,CONTENT_WRITE)))return;if(req.method==='PUT'){const b=req.body??{};if(!b.country_id||!b.intent_id||!b.broker_id)return res.status(400).json({error:'country_id, intent_id and broker_id are required'});const payload={country_id:Number(b.country_id),intent_id:Number(b.intent_id),broker_id:Number(b.broker_id),force_include:Boolean(b.force_include),force_exclude:Boolean(b.force_exclude),manual_rank:b.manual_rank===null||b.manual_rank===''?null:Number(b.manual_rank),score_adjustment:Number(b.score_adjustment||0),featured_override:b.featured_override===null||b.featured_override===''?null:Boolean(b.featured_override),editorial_note:b.editorial_note?String(b.editorial_note).slice(0,2000):null,updated_at:new Date().toISOString()};if(payload.force_include&&payload.force_exclude)return res.status(400).json({error:'A broker cannot be both force included and force excluded'});const {data,error}=await supabase.from('country_intent_broker_overrides').upsert(payload,{onConflict:'country_id,intent_id,broker_id'}).select().single();if(error)throw error;return res.status(200).json(data);}if(req.method==='DELETE'){const b=req.body??{};const {error}=await supabase.from('country_intent_broker_overrides').delete().match({country_id:Number(b.country_id),intent_id:Number(b.intent_id),broker_id:Number(b.broker_id)});if(error)throw error;return res.status(200).json({ok:true});}return res.status(405).json({error:'Method not allowed'});}
+async function handleCountryIntentRankings(req, res) {
+  const { country, intent } = req.query || {};
+  if (!country || !intent) return res.status(400).json({ error: 'country and intent are required' });
+
+  const [{ data: countryRow, error: countryError }, { data: intentRow, error: intentError }] = await Promise.all([
+    supabase.from('countries').select('id,slug,name').eq('slug', String(country)).maybeSingle(),
+    supabase.from('intents').select('id,slug,label').eq('slug', String(intent)).maybeSingle(),
+  ]);
+  if (countryError) throw countryError;
+  if (intentError) throw intentError;
+  if (!countryRow) return res.status(404).json({ error: 'Country not found' });
+  if (!intentRow) return res.status(404).json({ error: 'Intent not found' });
+
+  if (req.method === 'GET') {
+    const isAdmin = String(req.query?.admin ?? '') === 'true';
+    if (isAdmin && !(await requireRole(req, res, CONTENT_WRITE))) return;
+
+    const [{ data: brokers, error: brokerError }, { data: availability, error: availabilityError }, { data: overrides, error: overrideError }, { data: baseRows, error: rankingError }] = await Promise.all([
+      supabase.from('brokers').select('id,name,slug,rating,trust_score,brand_color,logo_url').order('rating', { ascending: false }),
+      supabase.from('broker_country_availability').select('broker_id,status,note,priority').eq('country_id', Number(countryRow.id)),
+      supabase.from('country_intent_broker_overrides').select('*').eq('country_id', Number(countryRow.id)).eq('intent_id', Number(intentRow.id)),
+      supabase.from('country_intent_broker_final_rankings').select('broker_id,final_rank,final_score,eligibility_status,score_breakdown,featured').eq('country_id', Number(countryRow.id)).eq('intent_id', Number(intentRow.id)).order('final_rank', { ascending: true }),
+    ]);
+    if (brokerError) throw brokerError;
+    if (availabilityError) throw availabilityError;
+    if (overrideError) throw overrideError;
+    if (rankingError) throw rankingError;
+
+    const brokerIds = (brokers ?? []).map((b) => Number(b.id)).filter((id) => Number.isInteger(id));
+    let media = [];
+    if (brokerIds.length) {
+      const { data, error } = await supabase.from('broker_media').select('broker_id,logo_url').in('broker_id', brokerIds);
+      if (error) throw error;
+      media = data ?? [];
+    }
+    const logoMap = new Map(media.map((m) => [Number(m.broker_id), m.logo_url ?? null]));
+    const availabilityMap = new Map((availability ?? []).map((a) => [Number(a.broker_id), a]));
+    const overrideMap = new Map((overrides ?? []).map((o) => [Number(o.broker_id), o]));
+    const baseMap = new Map((baseRows ?? []).map((r) => [Number(r.broker_id), r]));
+
+    const hydrated = (brokers ?? []).map((broker) => {
+      const id = Number(broker.id);
+      const a = availabilityMap.get(id);
+      const o = overrideMap.get(id);
+      const base = baseMap.get(id);
+      const status = a?.status ?? 'available';
+      const available = status === 'available';
+      const score = Number(base?.final_score ?? broker.trust_score ?? broker.rating ?? 0);
+      return {
+        country_id: Number(countryRow.id),
+        intent_id: Number(intentRow.id),
+        broker_id: id,
+        final_rank: o?.manual_rank ?? base?.final_rank ?? null,
+        final_score: score + Number(o?.score_adjustment ?? 0),
+        eligibility_status: available ? (base?.eligibility_status ?? 'available') : status,
+        score_breakdown: base?.score_breakdown ?? {},
+        featured: o?.featured_override ?? base?.featured ?? false,
+        force_include: Boolean(o?.force_include),
+        force_exclude: Boolean(o?.force_exclude),
+        manual_rank: o?.manual_rank ?? null,
+        score_adjustment: Number(o?.score_adjustment ?? 0),
+        featured_override: o?.featured_override ?? null,
+        editorial_note: o?.editorial_note ?? null,
+        availability_status: status,
+        availability_note: a?.note ?? null,
+        broker: { ...broker, logo_url: logoMap.get(id) ?? broker.logo_url ?? null },
+      };
+    }).filter((row) => !row.force_exclude && row.availability_status === 'available');
+
+    hydrated.sort((a, b) => {
+      const ar = Number.isInteger(Number(a.manual_rank)) ? Number(a.manual_rank) : 9999;
+      const br = Number.isInteger(Number(b.manual_rank)) ? Number(b.manual_rank) : 9999;
+      if (ar !== br) return ar - br;
+      const af = Number(a.final_rank ?? 9999);
+      const bf = Number(b.final_rank ?? 9999);
+      if (af !== bf) return af - bf;
+      return Number(b.final_score) - Number(a.final_score);
+    });
+
+    if (isAdmin) {
+      return res.status(200).json(hydrated);
+    }
+
+    const manuallyRanked = hydrated.filter((row) => Number.isInteger(Number(row.manual_rank)) && Number(row.manual_rank) >= 1 && Number(row.manual_rank) <= 9);
+    const selected = manuallyRanked.length
+      ? [...manuallyRanked, ...hydrated.filter((row) => !manuallyRanked.some((m) => m.broker_id === row.broker_id))].slice(0, 9)
+      : hydrated.slice(0, 9);
+    return res.status(200).json(selected.map((r, index) => ({ ...r, final_rank: Number(r.manual_rank ?? index + 1) })));
+  }
+
+  if (!(await requireRole(req, res, CONTENT_WRITE))) return;
+
+  if (req.method === 'PUT') {
+    const b = req.body ?? {};
+    const brokerId = Number(b.broker_id);
+    if (!countryRow.id || !intentRow.id || !brokerId) return res.status(400).json({ error: 'country_id, intent_id and broker_id are required' });
+    const manualRank = b.manual_rank === null || b.manual_rank === '' ? null : Number(b.manual_rank);
+    if (manualRank !== null && (!Number.isInteger(manualRank) || manualRank < 1 || manualRank > 9)) {
+      return res.status(400).json({ error: 'manual_rank must be between 1 and 9' });
+    }
+
+    const { data: availability, error: availabilityError } = await supabase.from('broker_country_availability')
+      .select('status').eq('country_id', Number(countryRow.id)).eq('broker_id', brokerId).maybeSingle();
+    if (availabilityError) throw availabilityError;
+    if (manualRank !== null && availability?.status && availability.status !== 'available') {
+      return res.status(400).json({ error: 'Only brokers available in this country can be ranked' });
+    }
+
+    if (manualRank !== null) {
+      await supabase.from('country_intent_broker_overrides')
+        .update({ manual_rank: null, updated_at: new Date().toISOString() })
+        .eq('country_id', Number(countryRow.id))
+        .eq('intent_id', Number(intentRow.id))
+        .eq('manual_rank', manualRank)
+        .neq('broker_id', brokerId);
+    }
+
+    const payload = {
+      country_id: Number(countryRow.id),
+      intent_id: Number(intentRow.id),
+      broker_id: brokerId,
+      force_include: Boolean(b.force_include),
+      force_exclude: Boolean(b.force_exclude),
+      manual_rank: manualRank,
+      score_adjustment: Number(b.score_adjustment || 0),
+      featured_override: b.featured_override === null || b.featured_override === '' ? null : Boolean(b.featured_override),
+      editorial_note: b.editorial_note ? String(b.editorial_note).slice(0, 2000) : null,
+      updated_at: new Date().toISOString(),
+    };
+    if (payload.force_include && payload.force_exclude) return res.status(400).json({ error: 'A broker cannot be both force included and force excluded' });
+    const { data, error } = await supabase.from('country_intent_broker_overrides')
+      .upsert(payload, { onConflict: 'country_id,intent_id,broker_id' }).select().single();
+    if (error) throw error;
+    return res.status(200).json(data);
+  }
+
+  if (req.method === 'DELETE') {
+    const b = req.body ?? {};
+    const { error } = await supabase.from('country_intent_broker_overrides')
+      .delete().match({ country_id: Number(countryRow.id), intent_id: Number(intentRow.id), broker_id: Number(b.broker_id) });
+    if (error) throw error;
+    return res.status(200).json({ ok: true });
+  }
+
+  return res.status(405).json({ error: 'Method not allowed' });
+}
 function setCors(res, methods) { res.setHeader('Access-Control-Allow-Origin', SITE_ORIGIN); res.setHeader('Vary', 'Origin'); res.setHeader('Access-Control-Allow-Methods', `${methods}, OPTIONS`); res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization'); }
 export default async function handler(req,res){setCors(res,'GET, POST, PUT, DELETE');if(req.method==='OPTIONS')return res.status(204).end();const resource=String(req.query?.resource??'');try{if(resource==='intents')return await handleIntents(req,res);if(resource==='countries')return await handleCountries(req,res);if(resource==='content-assets')return await handleContentAssets(req,res);if(resource==='seo-page-generator')return await handleSeoPageGenerator(req,res);if(resource==='country-languages')return await handleCountryLanguages(req,res);if(resource==='localization-ui-packs')return await handleLocalizationUiPacks(req,res);if(resource==='localization-glossary')return await handleLocalizationGlossary(req,res);if(resource==='localization-health')return await handleLocalizationHealth(req,res);if(resource==='country-intent-rankings')return await handleCountryIntentRankings(req,res);return res.status(400).json({error:"Unknown 'resource' query param"});}catch(err){console.error('content API error:',err);return res.status(500).json({error:err.message});}}
