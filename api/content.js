@@ -290,7 +290,9 @@ async function handleCountryIntentRankings(req, res) {
     }
 
     if (rankingMode === 'automatic') {
-      const automaticPool = hydrated.filter((row) => baseMap.has(Number(row.broker_id)) || row.force_include);
+      const automaticPool = hydrated
+        .filter((row) => baseMap.has(Number(row.broker_id)) || row.force_include)
+        .sort((a, b) => Number(b.final_score) - Number(a.final_score) || Number(a.broker_id) - Number(b.broker_id));
       return res.status(200).json(automaticPool.slice(0, 9).map((r, index) => ({ ...r, final_rank: index + 1 })));
     }
 
