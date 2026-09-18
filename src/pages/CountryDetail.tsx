@@ -130,7 +130,7 @@ export default function CountryDetail() {
             <h1 className="mt-3 max-w-4xl font-display text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">{document.title}</h1>
             {document.excerpt && <p className="mt-5 max-w-3xl text-base leading-7 text-slate-300 sm:text-lg">{document.excerpt}</p>}
             <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-              <ButtonLink variant="primary" size="lg" to="/find-my-broker">Get Matched with a Broker <ArrowRight size={16} /></ButtonLink>
+              <ButtonLink variant="primary" size="lg" to="/quiz">Get Matched with a Broker <ArrowRight size={16} /></ButtonLink>
               <Link to="/compare" className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/20 px-5 py-3 text-sm font-bold text-white transition hover:bg-white/10">Compare Brokers</Link>
             </div>
             <div className="mt-6 flex flex-wrap gap-x-5 gap-y-2 text-xs text-slate-300">
@@ -142,7 +142,7 @@ export default function CountryDetail() {
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-300">Quick start</p>
             <h2 className="mt-2 font-display text-xl font-bold">Find a broker that fits your needs</h2>
             <p className="mt-2 text-sm leading-6 text-slate-300">Tell PipRank where you trade from and what matters to you. We’ll narrow the available brokers before you compare them.</p>
-            <ButtonLink variant="primary" size="md" to="/find-my-broker" className="mt-5 w-full">Find My Broker</ButtonLink>
+            <ButtonLink variant="primary" size="md" to="/quiz" className="mt-5 w-full">Find My Broker</ButtonLink>
           </div>
         </div>
       </section>
@@ -170,7 +170,7 @@ export default function CountryDetail() {
             />
             <BrokerRanking ranked={ranked} countrySlug={country.slug} />
             <div className="mt-7 flex flex-wrap gap-4">
-              <ButtonLink variant="dark" size="md" to="/find-my-broker">Get Matched with a Broker</ButtonLink>
+              <ButtonLink variant="dark" size="md" to="/quiz">Get Matched with a Broker</ButtonLink>
               <Link to="/compare" className="inline-flex items-center gap-1.5 px-1 py-3 text-sm font-bold text-emerald-700">Compare brokers <ArrowRight size={14} /></Link>
             </div>
           </div>
@@ -238,7 +238,7 @@ export default function CountryDetail() {
             <h2 className="mt-2 font-display text-3xl font-bold sm:text-4xl">Find the broker that fits you</h2>
             <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-300">Tell us where you trade from, what you trade and which features matter most. PipRank will narrow the available options for you.</p>
           </div>
-          <ButtonLink variant="primary" size="lg" to="/find-my-broker">Match Me With a Broker <ArrowRight size={16} /></ButtonLink>
+          <ButtonLink variant="primary" size="lg" to="/quiz">Match Me With a Broker <ArrowRight size={16} /></ButtonLink>
         </div>
       </section>
 
