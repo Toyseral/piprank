@@ -65,6 +65,10 @@ export default function RankingManager({ countries, intents, brokers, token }: {
     setSelection((current) => current.map((value, index) => index === slot ? brokerId : value === brokerId ? 0 : value));
   };
 
+  const removeBroker = (slot: number) => {
+    setSelection((current) => current.map((value, index) => index === slot ? 0 : value));
+  };
+
   const saveMode = async (nextMode: RankingMode) => {
     const response = await fetch(`/api/country-intent-rankings?country=${encodeURIComponent(country)}&intent=${encodeURIComponent(intent)}`, {
       method: 'PUT',
@@ -108,6 +112,35 @@ export default function RankingManager({ countries, intents, brokers, token }: {
     try {
       if (mode !== 'manual') await saveMode('manual');
       const current = new Map(rows.map((row) => [Number(row.broker_id), row]));
+      const selectedSet = new Set(rankedIds);
+
+      // Clear ranks for brokers that were previously in the manual list but
+      // have now been removed/replaced. Without this, an old broker could stay
+      // manually ranked in the database even after disappearing from the UI.
+      for (const row of rows) {
+        const brokerId = Number(row.broker_id);
+        if (!row.manual_rank || selectedSet.has(brokerId)) continue;
+        const response = await fetch(
+          `/api/country-intent-rankings?country=${encodeURIComponent(country)}&intent=${encodeURIComponent(intent)}`,
+          {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({
+              country,
+              intent,
+              broker_id: brokerId,
+              force_include: row.force_include ?? false,
+              force_exclude: false,
+              manual_rank: null,
+              score_adjustment: row.score_adjustment ?? 0,
+              featured_override: row.featured_override ?? null,
+              editorial_note: row.editorial_note ?? null,
+            }),
+          },
+        );
+        if (!response.ok) throw new Error('Could not remove broker from manual ranking');
+      }
+
       for (let index = 0; index < SLOT_COUNT; index += 1) {
         const brokerId = rankedIds[index];
         const row = current.get(brokerId);
@@ -186,8 +219,16 @@ export default function RankingManager({ countries, intents, brokers, token }: {
               </div>
               <div className="mt-4 grid gap-3 md:grid-cols-3">
                 {selection.map((brokerId, index) => (
-                  <label key={index} className="rounded-xl border border-line bg-paper p-3 text-sm font-semibold">
-                    <span className="text-xs font-bold uppercase tracking-wide text-slate-400">Rank {index + 1}</span>
+                  <div key={index} className="rounded-xl border border-line bg-paper p-3 text-sm font-semibold">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-bold uppercase tracking-wide text-slate-400">Rank {index + 1}</span>
+                      {brokerId ? (
+                        <button type="button" onClick={() => removeBroker(index)} disabled={saving}
+                          className="text-xs font-semibold text-red-600 hover:underline disabled:opacity-50">
+                          Remove
+                        </button>
+                      ) : null}
+                    </div>
                     <select className="mt-2 block w-full rounded-lg border border-line bg-white p-2" value={brokerId || ''} onChange={(e) => setSlot(index, Number(e.target.value))}>
                       <option value="">— Select broker —</option>
                       {availableBrokers.map((broker) => {
@@ -195,11 +236,11 @@ export default function RankingManager({ countries, intents, brokers, token }: {
                         return <option key={broker.id} value={broker.id} disabled={occupiedAt !== -1 && occupiedAt !== index}>{broker.name}</option>;
                       })}
                     </select>
-                  </label>
+                  </div>
                 ))}
               </div>
               <div className="mt-4 flex items-center justify-between gap-3">
-                <p className="text-xs text-slate-500">{availableBrokers.length} available brokers · {selection.filter(Boolean).length}/9 ranked</p>
+                <p className="text-xs text-slate-500">{availableBrokers.length} available brokers · {selection.filter(Boolean).length}/9 ranked · any available broker can be added</p>
                 <button type="button" onClick={saveManualRanking} disabled={saving || selection.some((id) => !id)}
                   className="rounded-xl bg-ink-950 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50">
                   {saving ? 'Saving…' : 'Save 9-broker ranking'}
