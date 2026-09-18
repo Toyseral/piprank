@@ -251,7 +251,7 @@ async function main() {
     const faqs = Array.isArray(doc.settings?.faqs) ? doc.settings.faqs : [];
     const countryName = countriesBySlug.get(doc.country_slug)?.name || doc.country_slug;
     const content = `<main><h1>${esc(doc.title)}</h1>${doc.excerpt ? `<p>${esc(doc.excerpt)}</p>` : ''}${renderDocument(doc, brokersById)}${faqs.length ? `<h2>Frequently Asked Questions</h2>${faqs.map((faq) => `<details><summary>${esc(faq.q)}</summary><p>${esc(faq.a)}</p></details>`).join('')}` : ''}</main>`;
-    if (writePage(shell, writtenPaths, path, { title, description }, content, [pageJsonLd(title, description, path), breadcrumbJsonLd([{ name: 'Home', path: '/' }, { name: countryName, path: `/${doc.country_slug}` }, { name: doc.title, path }]), ...(faqs.length ? [faqJsonLd(faqs)] : [])])) written++;
+    if (writePage(shell, writtenPaths, path, { title, description }, content, [pageJsonLd(title, description, path, 'Article', reviewerJsonLd(author)), breadcrumbJsonLd([{ name: 'Home', path: '/' }, { name: countryName, path: `/${doc.country_slug}` }, { name: doc.title, path }]), ...(faqs.length ? [faqJsonLd(faqs)] : [])])) written++;
   }
 
   for (const doc of localizedGuides) {
@@ -262,7 +262,7 @@ async function main() {
     const title = doc.seo_title || doc.title;
     const description = doc.seo_description || doc.excerpt || '';
     const content = `<main><h1>${esc(doc.title)}</h1>${doc.excerpt ? `<p>${esc(doc.excerpt)}</p>` : ''}${renderDocument(doc, brokersById)}</main>`;
-    if (writePage(shell, writtenPaths, path, { title, description }, content, [pageJsonLd(title, description, path, 'Article'), ...(reviewerJsonLd(author) ? [{ ...pageJsonLd(title, description, path, 'Article'), author: reviewerJsonLd(author) }] : [])])) written++;
+    if (writePage(shell, writtenPaths, path, { title, description }, content, [pageJsonLd(title, description, path, 'Article', reviewerJsonLd(author))])) written++;
   }
 
   for (const doc of localizedBestFors) {
@@ -275,7 +275,7 @@ async function main() {
     const faqs = Array.isArray(doc.settings?.faqs) ? doc.settings.faqs : [];
     const countryName = countriesBySlug.get(doc.country_slug)?.name || doc.country_slug;
     const content = `<main><h1>${esc(doc.title)}</h1>${doc.excerpt ? `<p>${esc(doc.excerpt)}</p>` : ''}${renderDocument(doc, brokersById)}${faqs.length ? `<h2>Frequently Asked Questions</h2>${faqs.map((faq) => `<details><summary>${esc(faq.q)}</summary><p>${esc(faq.a)}</p></details>`).join('')}` : ''}</main>`;
-    if (writePage(shell, writtenPaths, path, { title, description }, content, [pageJsonLd(title, description, path), breadcrumbJsonLd([{ name: 'Home', path: '/' }, { name: countryName, path: `/${doc.country_slug}` }, { name: doc.title, path }]), ...(faqs.length ? [faqJsonLd(faqs)] : [])])) written++;
+    if (writePage(shell, writtenPaths, path, { title, description }, content, [pageJsonLd(title, description, path, 'Article', reviewerJsonLd(author)), breadcrumbJsonLd([{ name: 'Home', path: '/' }, { name: countryName, path: `/${doc.country_slug}` }, { name: doc.title, path }]), ...(faqs.length ? [faqJsonLd(faqs)] : [])])) written++;
   }
 
   log(`Canonical prerender complete: ${written} pages from ${publicDocs.length} published, indexable content documents.`);
