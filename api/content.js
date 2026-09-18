@@ -150,7 +150,24 @@ function isMissingPublishingStateColumn(error){return error&&(error.code==='PGRS
 async function insertCountryWithPublishingFallback(payload){const result=await supabase.from('countries').insert(payload).select().single();if(!result.error||!isMissingPublishingStateColumn(result.error))return result;const {publishing_state,...safePayload}=payload;return supabase.from('countries').insert(safePayload).select().single();}
 async function updateCountryWithPublishingFallback(id,fields){const result=await supabase.from('countries').update(fields).eq('id',Number(id)).select().single();if(!result.error||!isMissingPublishingStateColumn(result.error))return result;const {publishing_state,...safeFields}=fields;return supabase.from('countries').update(safeFields).eq('id',Number(id)).select().single();}
 async function handleCountries(req,res){
-  if(req.method==='GET'){const {slug}=req.query;if(slug){const {data,error}=await supabase.from('countries').select('*').eq('slug',slug).single();if(error||!data)return res.status(404).json({error:'Country not found'});return res.status(200).json(data);}const {data,error}=await supabase.from('countries').select('*').order('id',{ascending:true});if(error)throw error;return res.status(200).json(data);}
+  if(req.method==='GET'){
+    const {slug}=req.query;
+    const {data:countries,error}=slug
+      ? await supabase.from('countries').select('*').eq('slug',slug).single().then((r)=>({data:r.data?[r.data]:[],error:r.error}))
+      : await supabase.from('countries').select('*').order('id',{ascending:true});
+    if(error) return res.status(404).json({error:'Country not found'});
+    const {data:brokers,error:brokerError}=await supabase.from('brokers').select('id,slug');
+    if(brokerError) throw brokerError;
+    const {data:availability,error:availabilityError}=await supabase.from('broker_country_availability').select('broker_id,country_id,status');
+    if(availabilityError) throw availabilityError;
+    const blocked=new Set((availability??[]).filter((row)=>row.status!=='available').map((row)=>String(Number(row.country_id))+':'+String(Number(row.broker_id))));
+    const hydrated=(countries??[]).map((country)=>({
+      ...country,
+      available_broker_slugs:(brokers??[]).filter((broker)=>!blocked.has(String(Number(country.id))+':'+String(Number(broker.id)))).map((broker)=>broker.slug),
+    }));
+    if(slug){if(!hydrated[0])return res.status(404).json({error:'Country not found'});return res.status(200).json(hydrated[0]);}
+    return res.status(200).json(hydrated);
+  }
   if(!(await requireRole(req,res,CONTENT_WRITE)))return;
   if(req.method==='POST'){const body=req.body??{};if(!body.name||String(body.name).trim().length<2)return res.status(400).json({error:'Country name is required'});const payload={name:String(body.name).trim().slice(0,60),slug:body.slug?slugify(body.slug):slugify(body.name),flag:String(body.flag??'🌍').slice(0,8),subtitle:String(body.subtitle??'').slice(0,200),intro:Array.isArray(body.intro)?body.intro.filter(Boolean):[],facts:Array.isArray(body.facts)?body.facts:[],recommended:Array.isArray(body.recommended)?body.recommended:[],unavailable:Array.isArray(body.unavailable)?body.unavailable:[],seo_title:body.seo_title?String(body.seo_title).slice(0,180):null,seo_description:body.seo_description?String(body.seo_description).slice(0,320):null,seo_intro:Array.isArray(body.seo_intro)?body.seo_intro.filter(Boolean):[],seo_sections:Array.isArray(body.seo_sections)?body.seo_sections:[],seo_faqs:Array.isArray(body.seo_faqs)?body.seo_faqs:[],publishing_state:['draft','published','closed'].includes(body.publishing_state)?body.publishing_state:'published'};const {data,error}=await insertCountryWithPublishingFallback(payload);if(error)throw error;return res.status(201).json(data);}
   if(req.method==='PUT'){const {id,...fields}=req.body??{};if(!id)return res.status(400).json({error:'id is required'});if(fields.name)fields.slug=fields.slug?slugify(fields.slug):slugify(fields.name);const {data,error}=await updateCountryWithPublishingFallback(id,fields);if(error)throw error;return res.status(200).json(data);}
