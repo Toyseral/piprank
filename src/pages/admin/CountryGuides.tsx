@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { Broker, ContentDocument, CountryPage, Intent } from '../../lib/types';
+import type { Broker, ContentDocument, CountryPage } from '../../lib/types';
 import UnifiedGuideEditor from '../../components/admin/UnifiedGuideEditor';
-import RankingWorkspace from './RankingWorkspace';
 import { Eye, Loader2, Pencil, Plus, Trash2 } from 'lucide-react';
 
 type Props = {
@@ -14,7 +13,6 @@ type Props = {
 
 export default function CountryGuides({ country, countries, brokers, token, notify }: Props) {
   const [documents, setDocuments] = useState<ContentDocument[]>([]);
-  const [intents, setIntents] = useState<Intent[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<ContentDocument | null | 'new'>(null);
 
@@ -34,14 +32,6 @@ export default function CountryGuides({ country, countries, brokers, token, noti
   };
 
   useEffect(() => { void load(); }, [country.slug, token]);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch('/api/intents').then((res) => (res.ok ? res.json() : [])).then((data) => {
-      if (!cancelled && Array.isArray(data)) setIntents(data);
-    }).catch(() => { if (!cancelled) setIntents([]); });
-    return () => { cancelled = true; };
-  }, []);
 
   const save = async (fields: Record<string, unknown>, isNew: boolean) => {
     const slug = String(fields.slug ?? '').trim();
@@ -76,10 +66,6 @@ export default function CountryGuides({ country, countries, brokers, token, noti
             <div key={doc.id} className="flex items-center justify-between px-4 py-3"><button onClick={() => setEditing(doc)} className="min-w-0 flex-1 text-left"><span className="block truncate text-sm font-bold text-ink-900">{doc.title || doc.slug || doc.content_key}</span><span className="text-xs text-slate-400">/{country.slug}/guides/{doc.slug} · {doc.published ? 'Published' : 'Draft'} · {doc.indexable ? 'Indexable' : 'Noindex'}</span></button><div className="flex shrink-0 items-center gap-1">{doc.slug && <a href={`/${country.slug}/guides/${doc.slug}`} target="_blank" rel="noreferrer" className="rounded-lg p-2 text-slate-400 hover:bg-paper" title="Preview live guide"><Eye size={14} /></a>}<button onClick={() => setEditing(doc)} className="rounded-lg p-2 text-slate-400 hover:bg-paper" title="Edit guide"><Pencil size={14} /></button><button onClick={() => void remove(doc)} className="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600" title="Delete guide"><Trash2 size={14} /></button></div></div>
           )) : <p className="p-5 text-sm text-slate-400">No country guides yet. Create the first guide with the unified guide editor.</p>}
         </div>
-      </div>
-
-      <div className="mt-5">
-        {intents.length ? <RankingWorkspace key={country.slug} countries={countries} intents={intents} brokers={brokers} token={token} defaultCountrySlug={country.slug} /> : <div className="rounded-2xl border border-line bg-white p-5 text-sm text-slate-400">Loading ranking intents…</div>}
       </div>
 
       {editing && <UnifiedGuideEditor document={editing === 'new' ? null : editing} countries={countries} brokers={brokers} token={token} defaultContentType="country-guide" defaultCountrySlug={country.slug} onClose={() => setEditing(null)} onSave={save} />}

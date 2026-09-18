@@ -59,6 +59,7 @@ import CountryEditor from './admin/countries/CountryEditor';
 import AdminSidebar from './admin/components/AdminSidebar';
 import AffiliateLinksTab from './admin/AffiliateLinksTab';
 import UnifiedGuideEditor from '../components/admin/UnifiedGuideEditor';
+import RankingManager from '../components/admin/RankingManager';
 
 /* =============================== TYPES =============================== */
 
@@ -632,15 +633,29 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
                   />
                 )}
                 {activeTab === 'countries' && (
-                  <CountryHub
-                    countries={countries}
-                    brokers={brokers}
-                    contentDocs={contentDocs}
-                    token={session.access_token}
-                    notify={notify}
-                    onNewCountry={() => setEditingCountry('new')}
-                    onEditCountry={(c) => setEditingCountry(c)}
-                  />
+                  <>
+                    <CountryHub
+                      countries={countries}
+                      brokers={brokers}
+                      contentDocs={contentDocs}
+                      token={session.access_token}
+                      notify={notify}
+                      onNewCountry={() => setEditingCountry('new')}
+                      onEditCountry={(c) => setEditingCountry(c)}
+                    />
+                    <div className="mt-8">
+                      <div className="mb-4">
+                        <h2 className="font-display text-xl font-bold text-ink-900">Country Broker Rankings</h2>
+                        <p className="mt-1 text-sm text-slate-500">Control the broker order for each country and intent. Manual mode lets you select any available broker, including brokers outside the automatic top 9.</p>
+                      </div>
+                      <RankingManager
+                        countries={countries}
+                        intents={intents}
+                        brokers={brokers}
+                        token={session.access_token}
+                      />
+                    </div>
+                  </>
                 )}
                 {activeTab === 'localization' && (
                   <LocalizationWorkspace

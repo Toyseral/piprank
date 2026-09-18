@@ -76,12 +76,12 @@ export function brokerMatchesTopic(broker, topicOrKey) {
 }
 
 export function rankCountryTopicBrokers(brokers, country, topic) {
-  const recommendedSlugs = Array.isArray(country?.recommended) ? country.recommended.map((x) => typeof x === 'string' ? x : x?.slug).filter(Boolean) : [];
-  const countryPool = brokers.filter((broker) => recommendedSlugs.includes(broker.slug));
+  const availableSlugs = new Set(Array.isArray(country?.available_broker_slugs) ? country.available_broker_slugs : brokers.map((broker) => broker.slug));
+  const countryPool = brokers.filter((broker) => availableSlugs.has(broker.slug));
   const eligible = countryPool.filter((broker) => brokerMatchesTopic(broker, topic));
   return eligible.sort((a, b) => {
-    const ai = recommendedSlugs.indexOf(a.slug);
-    const bi = recommendedSlugs.indexOf(b.slug);
+    const ai = brokers.findIndex((broker) => broker.slug === a.slug);
+    const bi = brokers.findIndex((broker) => broker.slug === b.slug);
     if (ai >= 0 && bi >= 0 && ai !== bi) return ai - bi;
     if (topic.key.includes('low-spread') || topic.key === 'eur-usd') {
       return (Number(a.spread_eurusd ?? 999) - Number(b.spread_eurusd ?? 999)) || (Number(b.rating ?? 0) - Number(a.rating ?? 0));
@@ -104,14 +104,14 @@ export function topicMeta(topic, country) {
 export function topicIntro(topic, country) {
   const dimensionText = topic.dimensions.join(' and ');
   return [
-    `Compare ${topic.title.toLowerCase()} available to traders in ${country}. PipRank starts with brokers specifically recommended for ${country}, then filters them for the ${dimensionText} criteria represented by this page.`,
+    `Compare ${topic.title.toLowerCase()} available to traders in ${country}. PipRank starts with brokers specifically available to traders in ${country}, then filters them for the ${dimensionText} criteria represented by this page.`,
     `Broker availability, pricing, regulation, platforms, account types and trading conditions can differ by country. Check the exact legal entity and current terms available to residents of ${country} before opening an account.`,
   ];
 }
 
 export function topicFaq(topic, country) {
   return [
-    { q: `What are the best ${topic.shortTitle} forex brokers in ${country}?`, a: `PipRank starts with the brokers currently recommended for traders in ${country}, then filters them against the ${topic.shortTitle.toLowerCase()} criteria for this page. The best option can still depend on your trading style, costs and platform preference.` },
+    { q: `What are the best ${topic.shortTitle} forex brokers in ${country}?`, a: `PipRank starts with the brokers currently available to traders in ${country}, then filters them against the ${topic.shortTitle.toLowerCase()} criteria for this page. The best option can still depend on your trading style, costs and platform preference.` },
     { q: `How does PipRank rank ${topic.shortTitle.toLowerCase()} brokers in ${country}?`, a: `PipRank uses the country-specific broker set first, then applies the page criteria and compares relevant broker data such as spreads, platforms, account features, minimum deposits and overall broker quality.` },
     { q: `Can forex broker terms differ by country?`, a: `Yes. The legal entity, regulator, leverage, payment methods, account types and available instruments can differ by country. Always confirm the current terms for residents of ${country}.` },
   ];

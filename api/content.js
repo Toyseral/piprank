@@ -150,7 +150,24 @@ function isMissingPublishingStateColumn(error){return error&&(error.code==='PGRS
 async function insertCountryWithPublishingFallback(payload){const result=await supabase.from('countries').insert(payload).select().single();if(!result.error||!isMissingPublishingStateColumn(result.error))return result;const {publishing_state,...safePayload}=payload;return supabase.from('countries').insert(safePayload).select().single();}
 async function updateCountryWithPublishingFallback(id,fields){const result=await supabase.from('countries').update(fields).eq('id',Number(id)).select().single();if(!result.error||!isMissingPublishingStateColumn(result.error))return result;const {publishing_state,...safeFields}=fields;return supabase.from('countries').update(safeFields).eq('id',Number(id)).select().single();}
 async function handleCountries(req,res){
-  if(req.method==='GET'){const {slug}=req.query;if(slug){const {data,error}=await supabase.from('countries').select('*').eq('slug',slug).single();if(error||!data)return res.status(404).json({error:'Country not found'});return res.status(200).json(data);}const {data,error}=await supabase.from('countries').select('*').order('id',{ascending:true});if(error)throw error;return res.status(200).json(data);}
+  if(req.method==='GET'){
+    const {slug}=req.query;
+    const {data:countries,error}=slug
+      ? await supabase.from('countries').select('*').eq('slug',slug).single().then((r)=>({data:r.data?[r.data]:[],error:r.error}))
+      : await supabase.from('countries').select('*').order('id',{ascending:true});
+    if(error) return res.status(404).json({error:'Country not found'});
+    const {data:brokers,error:brokerError}=await supabase.from('brokers').select('id,slug');
+    if(brokerError) throw brokerError;
+    const {data:availability,error:availabilityError}=await supabase.from('broker_country_availability').select('broker_id,country_id,status');
+    if(availabilityError) throw availabilityError;
+    const blocked=new Set((availability??[]).filter((row)=>row.status!=='available').map((row)=>String(Number(row.country_id))+':'+String(Number(row.broker_id))));
+    const hydrated=(countries??[]).map((country)=>({
+      ...country,
+      available_broker_slugs:(brokers??[]).filter((broker)=>!blocked.has(String(Number(country.id))+':'+String(Number(broker.id)))).map((broker)=>broker.slug),
+    }));
+    if(slug){if(!hydrated[0])return res.status(404).json({error:'Country not found'});return res.status(200).json(hydrated[0]);}
+    return res.status(200).json(hydrated);
+  }
   if(!(await requireRole(req,res,CONTENT_WRITE)))return;
   if(req.method==='POST'){const body=req.body??{};if(!body.name||String(body.name).trim().length<2)return res.status(400).json({error:'Country name is required'});const payload={name:String(body.name).trim().slice(0,60),slug:body.slug?slugify(body.slug):slugify(body.name),flag:String(body.flag??'🌍').slice(0,8),subtitle:String(body.subtitle??'').slice(0,200),intro:Array.isArray(body.intro)?body.intro.filter(Boolean):[],facts:Array.isArray(body.facts)?body.facts:[],recommended:Array.isArray(body.recommended)?body.recommended:[],unavailable:Array.isArray(body.unavailable)?body.unavailable:[],seo_title:body.seo_title?String(body.seo_title).slice(0,180):null,seo_description:body.seo_description?String(body.seo_description).slice(0,320):null,seo_intro:Array.isArray(body.seo_intro)?body.seo_intro.filter(Boolean):[],seo_sections:Array.isArray(body.seo_sections)?body.seo_sections:[],seo_faqs:Array.isArray(body.seo_faqs)?body.seo_faqs:[],publishing_state:['draft','published','closed'].includes(body.publishing_state)?body.publishing_state:'published'};const {data,error}=await insertCountryWithPublishingFallback(payload);if(error)throw error;return res.status(201).json(data);}
   if(req.method==='PUT'){const {id,...fields}=req.body??{};if(!id)return res.status(400).json({error:'id is required'});if(fields.name)fields.slug=fields.slug?slugify(fields.slug):slugify(fields.name);const {data,error}=await updateCountryWithPublishingFallback(id,fields);if(error)throw error;return res.status(200).json(data);}
@@ -168,7 +185,7 @@ const TOPICS={'eur-usd-forex-brokers':{key:'eur-usd',title:'EUR/USD Forex Broker
 function matches(b,key){const checks={'eur-usd':()=>Number.isFinite(Number(b.spread_eurusd))&&Number(b.spread_eurusd)>=0,gold:()=>Number(b.assets?.commodities??0)>0,mt5:()=>Array.isArray(b.platforms)&&b.platforms.some(p=>String(p?.name??p).toLowerCase()==='mt5'),'low-spread':()=>Number.isFinite(Number(b.spread_eurusd)),beginners:()=>Boolean(b.demo_account)||Number(b.min_deposit??999999)<=100||(b.best_for??[]).includes('beginners'),scalping:()=>Boolean(b.scalping),islamic:()=>Boolean(b.islamic_account),'low-deposit':()=>Number(b.min_deposit??999999)<=100,'copy-trading':()=>Boolean(b.copy_trading),demo:()=>Boolean(b.demo_account),hedging:()=>Boolean(b.hedging),'raw-spread':()=>(b.account_types??[]).some(a=>/raw|raw spread/i.test(String(a))),ecn:()=>(b.account_types??[]).some(a=>/ecn/i.test(String(a))),standard:()=>(b.account_types??[]).some(a=>/standard/i.test(String(a))),'swing-trading':()=>(b.best_for??[]).includes('swing-trading'),'high-leverage':()=>(b.best_for??[]).includes('high-leverage')};return Boolean(checks[key]?.());}
 function makeBlocks(country,topic,qualifying){const brokerNames=qualifying.slice(0,5).map(b=>b.name).join(', ');const uid=()=>`b_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;const richtext=html=>({id:uid(),type:'richtext',html});const heading=title=>({id:uid(),type:'heading',title});const bullets=items=>`<ul>${items.map(i=>`<li>${i}</li>`).join('')}</ul>`;return[heading(`Best ${topic.title} in ${country.name}`),richtext(`<p>This PipRank page compares ${topic.title.toLowerCase()} available to traders in ${country.name}. The shortlist starts with brokers recommended for ${country.name}, then applies the ${topic.criteria} criteria for this page.</p>`),richtext(`<p>Broker availability, legal entities, spreads, leverage, payment methods and account conditions can differ by country. Always confirm the current terms that apply to residents of ${country.name} before opening an account.</p>`),heading(`What to look for when choosing a ${topic.short} broker in ${country.name}`),richtext(bullets(['Availability to residents of the country',`Competitive conditions for ${topic.criteria}`,'Relevant regulation and client protections','Platforms and account types that fit your trading style','Deposits, withdrawals and fees that work for your market'])),heading('PipRank broker shortlist'),richtext(`<p>${qualifying.length?`The current qualifying broker pool includes ${brokerNames}${qualifying.length>5?' and other eligible brokers.':'.'}`:'No broker currently meets the page eligibility threshold. Review the broker data before publishing this page.'}</p>`),heading('Is this page right for you?'),richtext(`<p>Use the comparison above if your priority is ${topic.criteria}. If your needs are different, explore the other broker categories for ${country.name} or use PipRank BrokerMatch to get a recommendation based on your preferences.</p>`)];}
 function makeFaqs(country,topic){return[{q:`What are the best ${topic.short} forex brokers in ${country.name}?`,a:`PipRank starts with brokers recommended for traders in ${country.name}, then filters them against the ${topic.criteria} criteria. The best choice can still depend on your trading style, costs, platform and account preferences.`},{q:`How does PipRank rank ${topic.short.toLowerCase()} brokers in ${country.name}?`,a:`We first establish the country-specific broker pool, then apply the page criteria and compare relevant broker data such as spreads, platforms, account features, minimum deposits and overall broker quality.`},{q:`Can forex broker conditions differ in ${country.name}?`,a:`Yes. The legal entity, regulator, leverage, payment methods, account types and available instruments can differ by country. Confirm the current terms for residents of ${country.name} before opening an account.`}];}
-async function handleSeoPageGenerator(req,res){if(req.method!=='POST')return res.status(405).json({error:'Method not allowed'});const actor=await requireRole(req,res,CONTENT_WRITE);if(!actor)return;const countrySlug=slugify(req.body?.country_slug||'');const topicSlug=slugify(req.body?.topic_slug||'');const topic=TOPICS[topicSlug];if(!countrySlug||!topic)return res.status(400).json({error:'Valid country_slug and supported topic_slug are required'});const [{data:country,error:ce},{data:brokers,error:be},{data:existing,error:xe}]=await Promise.all([supabase.from('countries').select('*').eq('slug',countrySlug).maybeSingle(),supabase.from('brokers').select('*'),supabase.from('content_documents').select('id,content_key').eq('content_key',`country-best-for:${countrySlug}:${topicSlug}`).maybeSingle()]);if(ce)throw ce;if(be)throw be;if(xe)throw xe;if(!country)return res.status(404).json({error:`Country not found: ${countrySlug}`});if(existing)return res.status(409).json({error:'This canonical country Best-For page already exists',document:existing});const recommended=Array.isArray(country.recommended)?country.recommended.map(x=>typeof x==='string'?x:x?.slug).filter(Boolean):[];const unavailable=new Set(Array.isArray(country.unavailable)?country.unavailable.map(String):[]);const countryPool=(brokers||[]).filter(b=>recommended.includes(b.slug)&&!unavailable.has(b.slug));const qualifying=countryPool.filter(b=>(topic.requirements||[topic.key]).every(key=>matches(b,key)));const minBrokers=2;const eligible=qualifying.length>=minBrokers;const year=new Date().getFullYear();const title=`${topic.title} in ${country.name}`;const blocks=makeBlocks(country,topic,qualifying);const faqs=makeFaqs(country,topic);const payload={content_key:`country-best-for:${countrySlug}:${topicSlug}`,content_type:'country-best-for',country_slug:countrySlug,topic_slug:topicSlug,slug:topicSlug,title,excerpt:`Compare ${topic.title.toLowerCase()} available to traders in ${country.name}.`,html:'',blocks,seo_title:`Best ${topic.title} in ${country.name} ${year} | PipRank`,seo_description:`Compare ${topic.title.toLowerCase()} available to traders in ${country.name}, including country-specific broker recommendations, costs, platforms and key trading features.`,indexable:eligible,published:false,settings:{rankingMode:'auto',pinnedBrokerSlugs:[],excludedBrokerSlugs:[],faqs,internalLinks:[{label:`Best Forex Brokers in ${country.name}`,href:`/${countrySlug}`},{label:'Find My Best Broker',href:'/quiz'}],generator:{version:2,generatedAt:new Date().toISOString(),qualifyingBrokerCount:qualifying.length,minBrokers,eligibleForIndexing:eligible,actor:actor.email}},updated_by:actor.email};const {data,error}=await supabase.from('content_documents').insert(payload).select().single();if(error){if(error.code==='23505'){const {data:duplicate}=await supabase.from('content_documents').select('id,content_key').eq('content_key',payload.content_key).maybeSingle();return res.status(409).json({error:'This canonical country Best-For page already exists',document:duplicate||null});}throw error;}return res.status(201).json({document:data,qualifyingBrokerCount:qualifying.length,eligibleForIndexing:eligible});}
+async function handleSeoPageGenerator(req,res){if(req.method!=='POST')return res.status(405).json({error:'Method not allowed'});const actor=await requireRole(req,res,CONTENT_WRITE);if(!actor)return;const countrySlug=slugify(req.body?.country_slug||'');const topicSlug=slugify(req.body?.topic_slug||'');const topic=TOPICS[topicSlug];if(!countrySlug||!topic)return res.status(400).json({error:'Valid country_slug and supported topic_slug are required'});const [{data:country,error:ce},{data:brokers,error:be},{data:existing,error:xe}]=await Promise.all([supabase.from('countries').select('*').eq('slug',countrySlug).maybeSingle(),supabase.from('brokers').select('*'),supabase.from('content_documents').select('id,content_key').eq('content_key',`country-best-for:${countrySlug}:${topicSlug}`).maybeSingle()]);if(ce)throw ce;if(be)throw be;if(xe)throw xe;if(!country)return res.status(404).json({error:`Country not found: ${countrySlug}`});if(existing)return res.status(409).json({error:'This canonical country Best-For page already exists',document:existing});const {data:availability,error:availabilityError}=await supabase.from('broker_country_availability').select('broker_id,status').eq('country_id',Number(country.id));if(availabilityError)throw availabilityError;const blocked=new Set((availability??[]).filter((row)=>row.status!=='available').map((row)=>Number(row.broker_id)));const availableSlugs=new Set((brokers||[]).filter((b)=>!blocked.has(Number(b.id))).map(b=>b.slug));const countryPool=(brokers||[]).filter(b=>availableSlugs.has(b.slug));const qualifying=countryPool.filter(b=>(topic.requirements||[topic.key]).every(key=>matches(b,key)));const minBrokers=2;const eligible=qualifying.length>=minBrokers;const year=new Date().getFullYear();const title=`${topic.title} in ${country.name}`;const blocks=makeBlocks(country,topic,qualifying);const faqs=makeFaqs(country,topic);const payload={content_key:`country-best-for:${countrySlug}:${topicSlug}`,content_type:'country-best-for',country_slug:countrySlug,topic_slug:topicSlug,slug:topicSlug,title,excerpt:`Compare ${topic.title.toLowerCase()} available to traders in ${country.name}.`,html:'',blocks,seo_title:`Best ${topic.title} in ${country.name} ${year} | PipRank`,seo_description:`Compare ${topic.title.toLowerCase()} available to traders in ${country.name}, including country-specific broker recommendations, costs, platforms and key trading features.`,indexable:eligible,published:false,settings:{rankingMode:'auto',pinnedBrokerSlugs:[],excludedBrokerSlugs:[],faqs,internalLinks:[{label:`Best Forex Brokers in ${country.name}`,href:`/${countrySlug}`},{label:'Find My Best Broker',href:'/quiz'}],generator:{version:2,generatedAt:new Date().toISOString(),qualifyingBrokerCount:qualifying.length,minBrokers,eligibleForIndexing:eligible,actor:actor.email}},updated_by:actor.email};const {data,error}=await supabase.from('content_documents').insert(payload).select().single();if(error){if(error.code==='23505'){const {data:duplicate}=await supabase.from('content_documents').select('id,content_key').eq('content_key',payload.content_key).maybeSingle();return res.status(409).json({error:'This canonical country Best-For page already exists',document:duplicate||null});}throw error;}return res.status(201).json({document:data,qualifyingBrokerCount:qualifying.length,eligibleForIndexing:eligible});}
 const LOCALIZATION_TOPICS=[{key:'all',defaultSlug:'best-forex-brokers',defaultTitle:'Best Forex Brokers'},{key:'beginners',defaultSlug:'best-forex-brokers-for-beginners',defaultTitle:'Best Forex Brokers for Beginners'},{key:'mt4',defaultSlug:'best-mt4-brokers',defaultTitle:'Best MT4 Forex Brokers'},{key:'mt5',defaultSlug:'best-mt5-brokers',defaultTitle:'Best MT5 Forex Brokers'},{key:'gold',defaultSlug:'best-gold-brokers',defaultTitle:'Best Gold Forex Brokers'},{key:'low-spread',defaultSlug:'low-spread-forex-brokers',defaultTitle:'Low Spread Forex Brokers'}];
 const MIN_LOCALIZED_CONTENT_LENGTH=40;
 const LANGUAGE_TOPIC_TEMPLATES={vi:{all:{slug:'broker-forex-tot-nhat',title:'Broker Forex Tốt Nhất'},beginners:{slug:'broker-forex-tot-nhat-cho-nguoi-moi',title:'Broker Forex Tốt Nhất Cho Người Mới'},mt4:{slug:'broker-mt4-tot-nhat',title:'Broker MT4 Tốt Nhất'},mt5:{slug:'broker-mt5-tot-nhat',title:'Broker MT5 Tốt Nhất'},gold:{slug:'broker-giao-dich-vang-tot-nhat',title:'Broker Forex Tốt Nhất Để Giao Dịch Vàng'},'low-spread':{slug:'broker-forex-spread-thap',title:'Broker Forex Có Spread Thấp'}},ms:{all:{slug:'broker-forex-terbaik',title:'Broker Forex Terbaik'},beginners:{slug:'broker-forex-untuk-pemula',title:'Broker Forex untuk Pemula'},mt4:{slug:'broker-mt4-terbaik',title:'Broker MT4 Terbaik'},mt5:{slug:'broker-mt5-terbaik',title:'Broker MT5 Terbaik'},gold:{slug:'broker-emas-terbaik',title:'Broker Emas Terbaik'},'low-spread':{slug:'broker-spread-rendah',title:'Broker Forex Spread Rendah'}}};
@@ -180,6 +197,171 @@ async function handleLocalizationGlossary(req,res){if(req.method==='GET'){const 
   return res.status(405).json({error:'Method not allowed'});
 }
 async function handleLocalizationHealth(req,res){if(req.method!=='GET')return res.status(405).json({error:'Method not allowed'});const actor=await requireRole(req,res,CONTENT_WRITE);if(!actor)return;const {data:docs,error}=await supabase.from('content_documents').select('id,country_slug,content_type,slug,title,blocks,html,seo_description,published,indexable,updated_at').in('content_type',['localized-guide','localized-best-for']);if(error)throw error;const issues=[];for(const p of docs??[]){const contentLen=String(p.html||'').trim().length;const blockCount=Array.isArray(p.blocks)?p.blocks.length:0;if(p.published&&contentLen<MIN_LOCALIZED_CONTENT_LENGTH&&blockCount<1)issues.push({id:p.id,type:'thin_published',message:'Published localized document has thin content',slug:p.slug,country:p.country_slug});if(p.published&&p.indexable&&!String(p.seo_description||'').trim())issues.push({id:p.id,type:'missing_meta',message:'Published/indexable localized document has no meta description',slug:p.slug,country:p.country_slug});}return res.status(200).json({totals:{pages:(docs??[]).length,published:(docs??[]).filter(p=>p.published).length,issues:issues.length},issues});}
-async function handleCountryIntentRankings(req,res){if(req.method==='GET'){const {country,intent}=req.query;let query=supabase.from('country_intent_broker_final_rankings').select('*, countries!inner(slug,name), intents!inner(slug,label), brokers!inner(id,name,slug,rating,trust_score,brand_color,logo_url)').order('final_rank',{ascending:true});if(country)query=query.eq('countries.slug',String(country));if(intent)query=query.eq('intents.slug',String(intent));const {data,error}=await query;if(error)throw error;const brokerIds=[...new Set((data??[]).map((row)=>Number(row.broker_id)).filter((id)=>Number.isInteger(id)&&id>0))];let logoMap=new Map();if(brokerIds.length){const {data:media,error:mediaError}=await supabase.from('broker_media').select('broker_id, logo_url').in('broker_id',brokerIds);if(mediaError)throw mediaError;logoMap=new Map((media??[]).map((row)=>[Number(row.broker_id),row.logo_url??null]));}return res.status(200).json((data??[]).map(r=>({...r,countries:undefined,intents:undefined,broker:r.brokers?{...r.brokers,logo_url:logoMap.get(Number(r.broker_id))??r.brokers.logo_url??null}:r.brokers,brokers:undefined})));}if(!(await requireRole(req,res,CONTENT_WRITE)))return;if(req.method==='PUT'){const b=req.body??{};if(!b.country_id||!b.intent_id||!b.broker_id)return res.status(400).json({error:'country_id, intent_id and broker_id are required'});const payload={country_id:Number(b.country_id),intent_id:Number(b.intent_id),broker_id:Number(b.broker_id),force_include:Boolean(b.force_include),force_exclude:Boolean(b.force_exclude),manual_rank:b.manual_rank===null||b.manual_rank===''?null:Number(b.manual_rank),score_adjustment:Number(b.score_adjustment||0),featured_override:b.featured_override===null||b.featured_override===''?null:Boolean(b.featured_override),editorial_note:b.editorial_note?String(b.editorial_note).slice(0,2000):null,updated_at:new Date().toISOString()};if(payload.force_include&&payload.force_exclude)return res.status(400).json({error:'A broker cannot be both force included and force excluded'});const {data,error}=await supabase.from('country_intent_broker_overrides').upsert(payload,{onConflict:'country_id,intent_id,broker_id'}).select().single();if(error)throw error;return res.status(200).json(data);}if(req.method==='DELETE'){const b=req.body??{};const {error}=await supabase.from('country_intent_broker_overrides').delete().match({country_id:Number(b.country_id),intent_id:Number(b.intent_id),broker_id:Number(b.broker_id)});if(error)throw error;return res.status(200).json({ok:true});}return res.status(405).json({error:'Method not allowed'});}
+async function handleCountryIntentRankings(req, res) {
+  const { country, intent } = req.query || {};
+  if (!country || !intent) return res.status(400).json({ error: 'country and intent are required' });
+
+  const [{ data: countryRow, error: countryError }, { data: intentRow, error: intentError }] = await Promise.all([
+    supabase.from('countries').select('id,slug,name').eq('slug', String(country)).maybeSingle(),
+    supabase.from('intents').select('id,slug,label').eq('slug', String(intent)).maybeSingle(),
+  ]);
+  if (countryError) throw countryError;
+  if (intentError) throw intentError;
+  if (!countryRow) return res.status(404).json({ error: 'Country not found' });
+  if (!intentRow) return res.status(404).json({ error: 'Intent not found' });
+
+  if (req.method === 'GET') {
+    const isAdmin = String(req.query?.admin ?? '') === 'true';
+    if (isAdmin && !(await requireRole(req, res, CONTENT_WRITE))) return;
+
+    const { data: setting, error: settingError } = await supabase.from('country_intent_ranking_settings')
+      .select('ranking_mode').eq('country_id', Number(countryRow.id)).eq('intent_id', Number(intentRow.id)).maybeSingle();
+    if (settingError) throw settingError;
+    const rankingMode = setting?.ranking_mode === 'manual' ? 'manual' : 'automatic';
+
+    const [{ data: brokers, error: brokerError }, { data: availability, error: availabilityError }, { data: overrides, error: overrideError }, { data: baseRows, error: rankingError }] = await Promise.all([
+      supabase.from('brokers').select('id,name,slug,rating,trust_score,brand_color,logo_url').order('rating', { ascending: false }),
+      supabase.from('broker_country_availability').select('broker_id,status,note,priority').eq('country_id', Number(countryRow.id)),
+      supabase.from('country_intent_broker_overrides').select('*').eq('country_id', Number(countryRow.id)).eq('intent_id', Number(intentRow.id)),
+      supabase.from('country_intent_broker_final_rankings').select('broker_id,final_rank,final_score,eligibility_status,score_breakdown,featured').eq('country_id', Number(countryRow.id)).eq('intent_id', Number(intentRow.id)).order('final_rank', { ascending: true }),
+    ]);
+    if (brokerError) throw brokerError;
+    if (availabilityError) throw availabilityError;
+    if (overrideError) throw overrideError;
+    if (rankingError) throw rankingError;
+
+    const brokerIds = (brokers ?? []).map((b) => Number(b.id)).filter((id) => Number.isInteger(id));
+    let media = [];
+    if (brokerIds.length) {
+      const { data, error } = await supabase.from('broker_media').select('broker_id,logo_url').in('broker_id', brokerIds);
+      if (error) throw error;
+      media = data ?? [];
+    }
+    const logoMap = new Map(media.map((m) => [Number(m.broker_id), m.logo_url ?? null]));
+    const availabilityMap = new Map((availability ?? []).map((a) => [Number(a.broker_id), a]));
+    const overrideMap = new Map((overrides ?? []).map((o) => [Number(o.broker_id), o]));
+    const baseMap = new Map((baseRows ?? []).map((r) => [Number(r.broker_id), r]));
+
+    const hydrated = (brokers ?? []).map((broker) => {
+      const id = Number(broker.id);
+      const a = availabilityMap.get(id);
+      const o = overrideMap.get(id);
+      const base = baseMap.get(id);
+      const status = a?.status ?? 'available';
+      const available = status === 'available';
+      const score = Number(base?.final_score ?? broker.trust_score ?? broker.rating ?? 0);
+      return {
+        country_id: Number(countryRow.id),
+        intent_id: Number(intentRow.id),
+        broker_id: id,
+        final_rank: o?.manual_rank ?? base?.final_rank ?? null,
+        final_score: score + Number(o?.score_adjustment ?? 0),
+        eligibility_status: available ? (base?.eligibility_status ?? 'available') : status,
+        score_breakdown: base?.score_breakdown ?? {},
+        featured: o?.featured_override ?? base?.featured ?? false,
+        force_include: Boolean(o?.force_include),
+        force_exclude: Boolean(o?.force_exclude),
+        manual_rank: o?.manual_rank ?? null,
+        score_adjustment: Number(o?.score_adjustment ?? 0),
+        featured_override: o?.featured_override ?? null,
+        editorial_note: o?.editorial_note ?? null,
+        availability_status: status,
+        availability_note: a?.note ?? null,
+        broker: { ...broker, logo_url: logoMap.get(id) ?? broker.logo_url ?? null },
+      };
+    }).filter((row) => !row.force_exclude && row.availability_status === 'available');
+
+    hydrated.sort((a, b) => {
+      const ar = Number.isInteger(Number(a.manual_rank)) ? Number(a.manual_rank) : 9999;
+      const br = Number.isInteger(Number(b.manual_rank)) ? Number(b.manual_rank) : 9999;
+      if (ar !== br) return ar - br;
+      const af = Number(a.final_rank ?? 9999);
+      const bf = Number(b.final_rank ?? 9999);
+      if (af !== bf) return af - bf;
+      return Number(b.final_score) - Number(a.final_score);
+    });
+
+    if (isAdmin) {
+      return res.status(200).json({ ranking_mode: rankingMode, rows: hydrated });
+    }
+
+    if (rankingMode === 'automatic') {
+      const automaticPool = hydrated.filter((row) => baseMap.has(Number(row.broker_id)) || row.force_include);
+      return res.status(200).json(automaticPool.slice(0, 9).map((r, index) => ({ ...r, final_rank: index + 1 })));
+    }
+
+    const manuallyRanked = hydrated.filter((row) => Number.isInteger(Number(row.manual_rank)) && Number(row.manual_rank) >= 1 && Number(row.manual_rank) <= 9);
+    const selected = manuallyRanked.length
+      ? [...manuallyRanked, ...hydrated.filter((row) => !manuallyRanked.some((m) => m.broker_id === row.broker_id))].slice(0, 9)
+      : hydrated.slice(0, 9);
+    return res.status(200).json(selected.map((r, index) => ({ ...r, final_rank: Number(r.manual_rank ?? index + 1) })));
+  }
+
+  if (!(await requireRole(req, res, CONTENT_WRITE))) return;
+
+  if (req.method === 'PUT' && req.body?.ranking_mode !== undefined && req.body?.broker_id === undefined) {
+    const rankingMode = String(req.body.ranking_mode);
+    if (rankingMode !== 'automatic' && rankingMode !== 'manual') return res.status(400).json({ error: 'ranking_mode must be automatic or manual' });
+    const { data, error } = await supabase.from('country_intent_ranking_settings')
+      .upsert({ country_id: Number(countryRow.id), intent_id: Number(intentRow.id), ranking_mode: rankingMode, updated_at: new Date().toISOString() }, { onConflict: 'country_id,intent_id' })
+      .select().single();
+    if (error) throw error;
+    return res.status(200).json(data);
+  }
+
+  if (req.method === 'PUT') {
+    const b = req.body ?? {};
+    const brokerId = Number(b.broker_id);
+    if (!countryRow.id || !intentRow.id || !brokerId) return res.status(400).json({ error: 'country_id, intent_id and broker_id are required' });
+    const manualRank = b.manual_rank === null || b.manual_rank === '' ? null : Number(b.manual_rank);
+    if (manualRank !== null && (!Number.isInteger(manualRank) || manualRank < 1 || manualRank > 9)) {
+      return res.status(400).json({ error: 'manual_rank must be between 1 and 9' });
+    }
+
+    const { data: availability, error: availabilityError } = await supabase.from('broker_country_availability')
+      .select('status').eq('country_id', Number(countryRow.id)).eq('broker_id', brokerId).maybeSingle();
+    if (availabilityError) throw availabilityError;
+    if (manualRank !== null && availability?.status && availability.status !== 'available') {
+      return res.status(400).json({ error: 'Only brokers available in this country can be ranked' });
+    }
+
+    if (manualRank !== null) {
+      await supabase.from('country_intent_broker_overrides')
+        .update({ manual_rank: null, updated_at: new Date().toISOString() })
+        .eq('country_id', Number(countryRow.id))
+        .eq('intent_id', Number(intentRow.id))
+        .eq('manual_rank', manualRank)
+        .neq('broker_id', brokerId);
+    }
+
+    const payload = {
+      country_id: Number(countryRow.id),
+      intent_id: Number(intentRow.id),
+      broker_id: brokerId,
+      force_include: Boolean(b.force_include),
+      force_exclude: Boolean(b.force_exclude),
+      manual_rank: manualRank,
+      score_adjustment: Number(b.score_adjustment || 0),
+      featured_override: b.featured_override === null || b.featured_override === '' ? null : Boolean(b.featured_override),
+      editorial_note: b.editorial_note ? String(b.editorial_note).slice(0, 2000) : null,
+      updated_at: new Date().toISOString(),
+    };
+    if (payload.force_include && payload.force_exclude) return res.status(400).json({ error: 'A broker cannot be both force included and force excluded' });
+    const { data, error } = await supabase.from('country_intent_broker_overrides')
+      .upsert(payload, { onConflict: 'country_id,intent_id,broker_id' }).select().single();
+    if (error) throw error;
+    return res.status(200).json(data);
+  }
+
+  if (req.method === 'DELETE') {
+    const b = req.body ?? {};
+    const { error } = await supabase.from('country_intent_broker_overrides')
+      .delete().match({ country_id: Number(countryRow.id), intent_id: Number(intentRow.id), broker_id: Number(b.broker_id) });
+    if (error) throw error;
+    return res.status(200).json({ ok: true });
+  }
+
+  return res.status(405).json({ error: 'Method not allowed' });
+}
 function setCors(res, methods) { res.setHeader('Access-Control-Allow-Origin', SITE_ORIGIN); res.setHeader('Vary', 'Origin'); res.setHeader('Access-Control-Allow-Methods', `${methods}, OPTIONS`); res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization'); }
 export default async function handler(req,res){setCors(res,'GET, POST, PUT, DELETE');if(req.method==='OPTIONS')return res.status(204).end();const resource=String(req.query?.resource??'');try{if(resource==='intents')return await handleIntents(req,res);if(resource==='countries')return await handleCountries(req,res);if(resource==='content-assets')return await handleContentAssets(req,res);if(resource==='seo-page-generator')return await handleSeoPageGenerator(req,res);if(resource==='country-languages')return await handleCountryLanguages(req,res);if(resource==='localization-ui-packs')return await handleLocalizationUiPacks(req,res);if(resource==='localization-glossary')return await handleLocalizationGlossary(req,res);if(resource==='localization-health')return await handleLocalizationHealth(req,res);if(resource==='country-intent-rankings')return await handleCountryIntentRankings(req,res);return res.status(400).json({error:"Unknown 'resource' query param"});}catch(err){console.error('content API error:',err);return res.status(500).json({error:err.message});}}
