@@ -98,9 +98,42 @@ function emptyDoc(country: string): ContentDocument {
 
 function CountryBestForEditor({ country, document, brokers, globalBestFor, token, onClose, onSaved, notify }: { country: CountryPage; document: ContentDocument | null; brokers: Broker[]; globalBestFor: ContentDocument[]; token: string; onClose: () => void; onSaved: () => void; notify: (msg: string) => void }) {
   const [form, setForm] = useState<ContentDocument>(() => document ? { ...document } : emptyDoc(country.slug));
+  const [owners, setOwners] = useState<ContentDocument[]>(globalBestFor);
+  const [showOwnerCreator, setShowOwnerCreator] = useState(false);
   const [blocks, setBlocks] = useState<PageBlock[]>(() => Array.isArray(document?.blocks) && document.blocks.length ? document.blocks as PageBlock[] : document?.html ? [{ id: 'legacy', type: 'richtext', html: document.html }] : []);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+
+  const createGlobalOwner = async (title: string, slugInput: string) => {
+    const titleValue = title.trim();
+    const slug = slugInput.trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-|-$/g, '');
+    if (titleValue.length < 8) throw new Error('Global Best-For title must be at least 8 characters.');
+    if (!slug) throw new Error('A valid Best-For slug is required.');
+    if (owners.some((owner) => owner.slug === slug)) throw new Error('A global Best-For owner with this slug already exists. Select it from the owner list.');
+
+    const res = await fetch('/api/content-documents', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        content_type: 'global-best-for',
+        slug,
+        title: titleValue,
+        excerpt: '',
+        html: '',
+        blocks: [],
+        indexable: false,
+        published: false,
+        settings: {},
+      }),
+    });
+    const out = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(out.error || 'Could not create global Best-For owner');
+    const created = out as ContentDocument;
+    setOwners((current) => [...current, created].sort((a, b) => String(a.title || a.slug).localeCompare(String(b.title || b.slug))));
+    setForm((current) => ({ ...current, topic_slug: created.slug, slug: created.slug, title: created.title }));
+    setShowOwnerCreator(false);
+    notify('Global Best-For owner created');
+  };
 
   const uploadImage = async (file: File) => {
     const reader = new FileReader();
@@ -127,7 +160,7 @@ function CountryBestForEditor({ country, document, brokers, globalBestFor, token
     } catch (e) { setError(e instanceof Error ? e.message : 'Could not save Best-For page'); } finally { setBusy(false); }
   };
 
-  return <div className="fixed inset-0 z-[100] flex items-center justify-center bg-ink-950/60 p-3 backdrop-blur-sm"><div className="flex max-h-[96vh] w-full max-w-5xl flex-col overflow-hidden rounded-3xl bg-white shadow-soft-lg"><div className="flex items-center gap-3 bg-ink-950 px-5 py-4 text-white"><div className="min-w-0 flex-1"><p className="font-display font-bold">{form.id ? 'Edit' : 'Create'} country Best-For page</p><p className="text-xs text-slate-400">/{country.slug}/{form.slug || 'best-for-slug'} · canonical Content Studio document</p></div><button onClick={onClose} className="rounded-lg p-2 text-slate-400 hover:bg-white/10"><X size={18}/></button></div><div className="flex-1 overflow-y-auto p-5 sm:p-7">{error && <p className="mb-4 rounded-xl bg-rose-50 px-4 py-2.5 text-sm text-rose-600">{error}</p>}<div className="grid gap-4 sm:grid-cols-2"><label><span className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-slate-400">Canonical Best-For owner</span><select value={form.topic_slug || ''} disabled={Boolean(form.id)} onChange={e=>{const topic=e.target.value;const owner=globalBestFor.find(doc=>doc.slug===topic);setForm(f=>({...f,topic_slug:topic,slug:owner?.slug || f.slug,title:owner?.title || f.title}))}} className="h-10 w-full rounded-xl border border-line bg-paper px-3 text-sm outline-none focus:border-emerald-500 disabled:opacity-60"><option value="">Select canonical Best-For</option>{globalBestFor.map(owner=><option key={owner.id} value={owner.slug || ''}>{owner.title || owner.slug}</option>)}</select></label><label><span className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-slate-400">Slug</span><input value={form.slug || ''} readOnly={Boolean(!form.id && form.topic_slug)} onChange={e=>setForm({...form,slug:e.target.value})} className="h-10 w-full rounded-xl border border-line bg-paper px-3 text-sm outline-none focus:border-emerald-500 read-only:opacity-60" placeholder="forex-brokers-for-beginners"/></label><label className="sm:col-span-2"><span className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-slate-400">Title (H1)</span><input value={form.title || ''} onChange={e=>setForm({...form,title:e.target.value})} className="h-10 w-full rounded-xl border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-emerald-500" placeholder="Best Forex Brokers for Beginners in Vietnam"/></label></div><label className="mt-4 block"><span className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-slate-400">Intro / excerpt</span><textarea value={form.excerpt || ''} onChange={e=>setForm({...form,excerpt:e.target.value})} rows={3} className="w-full rounded-xl border border-line bg-paper px-3 py-2.5 text-sm outline-none focus:border-emerald-500"/></label><div className="mt-5"><p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">Visual page builder</p><BestForEditorialPageBuilder
+  return <div className="fixed inset-0 z-[100] flex items-center justify-center bg-ink-950/60 p-3 backdrop-blur-sm"><div className="flex max-h-[96vh] w-full max-w-5xl flex-col overflow-hidden rounded-3xl bg-white shadow-soft-lg"><div className="flex items-center gap-3 bg-ink-950 px-5 py-4 text-white"><div className="min-w-0 flex-1"><p className="font-display font-bold">{form.id ? 'Edit' : 'Create'} country Best-For page</p><p className="text-xs text-slate-400">/{country.slug}/{form.slug || 'best-for-slug'} · canonical Content Studio document</p></div><button onClick={onClose} className="rounded-lg p-2 text-slate-400 hover:bg-white/10"><X size={18}/></button></div><div className="flex-1 overflow-y-auto p-5 sm:p-7">{error && <p className="mb-4 rounded-xl bg-rose-50 px-4 py-2.5 text-sm text-rose-600">{error}</p>}<div className="grid gap-4 sm:grid-cols-2"><label><span className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-slate-400">Canonical Best-For owner</span><div className="flex gap-2"><select value={form.topic_slug || ''} disabled={Boolean(form.id)} onChange={e=>{const topic=e.target.value;const owner=owners.find(doc=>doc.slug===topic);setForm(f=>({...f,topic_slug:topic,slug:owner?.slug || f.slug,title:owner?.title || f.title}))}} className="h-10 min-w-0 flex-1 rounded-xl border border-line bg-paper px-3 text-sm outline-none focus:border-emerald-500 disabled:opacity-60"><option value="">Select canonical Best-For</option>{owners.map(owner=><option key={owner.id} value={owner.slug || ''}>{owner.title || owner.slug}</option>)}</select>{!form.id&&<button type="button" onClick={()=>setShowOwnerCreator(true)} className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-xl border border-line bg-paper px-3 text-xs font-bold text-slate-600 hover:border-emerald-400"><Plus size={13}/>Create new</button>}</div></label><label><span className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-slate-400">Slug</span><input value={form.slug || ''} readOnly={Boolean(!form.id && form.topic_slug)} onChange={e=>setForm({...form,slug:e.target.value})} className="h-10 w-full rounded-xl border border-line bg-paper px-3 text-sm outline-none focus:border-emerald-500 read-only:opacity-60" placeholder="forex-brokers-for-beginners"/></label><label className="sm:col-span-2"><span className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-slate-400">Title (H1)</span><input value={form.title || ''} onChange={e=>setForm({...form,title:e.target.value})} className="h-10 w-full rounded-xl border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-emerald-500" placeholder="Best Forex Brokers for Beginners in Vietnam"/></label></div><label className="mt-4 block"><span className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-slate-400">Intro / excerpt</span><textarea value={form.excerpt || ''} onChange={e=>setForm({...form,excerpt:e.target.value})} rows={3} className="w-full rounded-xl border border-line bg-paper px-3 py-2.5 text-sm outline-none focus:border-emerald-500"/></label><div className="mt-5"><p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">Visual page builder</p><BestForEditorialPageBuilder
   value={blocks}
   brokers={brokers}
   analysisBrokers={brokers}
@@ -135,6 +168,29 @@ function CountryBestForEditor({ country, document, brokers, globalBestFor, token
   onUploadImage={uploadImage}
 /></div><div className="mt-5 grid gap-4 sm:grid-cols-2"><label><span className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-slate-400">SEO title</span><input value={form.seo_title || ''} onChange={e=>setForm({...form,seo_title:e.target.value})} className="h-10 w-full rounded-xl border border-line bg-paper px-3 text-sm outline-none focus:border-emerald-500"/></label><label><span className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-slate-400">SEO description</span><textarea value={form.seo_description || ''} onChange={e=>setForm({...form,seo_description:e.target.value})} rows={2} className="w-full rounded-xl border border-line bg-paper px-3 py-2.5 text-sm outline-none focus:border-emerald-500"/></label></div><div className="mt-4 grid gap-3 sm:grid-cols-2"><div className="flex items-center justify-between rounded-xl border border-line bg-paper p-4"><div><p className="text-sm font-bold text-ink-900">Publish this page</p><p className="text-xs text-slate-500">Drafts stay out of the public site until published.</p></div><button type="button" onClick={()=>setForm(f=>({...f,published:!f.published}))} className={`relative h-6 w-11 rounded-full ${form.published?'bg-emerald-500':'bg-slate-300'}`}><span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow ${form.published?'left-[22px]':'left-0.5'}`}/></button></div><div className="flex items-center justify-between rounded-xl border border-line bg-paper p-4"><div><p className="text-sm font-bold text-ink-900">Index this page</p><p className="text-xs text-slate-500">Only index substantial, unique commercial content.</p></div><button type="button" onClick={()=>setForm(f=>({...f,indexable:!f.indexable}))} className={`relative h-6 w-11 rounded-full ${form.indexable?'bg-emerald-500':'bg-slate-300'}`}><span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow ${form.indexable?'left-[22px]':'left-0.5'}`}/></button></div></div><button onClick={save} disabled={busy} className="mt-5 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-ink-950 text-sm font-bold text-white disabled:opacity-60">{busy&&<Loader2 size={15} className="animate-spin"/>}Save country hub</button>
       </div>
+    </div>
+    {showOwnerCreator && <GlobalBestForOwnerCreator onClose={() => setShowOwnerCreator(false)} onCreate={createGlobalOwner} />}
+  </div>;
+}
+
+function GlobalBestForOwnerCreator({ onClose, onCreate }: { onClose: () => void; onCreate: (title: string, slug: string) => Promise<void> }) {
+  const [title, setTitle] = useState('');
+  const [slug, setSlug] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  const submit = async () => {
+    setBusy(true); setError('');
+    try { await onCreate(title, slug); } catch (e) { setError(e instanceof Error ? e.message : 'Could not create global Best-For owner'); } finally { setBusy(false); }
+  };
+
+  return <div className="fixed inset-0 z-[120] flex items-center justify-center bg-ink-950/40 p-4">
+    <div className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-soft-lg">
+      <div className="flex items-start justify-between gap-4"><div><p className="font-display text-lg font-bold text-ink-900">Create global Best-For owner</p><p className="mt-1 text-xs leading-5 text-slate-500">This creates the canonical global owner first. The country page will be linked to it automatically.</p></div><button onClick={onClose} className="rounded-lg p-2 text-slate-400 hover:bg-paper"><X size={17}/></button></div>
+      {error&&<p className="mt-4 rounded-xl bg-rose-50 px-3 py-2.5 text-xs leading-5 text-rose-600">{error}</p>}
+      <label className="mt-4 block"><span className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-slate-400">Global Best-For name</span><input autoFocus value={title} onChange={e=>{setTitle(e.target.value);if(!slug)setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''))}} placeholder="Best Stock Trading Apps" className="h-10 w-full rounded-xl border border-line bg-paper px-3 text-sm outline-none focus:border-emerald-500"/></label>
+      <label className="mt-4 block"><span className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-slate-400">Canonical slug</span><input value={slug} onChange={e=>setSlug(e.target.value)} placeholder="best-stock-trading-apps" className="h-10 w-full rounded-xl border border-line bg-paper px-3 text-sm outline-none focus:border-emerald-500"/></label>
+      <div className="mt-5 flex justify-end gap-2"><button onClick={onClose} className="rounded-xl border border-line px-4 py-2 text-xs font-bold text-slate-600">Cancel</button><button disabled={busy} onClick={submit} className="inline-flex items-center gap-2 rounded-xl bg-ink-950 px-4 py-2 text-xs font-bold text-white disabled:opacity-60">{busy&&<Loader2 size={13} className="animate-spin"/>}Create owner</button></div>
     </div>
   </div>;
 }
