@@ -147,15 +147,19 @@ export default function CountryDetail() {
         </div>
       </section>
 
-      {document.blocks?.length > 0 && (
+      {(document.blocks?.length > 0 || document.html?.trim()) && (
         <section className="border-b border-line bg-white">
           <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:py-16">
-            <PageBlocksRenderer
-              blocks={document.blocks.filter((block: any) => !['broker_card', 'broker_grid', 'comparison_table'].includes(block?.type)) as any}
-              brokers={brokers}
-              countrySlug={country.slug}
-              className="piprank-rich-content"
-            />
+            {document.blocks?.length > 0 ? (
+              <PageBlocksRenderer
+                blocks={document.blocks.filter((block: any) => !['broker_card', 'broker_grid', 'comparison_table'].includes(block?.type)) as any}
+                brokers={brokers}
+                countrySlug={country.slug}
+                className="piprank-rich-content"
+              />
+            ) : (
+              <div className="piprank-rich-content prose prose-slate max-w-none text-[15px] leading-7" dangerouslySetInnerHTML={{ __html: document.html || '' }} />
+            )}
           </div>
         </section>
       )}
