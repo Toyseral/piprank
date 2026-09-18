@@ -26,15 +26,19 @@ CREATE TABLE IF NOT EXISTS public.country_broker_overrides (
 
 CREATE INDEX IF NOT EXISTS idx_cbo_country ON public.country_broker_overrides(country_id);
 
--- Eligibility comes only from an explicit country availability row.
--- A missing availability row is NOT treated as available.
+-- Every broker is eligible for every country by default.
+-- An availability row only changes that default when it explicitly marks the broker
+-- unavailable/restricted (or is_available=false). Ranking overrides can also exclude.
 CREATE OR REPLACE VIEW public.country_broker_final_rankings AS
 WITH base AS (
   SELECT
-    a.country_id::BIGINT AS country_id,
-    a.broker_id::BIGINT AS broker_id,
+    c.id::BIGINT AS country_id,
+    b.id::BIGINT AS broker_id,
     COALESCE(b.trust_score, 0)::NUMERIC AS score,
-    a.status AS availability_status,
+    CASE
+      WHEN a.id IS NULL THEN 'available'
+      ELSE COALESCE(a.status, CASE WHEN COALESCE(a.is_available, TRUE) THEN 'available' ELSE 'unavailable' END)
+    END AS availability_status,
     COALESCE(a.note, a.notes) AS availability_note,
     o.force_include,
     o.force_exclude,
@@ -42,18 +46,20 @@ WITH base AS (
     o.score_adjustment,
     o.featured_override,
     o.editorial_note
-  FROM public.broker_country_availability a
-  JOIN public.brokers b ON b.id = a.broker_id
+  FROM public.countries c
+  CROSS JOIN public.brokers b
+  LEFT JOIN public.broker_country_availability a
+    ON a.country_id = c.id AND a.broker_id = b.id
   LEFT JOIN public.country_broker_overrides o
-    ON o.country_id = a.country_id AND o.broker_id = a.broker_id
-  WHERE a.status = 'available'
-    AND COALESCE(a.is_available, TRUE) = TRUE
+    ON o.country_id = c.id AND o.broker_id = b.id
+  WHERE COALESCE(a.is_available, TRUE) = TRUE
+    AND COALESCE(a.status, 'available') NOT IN ('unavailable', 'restricted')
+    AND COALESCE(o.force_exclude, FALSE) = FALSE
 ),
 resolved AS (
   SELECT *,
     (score + COALESCE(score_adjustment, 0)) AS final_score
   FROM base
-  WHERE COALESCE(force_exclude, FALSE) = FALSE
 ),
 ordered AS (
   SELECT *,
