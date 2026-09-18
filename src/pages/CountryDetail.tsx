@@ -127,7 +127,7 @@ export default function CountryDetail() {
         <div className="mx-auto grid max-w-7xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-center lg:py-16">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-300">{country.flag} {country.name} forex brokers</p>
-            <h1 className="mt-3 max-w-4xl font-display text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">{document.title}</h1>
+            <h1 className="mt-3 max-w-4xl font-display text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">Find the best forex broker in {country.name} for you</h1>
             {document.excerpt && <p className="mt-5 max-w-3xl text-base leading-7 text-slate-300 sm:text-lg">{document.excerpt}</p>}
             <div className="mt-7 flex flex-col gap-3 sm:flex-row">
               <ButtonLink variant="primary" size="lg" to="/quiz">Get Matched with a Broker <ArrowRight size={16} /></ButtonLink>
