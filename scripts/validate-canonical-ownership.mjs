@@ -13,10 +13,6 @@ const CANONICAL_TYPES = new Set([
   'compare',
 ]);
 
-function localeOf(doc) {
-  return String(doc?.settings?.locale || doc?.settings?.languageCode || '').trim().toLowerCase();
-}
-
 function canonicalKeyForDocument(doc) {
   const country = String(doc.country_slug || '').trim();
   const slug = String(doc.slug || '').trim();
