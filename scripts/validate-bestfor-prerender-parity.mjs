@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { sanitizePublicSettings } from '../api/_lib/content-sanitizer.js';
 import { buildBestForPageModel, rankingIntentSlug } from '../src/lib/bestForModel.js';
 
 const ROOT = process.cwd();
@@ -26,6 +27,15 @@ function rankingNames(html) {
   let item;
   while ((item = itemRe.exec(match[1]))) names.push(item[1].replaceAll('&amp;', '&').replaceAll('&lt;', '<').replaceAll('&gt;', '>').replaceAll('&#39;', "'").replaceAll('&quot;', '"'));
   return names;
+}
+
+function hasClass(html, className) { return html.includes('class="' + className + '"'); }
+
+function expectedAdditionalTitles(doc) {
+  const settings = sanitizePublicSettings(doc?.settings);
+  const sections = Array.isArray(settings.sections) ? settings.sections : [];
+  const reserved = new Set(['__bestfor_ranking_description', '__bestfor_comparison_description', '__bestfor_broker_analysis_description']);
+  return sections.filter((section) => section && (section.title || section.html) && !reserved.has(String(section.title || ''))).map((section) => String(section.title || '').trim()).filter(Boolean);
 }
 
 async function main() {
@@ -72,6 +82,15 @@ async function main() {
     const actual = rankingNames(readFileSync(file, 'utf8')).slice(0, 9);
     const expected = model.top9.map((broker) => broker.name);
     if (actual.join('\n') !== expected.join('\n')) failures.push(`${path}: expected [${expected.join(', ')}] but prerender contains [${actual.join(', ')}]`);
+    if (expected.length > 0 && !hasClass(readFileSync(file, 'utf8'), 'piprank-prerender-ranking')) failures.push(`${path}: ranking section missing`);
+    if (expected.length > 1 && !hasClass(readFileSync(file, 'utf8'), 'piprank-prerender-comparison')) failures.push(`${path}: comparison section missing`);
+    if (model.criteria.length > 0 && !hasClass(readFileSync(file, 'utf8'), 'piprank-prerender-criteria')) failures.push(`${path}: criteria section missing`);
+    const expectedTitles = expectedAdditionalTitles(doc);
+    const html = readFileSync(file, 'utf8');
+    for (const title of expectedTitles) {
+      const escapedTitle = title.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;');
+      if (!html.includes('<h3>' + escapedTitle + '</h3>')) failures.push(`${path}: additional section missing: ${title}`);
+    }
   }
   if (failures.length) {
     console.error('[bestfor-parity] FAIL');
