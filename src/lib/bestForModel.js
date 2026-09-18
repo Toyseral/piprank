@@ -57,7 +57,10 @@ export function rankCountryBestFor(brokers, country, doc, intentSlug, rankingRow
   const excluded = excludedSet(settings);
 
   if (manualRows.length > 0) {
-    return manualRows.map((row) => brokerById.get(Number(row.broker_id)))
+    return manualRows
+      .filter((row) => !row.availability_status || row.availability_status === 'available')
+      .filter((row) => row.force_exclude !== true)
+      .map((row) => brokerById.get(Number(row.broker_id)))
       .filter((broker) => Boolean(broker) && !excluded.has(broker.slug));
   }
 
