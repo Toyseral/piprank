@@ -53,7 +53,7 @@ async function main() {
     supabase.from('content_documents').select('id,content_type,country_slug,slug,settings,published,indexable').in('content_type', ['global-best-for', 'country-best-for', 'localized-best-for']).eq('published', true).eq('indexable', true),
     supabase.from('brokers').select('id,name,slug,rating,trust_score,best_for,spread_eurusd,min_deposit,commission_value,health,platforms,assets,scalping,islamic_account,copy_trading,hedging,account_types,demo_account'),
     supabase.from('countries').select('slug,publishing_state').eq('publishing_state', 'published'),
-    supabase.from('country_intent_broker_final_rankings').select('final_rank,broker_id,countries!inner(slug),intents!inner(slug)'),
+    supabase.from('country_intent_broker_final_rankings').select('final_rank,final_score,broker_id,countries!inner(slug),intents!inner(slug)'),
     supabase.from('country_intent_broker_overrides').select('broker_id,manual_rank,force_include,force_exclude,countries!inner(slug),intents!inner(slug)'),
     supabase.from('broker_country_availability').select('broker_id,status,countries!inner(slug)'),
     supabase.from('country_intent_ranking_settings').select('ranking_mode,countries!inner(slug),intents!inner(slug)'),
@@ -71,7 +71,7 @@ async function main() {
   for (const row of rankingsRes.data || []) {
     const key = `${row.countries?.slug}:${row.intents?.slug}`;
     const rows = rankingMap.get(key) || [];
-    rows.push({ broker_id: row.broker_id, final_rank: row.final_rank });
+    rows.push({ broker_id: row.broker_id, final_rank: row.final_rank, final_score: row.final_score });
     rankingMap.set(key, rows);
   }
 
