@@ -106,5 +106,5 @@ export default function CanonicalGlobalBestFor({ route }: Props) {
   if (loading) return <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6"><div className="h-64 animate-pulse rounded-3xl border border-line bg-white" /></div>;
   if (!doc || !doc.published) return <NotFound />;
 
-  return <BestForTemplate document={doc} brokers={ranked.map((broker) => ({ ...broker, tagline: intentNote(rankingSlug, broker) }))} ranked={ranked} intentSlug={rankingSlug} criteria={criteria} faqs={faqs} />;
+  return <BestForTemplate document={doc} brokers={ranked.map((broker: Broker) => ({ ...broker, tagline: intentNote(rankingSlug, broker) }))} ranked={ranked} intentSlug={rankingSlug} criteria={criteria} faqs={faqs} />;
 }
