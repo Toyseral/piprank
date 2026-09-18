@@ -102,7 +102,7 @@ async function main() {
   if (!existsSync(DIST)) throw new Error('dist/ does not exist. Run vite build first.');
 
   const supabase = createClient(url, key);
-  const [docsRes, brokersRes, countriesRes] = await Promise.all([
+  const [docsRes, brokersRes, countriesRes, rankingsRes] = await Promise.all([
     supabase.from('content_documents').select('id,content_type,country_slug,slug,settings,published,indexable').in('content_type', ['global-best-for', 'country-best-for', 'localized-best-for']).eq('published', true).eq('indexable', true),
     supabase.from('brokers').select('id,name,slug,tagline,rating,trust_score,min_deposit,spread_eurusd,commission_value,health,platforms,best_for'),
     supabase.from('countries').select('slug,recommended,publishing_state').eq('publishing_state', 'published'),
