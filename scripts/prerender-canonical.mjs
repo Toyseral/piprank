@@ -85,6 +85,12 @@ function renderBlock(block, brokersById) {
   return '';
 }
 
+const AUTHOR_FALLBACKS = {
+  'r-adeyemi': { penName: 'R. Adeyemi', role: 'Lead Broker Reviewer', bio: 'Leads broker onboarding at PipRank: verifying licence status against regulator registers, identifying the specific legal entity behind each account, and writing the regulation sections of our reviews.' },
+  'j-okafor': { penName: 'J. Okafor', role: 'Trading Costs & Execution Editor', bio: 'Runs the real-money testing process behind every spread, execution-speed and withdrawal-timing figure published on PipRank, and maintains the trading-cost sections of broker reviews.' },
+  'l-mensah': { penName: 'L. Mensah', role: 'Data & Methodology Lead', bio: 'Maintains the Health Score methodology and the data pipeline behind it — refresh cadence, factor weighting, and keeping scores consistent as broker conditions change.' },
+  's-nwachukwu': { penName: 'S. Nwachukwu', role: 'Country & Compliance Editor', bio: 'Covers country-level broker availability, local regulatory context, and the country-specific guides published on PipRank.' },
+};
 function deterministicReviewer(fallbackKey) {
   let hash = 0;
   const value = String(fallbackKey || '');
@@ -96,7 +102,8 @@ function reviewerForDocument(doc, authorsByKey, fallbackKey) {
   const settings = doc?.settings || {};
   const slug = String(settings.reviewed_by_slug || settings.author_slug || '').trim().toLowerCase();
   const fallbackSlug = fallbackKey ? deterministicReviewer(fallbackKey) : null;
-  const fallback = fallbackSlug ? { slug: fallbackSlug, title: fallbackSlug } : null;
+  const fallbackMeta = fallbackSlug ? AUTHOR_FALLBACKS[fallbackSlug] : null;
+  const fallback = fallbackSlug && fallbackMeta ? { slug: fallbackSlug, title: fallbackMeta.penName, settings: { role: fallbackMeta.role, short_bio: fallbackMeta.bio } } : null;
   const author = slug ? authorsByKey.get(`author:${slug}`) : null;
   return author || (fallback ? { slug: fallback.slug, title: fallback.penName, settings: { role: fallback.role, short_bio: fallback.bio } } : null);
 }
@@ -215,13 +222,13 @@ async function main() {
     const title = doc.seo_title || `${doc.title} | ${SITE_NAME} Guides`;
     const description = doc.seo_description || doc.excerpt || '';
     const faqs = Array.isArray(doc.settings?.faqs) ? doc.settings.faqs : [];
-    const author = reviewerForDocument(doc, authorsByKey, `guide-${doc.slug}`);
+    const author = reviewerForDocument(doc, authorsByKey, `${doc.country_slug ?? ''}-guide-${doc.slug}`);
     const content = `<main><nav><a href="/">Home</a> › <a href="/guides">Guides</a> › <span>${esc(doc.title)}</span></nav><h1>${esc(doc.title)}</h1>${doc.excerpt ? `<p>${esc(doc.excerpt)}</p>` : ''}${attributionHtml(author)}${renderDocument(doc, brokersById)}${faqs.length ? `<h2>Frequently Asked Questions</h2>${faqs.map((faq) => `<details><summary>${esc(faq.q)}</summary><p>${esc(faq.a)}</p></details>`).join('')}` : ''}</main>`;
     if (writePage(shell, writtenPaths, path, { title, description }, content, [pageJsonLd(title, description, path, 'Article', reviewerJsonLd(author)), breadcrumbJsonLd([{ name: 'Home', path: '/' }, { name: 'Guides', path: '/guides' }, { name: doc.title, path }]), ...(faqs.length ? [faqJsonLd(faqs)] : [])])) written++;
   }
 
   for (const doc of globalBestFors) {
-    const author = reviewerForDocument(doc, authorsByKey, `best-for-${doc.slug}`);
+    const author = reviewerForDocument(doc, authorsByKey, `best-for-${doc.country_slug ?? 'global'}-${doc.slug}-${doc.settings?.locale || doc.settings?.languageCode || ''}`);
     const path = `/${doc.slug}`;
     const title = doc.seo_title || `${doc.title} | ${SITE_NAME}`;
     const description = doc.seo_description || doc.excerpt || '';
@@ -231,7 +238,7 @@ async function main() {
   }
 
   for (const doc of countryGuides) {
-    const author = reviewerForDocument(doc, authorsByKey, `guide-${doc.country_slug}-${doc.slug}`);
+    const author = reviewerForDocument(doc, authorsByKey, `${doc.country_slug ?? ''}-guide-${doc.slug}`);
     if (!countriesBySlug.has(doc.country_slug)) continue;
     const path = `/${doc.country_slug}/guides/${doc.slug}`;
     const title = doc.seo_title || `${doc.title} | ${SITE_NAME}`;
@@ -243,7 +250,7 @@ async function main() {
   }
 
   for (const doc of countryBestFors) {
-    const author = reviewerForDocument(doc, authorsByKey, `best-for-${doc.country_slug}-${doc.slug}`);
+    const author = reviewerForDocument(doc, authorsByKey, `best-for-${doc.country_slug ?? 'global'}-${doc.slug}-${doc.settings?.locale || doc.settings?.languageCode || ''}`);
     if (!countriesBySlug.has(doc.country_slug)) continue;
     const path = `/${doc.country_slug}/${doc.slug}`;
     const title = doc.seo_title || `${doc.title} | ${SITE_NAME}`;
@@ -255,7 +262,7 @@ async function main() {
   }
 
   for (const doc of localizedGuides) {
-    const author = reviewerForDocument(doc, authorsByKey, `guide-${doc.country_slug}-${doc.slug}-${doc.settings?.locale || doc.settings?.languageCode || ''}`);
+    const author = reviewerForDocument(doc, authorsByKey, `${doc.country_slug ?? ''}-guide-${doc.slug}`);
     const locale = String(doc.settings?.locale || doc.settings?.languageCode || '').trim();
     if (!locale || !countriesBySlug.has(doc.country_slug)) continue;
     const path = `/${doc.country_slug}/${encodeURIComponent(locale)}/guides/${doc.slug}`;
@@ -266,7 +273,7 @@ async function main() {
   }
 
   for (const doc of localizedBestFors) {
-    const author = reviewerForDocument(doc, authorsByKey, `best-for-${doc.country_slug}-${doc.slug}-${doc.settings?.locale || doc.settings?.languageCode || ''}`);
+    const author = reviewerForDocument(doc, authorsByKey, `best-for-${doc.country_slug ?? 'global'}-${doc.slug}-${doc.settings?.locale || doc.settings?.languageCode || ''}`);
     const locale = String(doc.settings?.locale || doc.settings?.languageCode || '').trim();
     if (!locale || !countriesBySlug.has(doc.country_slug)) continue;
     const path = `/${doc.country_slug}/${encodeURIComponent(locale)}/${doc.slug}`;
