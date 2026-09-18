@@ -231,13 +231,14 @@ async function main() {
   }
 
   for (const doc of countryGuides) {
+    const author = reviewerForDocument(doc, authorsByKey, `guide-${doc.country_slug}-${doc.slug}`);
     if (!countriesBySlug.has(doc.country_slug)) continue;
     const path = `/${doc.country_slug}/guides/${doc.slug}`;
     const title = doc.seo_title || `${doc.title} | ${SITE_NAME}`;
     const description = doc.seo_description || doc.excerpt || '';
     const faqs = Array.isArray(doc.settings?.faqs) ? doc.settings.faqs : [];
     const countryName = countriesBySlug.get(doc.country_slug)?.name || doc.country_slug;
-    const content = `<main><h1>${esc(doc.title)}</h1>${doc.excerpt ? `<p>${esc(doc.excerpt)}</p>` : ''}${renderDocument(doc, brokersById)}${faqs.length ? `<h2>Frequently Asked Questions</h2>${faqs.map((faq) => `<details><summary>${esc(faq.q)}</summary><p>${esc(faq.a)}</p></details>`).join('')}` : ''}<p><a href="/${esc(doc.country_slug)}">Compare brokers in ${esc(countryName)}</a></p></main>`;
+    const content = `<main><h1>${esc(doc.title)}</h1>${doc.excerpt ? `<p>${esc(doc.excerpt)}</p>` : ''}${attributionHtml(author)}${renderDocument(doc, brokersById)}${faqs.length ? `<h2>Frequently Asked Questions</h2>${faqs.map((faq) => `<details><summary>${esc(faq.q)}</summary><p>${esc(faq.a)}</p></details>`).join('')}` : ''}<p><a href="/${esc(doc.country_slug)}">Compare brokers in ${esc(countryName)}</a></p></main>`;
     if (writePage(shell, writtenPaths, path, { title, description }, content, [pageJsonLd(title, description, path, 'Article'), breadcrumbJsonLd([{ name: 'Home', path: '/' }, { name: countryName, path: `/${doc.country_slug}` }, { name: doc.title, path }]), ...(faqs.length ? [faqJsonLd(faqs)] : [])])) written++;
   }
 
@@ -253,6 +254,7 @@ async function main() {
   }
 
   for (const doc of localizedGuides) {
+    const author = reviewerForDocument(doc, authorsByKey, `guide-${doc.country_slug}-${doc.slug}-${doc.settings?.locale || doc.settings?.languageCode || ''}`);
     const locale = String(doc.settings?.locale || doc.settings?.languageCode || '').trim();
     if (!locale || !countriesBySlug.has(doc.country_slug)) continue;
     const path = `/${doc.country_slug}/${encodeURIComponent(locale)}/guides/${doc.slug}`;
@@ -263,6 +265,7 @@ async function main() {
   }
 
   for (const doc of localizedBestFors) {
+    const author = reviewerForDocument(doc, authorsByKey, `best-for-${doc.country_slug}-${doc.slug}-${doc.settings?.locale || doc.settings?.languageCode || ''}`);
     const locale = String(doc.settings?.locale || doc.settings?.languageCode || '').trim();
     if (!locale || !countriesBySlug.has(doc.country_slug)) continue;
     const path = `/${doc.country_slug}/${encodeURIComponent(locale)}/${doc.slug}`;
