@@ -17,7 +17,7 @@ type Props = { document: ContentDocument; brokers: Broker[]; ranked: Broker[]; i
 type ScopedBlock = { id: string; type: string; editorialSection?: string; [key: string]: unknown };
 const SECTION_COPY_KEYS = { ranking: 'bestfor-copy:ranking', comparison: 'bestfor-copy:comparison', brokerAnalysis: 'bestfor-copy:brokerAnalysis' };
 const DEFAULT_SECTION_COPY = { ranking: 'Explore the top eligible brokers for this category and jump directly to the full analysis of any broker that interests you.', comparison: 'Compare the eligible brokers side by side across the metrics that matter most for this category.', brokerAnalysis: "Review each broker's key facts, assessment, detailed analysis and PipRank verdict before you decide." };
-const textFromHtml = (html: unknown) => String(html || '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/\\s+/g, ' ').trim();
+const textFromHtml = (html: unknown) => String(html || '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/\s+/g, ' ').trim();
 const sectionCopyFromBlocks = (blocks: unknown, key: keyof typeof SECTION_COPY_KEYS) => {
   if (!isBlockShape(blocks)) return DEFAULT_SECTION_COPY[key];
   const block = (blocks as ScopedBlock[]).find((item) => item.id === SECTION_COPY_KEYS[key] && item.type === 'richtext');
