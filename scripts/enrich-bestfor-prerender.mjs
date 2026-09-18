@@ -103,12 +103,12 @@ async function main() {
   if (!existsSync(DIST)) throw new Error('dist/ does not exist. Run vite build first.');
 
   const supabase = createClient(url, key);
-  const [docsRes, brokersRes, countriesRes, rankingsRes] = await Promise.all([
+  const [docsRes, brokersRes, countriesRes, rankingsRes, overridesRes, availabilityRes] = await Promise.all([
     supabase.from('content_documents').select('id,content_type,country_slug,slug,settings,published,indexable').in('content_type', ['global-best-for', 'country-best-for', 'localized-best-for']).eq('published', true).eq('indexable', true),
     supabase.from('brokers').select('id,name,slug,tagline,rating,trust_score,min_deposit,spread_eurusd,commission_value,commission,max_leverage,payments,regulations,health,platforms,best_for,assets,scalping,islamic_account,copy_trading,hedging,account_types,demo_account'),
     supabase.from('countries').select('slug,recommended,publishing_state').eq('publishing_state', 'published'),
     supabase.from('country_intent_broker_final_rankings').select('final_rank,broker_id,countries!inner(slug),intents!inner(slug)'),
-    supabase.from('country_intent_broker_overrides').select('broker_id,manual_rank,force_exclude,countries!inner(slug),intents!inner(slug)'),
+    supabase.from('country_intent_broker_overrides').select('broker_id,manual_rank,force_include,force_exclude,countries!inner(slug),intents!inner(slug)'),
     supabase.from('broker_country_availability').select('broker_id,status,countries!inner(slug)'),
   ]);
   if (docsRes.error) throw docsRes.error;
@@ -171,17 +171,19 @@ async function main() {
         };
       })
       .filter((row) => !row.force_exclude && row.availability_status === 'available');
-    const manualOnlyRows = overrides
-      .filter((row) => Number.isInteger(Number(row.manual_rank)) && Number(row.manual_rank) >= 1 && Number(row.manual_rank) <= 9)
-      .filter((row) => !row.force_exclude && (availabilityMap.get(country.slug + ':' + row.broker_id) || 'available') === 'available')
+    const overrideOnlyRows = overrides
+      .filter((row) => !row.force_exclude)
+      .filter((row) => (availabilityMap.get(country.slug + ':' + row.broker_id) || 'available') === 'available')
       .filter((row) => !rankingRows.some((existing) => Number(existing.broker_id) === Number(row.broker_id)))
+      .filter((row) => Boolean(row.force_include) || (Number.isInteger(Number(row.manual_rank)) && Number(row.manual_rank) >= 1 && Number(row.manual_rank) <= 9))
       .map((row) => ({
         broker_id: Number(row.broker_id),
-        final_rank: Number(row.manual_rank),
-        manual_rank: Number(row.manual_rank),
+        final_rank: Number.isInteger(Number(row.manual_rank)) ? Number(row.manual_rank) : null,
+        manual_rank: Number.isInteger(Number(row.manual_rank)) ? Number(row.manual_rank) : null,
+        force_include: Boolean(row.force_include),
         availability_status: 'available',
       }));
-    const dedupedRankingRows = [...rankingRows, ...manualOnlyRows];
+    const dedupedRankingRows = [...rankingRows, ...overrideOnlyRows];
     const ranked = rankBrokers(brokersRes.data || [], doc, country, dedupedRankingRows);
     const extra = `${rankingSection(ranked, doc)}${comparisonTable(ranked, doc)}${detailSection(ranked, doc)}${criteriaSection(doc)}${ranked.map((broker) => verdictSection(broker, intentSlug)).join('')}`;
     const output = inject(html, extra);
