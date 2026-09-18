@@ -29,6 +29,10 @@ const STATIC_PATHS = new Set([
 
 const RETIRED_TYPES = new Set(['country-topic', 'localized-seo']);
 
+function clean(value) {
+  return String(value ?? '').trim().toLowerCase();
+}
+
 function fail(errors) {
   if (!errors.length) return;
   console.error('[validate-route-ownership] FAILED');
