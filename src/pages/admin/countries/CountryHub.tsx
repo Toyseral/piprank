@@ -70,13 +70,14 @@ function CountryBestForEditor({ country, document, brokers, token, onClose, onSa
 
 function CountryBrokerRankingPanel({ country, brokers, token, notify }: { country: CountryPage; brokers: Broker[]; token: string; notify: (msg: string) => void }) {
   const [rows, setRows] = useState<any[]>([]);
+  const [eligibleBrokers, setEligibleBrokers] = useState<Broker[]>([]);
   const [mode, setMode] = useState<'automatic' | 'manual'>('automatic');
   const [busy, setBusy] = useState(false);
 
   const load = async () => {
     const res = await fetch(`/api/country-broker-rankings?country=${encodeURIComponent(country.slug)}&admin=true`, { headers: { Authorization: `Bearer ${token}` } });
     const data = await res.json().catch(() => ({}));
-    if (res.ok) { setMode(data.ranking_mode === 'manual' ? 'manual' : 'automatic'); setRows(Array.isArray(data.rows) ? data.rows.slice(0, 9) : []); }
+    if (res.ok) { setMode(data.ranking_mode === 'manual' ? 'manual' : 'automatic'); setRows(Array.isArray(data.rows) ? data.rows.slice(0, 9) : []); setEligibleBrokers(Array.isArray(data.eligible_brokers) ? data.eligible_brokers : []); }
   };
   useEffect(() => { load(); }, [country.slug]);
 
@@ -102,7 +103,7 @@ function CountryBrokerRankingPanel({ country, brokers, token, notify }: { countr
   };
 
   const rankedIds = new Set(rows.map((row) => Number(row.broker_id)));
-  const candidates = brokers.filter((broker) => !rankedIds.has(Number(broker.id))).slice(0, 12);
+  const candidates = eligibleBrokers.filter((broker) => !rankedIds.has(Number(broker.id))).slice(0, 12);
 
   return <div className="rounded-2xl border border-line bg-white p-5">
     <div className="flex flex-wrap items-start justify-between gap-3">
