@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { ContentDocument, Intent } from '../../lib/types';
 import supabase from '../../lib/supabase';
 import BestForEditorialPageBuilder from '../../components/BestForEditorialPageBuilder';
-import PageBuilder, { blocksToHtml, type PageBlock } from '../../components/PageBuilder';
+import { blocksToHtml, type PageBlock } from '../../components/PageBuilder';
 import type { Broker } from '../../lib/types';
 
 const GLOBAL_BEST_FOR_PATHS: Record<string, string> = {
