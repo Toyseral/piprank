@@ -55,17 +55,6 @@ export function Shell() {
           <Route path="/:countrySlug/:locale/guides/:slug" element={<CanonicalHub />} />
           <Route path="/:countrySlug/:locale/:topicSlug" element={<CanonicalHub />} />
           <Route path="/:countrySlug/:topicSlug" element={<CanonicalHub />} />
-          <Route path="/forex-brokers-for-beginners" element={<CanonicalHub />} />
-          <Route path="/low-spread-forex-brokers" element={<CanonicalHub />} />
-          <Route path="/mt4-forex-brokers" element={<CanonicalHub />} />
-          <Route path="/mt5-forex-brokers" element={<CanonicalHub />} />
-          <Route path="/gold-forex-brokers" element={<CanonicalHub />} />
-          <Route path="/forex-brokers-for-scalping" element={<CanonicalHub />} />
-          <Route path="/islamic-forex-brokers" element={<CanonicalHub />} />
-          <Route path="/ecn-forex-brokers" element={<CanonicalHub />} />
-          <Route path="/copy-trading-forex-brokers" element={<CanonicalHub />} />
-          <Route path="/forex-brokers-for-swing-trading" element={<CanonicalHub />} />
-          <Route path="/high-leverage-forex-brokers" element={<CanonicalHub />} />
           <Route path="/:slug" element={<CanonicalHub />} />
           <Route path="*" element={<NotFound />} />
         </Routes>

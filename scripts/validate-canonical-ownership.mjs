@@ -1,3 +1,4 @@
+import { canonicalKeyForDocument, canonicalPathForDocument, isCanonicalContentType, isRetiredContentType, retiredKeyMatches, localeOf } from '../src/lib/canonical-route-registry.mjs';
 import { createClient } from '@supabase/supabase-js';
 
 const CANONICAL_TYPES = new Set([
@@ -11,46 +12,6 @@ const CANONICAL_TYPES = new Set([
   'country',
   'compare',
 ]);
-
-function localeOf(doc) {
-  return String(doc?.settings?.locale || doc?.settings?.languageCode || '').trim().toLowerCase();
-}
-
-function canonicalKey(doc) {
-  const country = String(doc.country_slug || '').trim();
-  const slug = String(doc.slug || '').trim();
-  const locale = localeOf(doc);
-  switch (doc.content_type) {
-    case 'guide': return slug && !country ? `guide:${slug}` : null;
-    case 'global-best-for': return slug && !country ? `best-for:${slug}` : null;
-    case 'country-guide': return country && slug ? `country-guide:${country}:${slug}` : null;
-    case 'country-best-for': return country && slug ? `country-best-for:${country}:${slug}` : null;
-    case 'localized-guide': return country && locale && slug ? `localized-guide:${country}:${locale}:${slug}` : null;
-    case 'localized-best-for': return country && locale && slug ? `localized-best-for:${country}:${locale}:${slug}` : null;
-    case 'broker': return slug ? `broker:${slug}:main` : null;
-    case 'country': return country || slug ? `country:${country || slug}:hub` : null;
-    case 'compare': return slug ? `compare:${slug}` : null;
-    default: return null;
-  }
-}
-
-function canonicalPath(doc) {
-  const country = encodeURIComponent(String(doc.country_slug || '').trim());
-  const slug = encodeURIComponent(String(doc.slug || '').trim());
-  const locale = encodeURIComponent(localeOf(doc));
-  switch (doc.content_type) {
-    case 'guide': return slug && !doc.country_slug ? `/guides/${slug}` : null;
-    case 'global-best-for': return slug && !doc.country_slug ? `/${slug}` : null;
-    case 'country-guide': return country && slug ? `/${country}/guides/${slug}` : null;
-    case 'country-best-for': return country && slug ? `/${country}/${slug}` : null;
-    case 'localized-guide': return country && locale && slug ? `/${country}/${locale}/guides/${slug}` : null;
-    case 'localized-best-for': return country && locale && slug ? `/${country}/${locale}/${slug}` : null;
-    case 'broker': return slug ? `/brokers/${slug}` : null;
-    case 'country': return country ? `/${country}` : slug ? `/${slug}` : null;
-    case 'compare': return slug ? `/compare/${slug}` : null;
-    default: return null;
-  }
-}
 
 async function main() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -80,13 +41,13 @@ async function main() {
       errors.push(`Retired localized-seo document still exists: ${keyValue || doc.id}`);
       continue;
     }
-    if (!CANONICAL_TYPES.has(type)) continue;
+    if (!isCanonicalContentType(type)) continue;
 
-    const expectedKey = canonicalKey(doc);
+    const expectedKey = canonicalKeyForDocument(doc);
     if (!expectedKey) errors.push(`${type} document has insufficient canonical identity: ${doc.id}`);
     else if (keyValue !== expectedKey) errors.push(`${type} has non-canonical content_key: ${keyValue} (expected ${expectedKey})`);
 
-    const path = canonicalPath(doc);
+    const path = canonicalPathForDocument(doc);
     if (!path && expectedKey) errors.push(`${type} document cannot resolve a canonical URL: ${doc.id}`);
     if (path) {
       if (seenPaths.has(path)) errors.push(`Duplicate canonical URL ownership: ${path} (${seenPaths.get(path)} and ${doc.id})`);

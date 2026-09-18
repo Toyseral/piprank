@@ -1,3 +1,4 @@
+import { canonicalPathForDocument, localeOf } from '../src/lib/canonical-route-registry.mjs';
 import { createClient } from '@supabase/supabase-js';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -218,7 +219,7 @@ async function main() {
   }
 
   for (const doc of guides) {
-    const path = `/guides/${doc.slug}`;
+    const path = canonicalPathForDocument(doc); if (!path) continue;
     const title = doc.seo_title || `${doc.title} | ${SITE_NAME} Guides`;
     const description = doc.seo_description || doc.excerpt || '';
     const faqs = Array.isArray(doc.settings?.faqs) ? doc.settings.faqs : [];
@@ -229,7 +230,7 @@ async function main() {
 
   for (const doc of globalBestFors) {
     const author = reviewerForDocument(doc, authorsByKey, `best-for-${doc.country_slug ?? 'global'}-${doc.slug}-${doc.settings?.locale || doc.settings?.languageCode || ''}`);
-    const path = `/${doc.slug}`;
+    const path = canonicalPathForDocument(doc); if (!path) continue;
     const title = doc.seo_title || `${doc.title} | ${SITE_NAME}`;
     const description = doc.seo_description || doc.excerpt || '';
     const faqs = Array.isArray(doc.settings?.faqs) ? doc.settings.faqs : [];
@@ -240,7 +241,7 @@ async function main() {
   for (const doc of countryGuides) {
     const author = reviewerForDocument(doc, authorsByKey, `${doc.country_slug ?? ''}-guide-${doc.slug}`);
     if (!countriesBySlug.has(doc.country_slug)) continue;
-    const path = `/${doc.country_slug}/guides/${doc.slug}`;
+    const path = canonicalPathForDocument(doc); if (!path) continue;
     const title = doc.seo_title || `${doc.title} | ${SITE_NAME}`;
     const description = doc.seo_description || doc.excerpt || '';
     const faqs = Array.isArray(doc.settings?.faqs) ? doc.settings.faqs : [];
@@ -252,7 +253,7 @@ async function main() {
   for (const doc of countryBestFors) {
     const author = reviewerForDocument(doc, authorsByKey, `best-for-${doc.country_slug ?? 'global'}-${doc.slug}-${doc.settings?.locale || doc.settings?.languageCode || ''}`);
     if (!countriesBySlug.has(doc.country_slug)) continue;
-    const path = `/${doc.country_slug}/${doc.slug}`;
+    const path = canonicalPathForDocument(doc); if (!path) continue;
     const title = doc.seo_title || `${doc.title} | ${SITE_NAME}`;
     const description = doc.seo_description || doc.excerpt || '';
     const faqs = Array.isArray(doc.settings?.faqs) ? doc.settings.faqs : [];
@@ -263,9 +264,9 @@ async function main() {
 
   for (const doc of localizedGuides) {
     const author = reviewerForDocument(doc, authorsByKey, `${doc.country_slug ?? ''}-guide-${doc.slug}`);
-    const locale = String(doc.settings?.locale || doc.settings?.languageCode || '').trim();
+    const locale = localeOf(doc);
     if (!locale || !countriesBySlug.has(doc.country_slug)) continue;
-    const path = `/${doc.country_slug}/${encodeURIComponent(locale)}/guides/${doc.slug}`;
+    const path = canonicalPathForDocument(doc); if (!path) continue;
     const title = doc.seo_title || doc.title;
     const description = doc.seo_description || doc.excerpt || '';
     const content = `<main><h1>${esc(doc.title)}</h1>${doc.excerpt ? `<p>${esc(doc.excerpt)}</p>` : ''}${attributionHtml(author)}${renderDocument(doc, brokersById)}</main>`;
@@ -274,9 +275,9 @@ async function main() {
 
   for (const doc of localizedBestFors) {
     const author = reviewerForDocument(doc, authorsByKey, `best-for-${doc.country_slug ?? 'global'}-${doc.slug}-${doc.settings?.locale || doc.settings?.languageCode || ''}`);
-    const locale = String(doc.settings?.locale || doc.settings?.languageCode || '').trim();
+    const locale = localeOf(doc);
     if (!locale || !countriesBySlug.has(doc.country_slug)) continue;
-    const path = `/${doc.country_slug}/${encodeURIComponent(locale)}/${doc.slug}`;
+    const path = canonicalPathForDocument(doc); if (!path) continue;
     const title = doc.seo_title || doc.title;
     const description = doc.seo_description || doc.excerpt || '';
     const faqs = Array.isArray(doc.settings?.faqs) ? doc.settings.faqs : [];
