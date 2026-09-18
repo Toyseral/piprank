@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import PageBuilder, { type PageBlock } from './PageBuilder';
 import type { Broker } from '../lib/types';
 
-type BestForSection = 'introduction' | 'why_these_brokers' | 'who_its_for' | 'who_its_not_for' | 'detailed_analysis' | 'methodology';
+type BestForSection = 'introduction' | 'why_these_brokers' | 'who_its_for' | 'who_its_not_for' | 'detailed_analysis' | 'methodology' | 'additional';
 type Props = { value?: unknown[]; onChange: (blocks: PageBlock[]) => void; onUploadImage?: (file: File) => Promise<string>; brokers?: Broker[]; analysisBrokers?: Broker[] };
 type ScopedBlock = PageBlock & { editorialSection?: string };
 
