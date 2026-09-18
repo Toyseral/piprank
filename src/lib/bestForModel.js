@@ -1,5 +1,30 @@
 import { getCountrySeoTopic, rankCountryTopicBrokers } from '../data/countrySeoMatrix.js';
 
+export function healthScore(broker) {
+  const h = broker?.health || {};
+  return Math.round(
+    Number(h.regulation || 0) * 0.3 +
+    Number(h.withdrawals || 0) * 0.2 +
+    Number(h.execution || 0) * 0.15 +
+    Number(h.longevity || 0) * 0.15 +
+    Number(h.support || 0) * 0.1 +
+    Number(h.sentiment || 0) * 0.1
+  );
+}
+
+export function allInCost(broker) {
+  return Math.round((Number(broker?.spread_eurusd || 0) + Number(broker?.commission_value || 0) / 10) * 100) / 100;
+}
+
+export function pipRankScore(broker) {
+  const cost = Math.max(0, 100 - allInCost(broker) * 12);
+  const deposit = Math.max(0, 100 - Math.min(Number(broker?.min_deposit || 0), 500) / 5);
+  const trust = Number(broker?.trust_score || 0);
+  const health = healthScore(broker);
+  const rating = Math.min(100, Number(broker?.rating || 0) * 20);
+  return Math.max(1, Math.min(99, Math.round(trust * 0.28 + health * 0.28 + cost * 0.18 + deposit * 0.08 + rating * 0.18)));
+}
+
 export function rankingIntentSlug(pageSlug, doc) {
   const settings = doc?.settings && typeof doc.settings === 'object' ? doc.settings : {};
   const explicit = settings.ranking_intent_slug;
