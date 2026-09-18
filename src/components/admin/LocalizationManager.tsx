@@ -41,6 +41,12 @@ export function LocalizationManager({ countries, languages, contentDocs, mutate 
       .sort((a, b) => String(a.title || a.slug).localeCompare(String(b.title || b.slug)));
   }, [docs, country, selectedLang]);
   const localizedBestFors = selectedDocs.filter((doc) => doc.content_type === 'localized-best-for');
+  const globalBestForOwners = useMemo(
+    () => contentDocs
+      .filter((doc) => doc.content_type === 'global-best-for' && doc.slug)
+      .sort((a, b) => String(a.title || a.slug).localeCompare(String(b.title || b.slug))),
+    [contentDocs],
+  );
 
   const addLanguage = async (e: FormEvent) => {
     e.preventDefault();
@@ -52,38 +58,51 @@ export function LocalizationManager({ countries, languages, contentDocs, mutate 
     } finally { setSaving(false); }
   };
 
-  const addTopic = async (topicKey: string) => {
+  const addTopic = async (ownerSlug: string) => {
     if (!selectedLang || !country) return;
-    const template = getLanguageTopicTemplate(selectedLang.code, topicKey, country.name);
+    const owner = globalBestForOwners.find((doc) => doc.slug === ownerSlug);
+    if (!owner) return;
+
+    const templateKeyBySlug: Record<string, string> = {
+      'forex-brokers-for-beginners': 'beginners',
+      'mt4-forex-brokers': 'mt4',
+      'mt5-forex-brokers': 'mt5',
+      'gold-forex-brokers': 'gold',
+      'low-spread-forex-brokers': 'low-spread',
+    };
+    const templateKey = templateKeyBySlug[owner.slug] ?? owner.slug;
+    const template = getLanguageTopicTemplate(selectedLang.code, templateKey, country.name);
     const slug = template.slug;
     const contentKey = `localized-best-for:${country.slug}:${selectedLang.code}:${slug}`;
     if (docs.some((doc) => doc.content_key === contentKey)) return;
+
     await mutate('/api/content-documents', 'POST', {
       content_key: contentKey,
       content_type: 'localized-best-for',
       country_slug: country.slug,
-      topic_slug: slug,
+      topic_slug: owner.slug,
       slug,
-      title: template.title === templateKey ? `${fallbackTitle} in ${country.name}` : template.title,
+      title: template.title,
       excerpt: template.description ?? '',
-      html: (template.intro ?? []).map((p) => `<p>${String(p).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] || c))}</p>`).join(''),
+      html: (template.intro ?? []).map((p) => `<p>${String(p).replace(/[&<>]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[ch] || ch))}</p>`).join(''),
       blocks: [],
-      settings: { locale: selectedLang.code, topic_key: topicKey, language_code: selectedLang.code },
+      settings: {
+        locale: selectedLang.code,
+        language_code: selectedLang.code,
+        intent_slug: owner.slug,
+        canonicalIntentSlug: owner.slug,
+        source_best_for_id: owner.id,
+      },
       published: false,
       indexable: false,
     }, `${template.title} created as a draft`);
   };
 
-  const localizationTopicOptions = [
-    ['all', 'Best Forex Brokers'],
-    ['beginners', 'Beginners'],
-    ['mt4', 'MT4'],
-    ['mt5', 'MT5'],
-    ['gold', 'Gold'],
-    ['low-spread', 'Low Spread'],
-  ] as const;
-  const addableTopics = localizationTopicOptions.filter(([key]) => !localizedBestFors.some((doc) => topicFromDoc(doc) === key));
-
+  const addableOwners = globalBestForOwners.filter(
+    (owner) => !localizedBestFors.some(
+      (doc) => String(doc.settings?.intent_slug || doc.topic_slug || '') === String(owner.slug),
+    ),
+  );
   return <div className="space-y-6">
     <div className="rounded-3xl border border-line bg-white p-6">
       <div className="flex items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Country × Language</p><h2 className="mt-1 font-display text-xl font-bold text-ink-950">Localization Studio</h2><p className="mt-2 text-sm leading-6 text-slate-500">Localized guides and Best-For pages are canonical Content Studio documents. Best-For pages are created and edited here; legacy localized-seo pages are not used.</p></div><Globe2 className="text-emerald-600" size={22} /></div>
@@ -110,7 +129,7 @@ export function LocalizationManager({ countries, languages, contentDocs, mutate 
             <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-4"><div className="flex flex-wrap items-center justify-between gap-2"><div><p className="text-sm font-bold text-ink-950">Localized Best-For pages</p><p className="text-xs text-slate-500">{localizedBestFors.length} existing pages for {language.native_name}.</p></div><span className="rounded-full bg-white px-2.5 py-1 text-xs font-bold text-emerald-700">Canonical content_documents</span></div></div>
             {selectedDocs.filter((doc) => doc.content_type === 'localized-best-for').map((doc) => <LocalizedDocumentRow key={doc.id} doc={doc} mutate={mutate} countrySlug={languageCountrySlug || ''} languagePrefix={language.url_prefix || language.code} />)}
             {localizedBestFors.length === 0 && <p className="rounded-xl border border-dashed border-line bg-paper p-4 text-sm text-slate-500">No localized Best-For pages exist for this language yet. Add one below.</p>}
-            {addableTopics.length > 0 && <div className="rounded-xl border border-dashed border-line bg-paper p-4"><p className="text-xs font-bold uppercase tracking-widest text-slate-500">Add localized Best-For</p><p className="mt-1 text-xs text-slate-500">Each button creates an unpublished canonical page. Open Edit to add PageBuilder blocks, broker cards, comparison tables and CTAs.</p><div className="mt-3 flex flex-wrap gap-2">{addableTopics.map(([key, label]) => <button key={key} type="button" onClick={() => addTopic(key)} className="rounded-lg border border-line bg-white px-2.5 py-1.5 text-xs font-semibold hover:border-emerald-400">+ {label}</button>)}</div></div>}
+            {addableOwners.length > 0 && <div className="rounded-xl border border-dashed border-line bg-paper p-4"><p className="text-xs font-bold uppercase tracking-widest text-slate-500">Add localized Best-For</p><p className="mt-1 text-xs text-slate-500">Select the canonical global Best-For owner. The localized URL and title can be translated, but the country × intent ranking stays tied to the canonical owner.</p><div className="mt-3 flex flex-wrap gap-2">{addableOwners.map((owner) => <button key={owner.id} type="button" onClick={() => addTopic(owner.slug)} className="rounded-lg border border-line bg-white px-2.5 py-1.5 text-xs font-semibold hover:border-emerald-400">+ {owner.title || owner.slug}</button>)}</div></div>}
           </div>}
         </div>;
       })}
@@ -146,7 +165,7 @@ function LocalizedDocumentRow({ doc, mutate, countrySlug, languagePrefix }: { do
   const previewPath = `/${countrySlug}/${languagePrefix}/${doc.slug}?preview=1`;
 
   return <div className="rounded-xl border border-line bg-paper p-4">
-    <div className="flex items-center gap-3"><div className="min-w-0 flex-1"><p className="font-semibold text-ink-950">{doc.title || doc.slug}</p><p className="text-xs text-slate-500">{doc.slug} · {previewPath} · {doc.published ? 'Published' : 'Draft'}{doc.indexable ? ' · Indexable' : ' · Noindex'}</p></div><a href={previewPath} target="_blank" rel="noreferrer" className="rounded-lg border border-line bg-white p-2 text-slate-500 hover:bg-paper" title="Preview localized Best-For"><Eye size={14} /></a><button type="button" onClick={() => setExpanded(!expanded)} className="rounded-lg border border-line bg-white px-3 py-2 text-xs font-bold">{expanded ? 'Close' : 'Edit'}</button><button type="button" onClick={remove} className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs font-bold text-rose-700 hover:bg-rose-50"><Trash2 size={14} /> Delete</button></div>
+    <div className="flex items-center gap-3"><div className="min-w-0 flex-1"><p className="font-semibold text-ink-950">{doc.title || doc.slug}</p><p className="text-xs text-slate-500">{doc.slug} · Canonical intent: {String(doc.settings?.intent_slug || doc.topic_slug || '—')} · {previewPath} · {doc.published ? 'Published' : 'Draft'}{doc.indexable ? ' · Indexable' : ' · Noindex'}</p></div><a href={previewPath} target="_blank" rel="noreferrer" className="rounded-lg border border-line bg-white p-2 text-slate-500 hover:bg-paper" title="Preview localized Best-For"><Eye size={14} /></a><button type="button" onClick={() => setExpanded(!expanded)} className="rounded-lg border border-line bg-white px-3 py-2 text-xs font-bold">{expanded ? 'Close' : 'Edit'}</button><button type="button" onClick={remove} className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs font-bold text-rose-700 hover:bg-rose-50"><Trash2 size={14} /> Delete</button></div>
     {expanded && <div className="mt-4 space-y-3"><input value={title} onChange={(e) => setTitle(e.target.value)} className="h-10 w-full rounded-lg border border-line bg-white px-3 text-sm" placeholder="Title" /><input value={seoTitle} onChange={(e) => setSeoTitle(e.target.value)} className="h-10 w-full rounded-lg border border-line bg-white px-3 text-sm" placeholder="SEO title" /><textarea value={seoDescription} onChange={(e) => setSeoDescription(e.target.value)} className="min-h-20 w-full rounded-lg border border-line bg-white p-3 text-sm" placeholder="SEO description" /><PageBuilder value={blocks} onChange={setBlocks} /><div className="flex flex-wrap items-center gap-4 text-sm"><label className="flex items-center gap-2"><input type="checkbox" checked={published} onChange={(e) => setPublished(e.target.checked)} /> Published</label><label className="flex items-center gap-2"><input type="checkbox" checked={indexable} onChange={(e) => setIndexable(e.target.checked)} /> Indexable</label></div><div className="flex gap-2"><button type="button" disabled={saving} onClick={save} className="inline-flex items-center gap-2 rounded-lg bg-ink-950 px-4 py-2 text-xs font-bold text-white"><Save size={14} /> {saving ? 'Saving…' : 'Save'}</button><button type="button" onClick={remove} className="inline-flex items-center gap-2 rounded-lg border border-rose-200 px-4 py-2 text-xs font-bold text-rose-700"><Trash2 size={14} /> Delete</button></div></div>}
   </div>;
 }

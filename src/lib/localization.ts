@@ -162,11 +162,11 @@ export function getLanguageTopicTemplate(
         : fromPack.title;
     return { ...fromPack, title };
   }
-  const topic = countrySeoTopics.find((t) => t.key === topicKey);
-  const baseTitle = LOCALIZATION_TOPIC_TITLES[topicKey] ?? topic?.title ?? topicKey;
+  const canonicalSlug = ENGLISH_TOPIC_SLUGS[topicKey] ?? topicKey;
+  const baseTitle = LOCALIZATION_TOPIC_TITLES[topicKey] ?? canonicalSlug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
   const title = countryName ? `${baseTitle} in ${countryName}` : baseTitle;
   return {
-    slug: topic?.slug ?? topicKey,
+    slug: canonicalSlug,
     title,
     metaTitle: undefined,
     description: undefined,

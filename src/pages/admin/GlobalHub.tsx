@@ -37,9 +37,6 @@ export default function GlobalHub({
   brokers,
   onNewGuide,
   onEditGuide,
-  intents = [],
-  onNewIntent,
-  onEditIntent,
 }: Props) {
   const [bestFors, setBestFors] = useState<ContentDocument[]>([]);
   const [editing, setEditing] = useState<ContentDocument | 'new' | null>(null);
