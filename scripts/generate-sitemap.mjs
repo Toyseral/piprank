@@ -1,3 +1,4 @@
+import { canonicalPathForDocument, localeOf } from '../src/lib/canonical-route-registry.mjs';
 // Generate a sitemap only for production. Every dynamic URL listed must be owned by a
 // published, indexable canonical content document (or a canonical broker/country record).
 import { createClient } from '@supabase/supabase-js';
@@ -53,31 +54,8 @@ async function main() {
   for (const country of countries) if (country.slug && country.publishing_state === 'published') urls.push({ loc: `/${country.slug}`, lastmod: cleanDate(country.updated_at) });
 
   for (const document of documents) {
-    if (!document.slug) continue;
-    if (document.content_type === 'guide' && !document.country_slug) {
-      urls.push({ loc: `/guides/${document.slug}`, lastmod: cleanDate(document.updated_at) });
-      continue;
-    }
-    if (document.content_type === 'global-best-for' && !document.country_slug) {
-      urls.push({ loc: `/${document.slug}`, lastmod: cleanDate(document.updated_at) });
-      continue;
-    }
-    if (document.content_type === 'country-guide' && document.country_slug) {
-      urls.push({ loc: `/${document.country_slug}/guides/${document.slug}`, lastmod: cleanDate(document.updated_at) });
-      continue;
-    }
-    if (document.content_type === 'country-best-for' && document.country_slug) {
-      urls.push({ loc: `/${document.country_slug}/${document.slug}`, lastmod: cleanDate(document.updated_at) });
-      continue;
-    }
-    if ((document.content_type === 'localized-guide' || document.content_type === 'localized-best-for') && document.country_slug) {
-      const locale = documentLocale(document);
-      if (!locale) continue;
-      const path = document.content_type === 'localized-guide'
-        ? `/${document.country_slug}/${encodeURIComponent(locale)}/guides/${document.slug}`
-        : `/${document.country_slug}/${encodeURIComponent(locale)}/${document.slug}`;
-      urls.push({ loc: path, lastmod: cleanDate(document.updated_at) });
-    }
+    const path = canonicalPathForDocument(document);
+    if (path) urls.push({ loc: path, lastmod: cleanDate(document.updated_at) });
   }
 
   const topBrokers = [...brokers].filter((broker) => broker.slug).sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0)).slice(0, MAX_BROKERS_FOR_PAIRS);
