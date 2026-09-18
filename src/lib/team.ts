@@ -14,6 +14,7 @@ export interface TeamMember {
   color: string;
   focus: string;
   bio: string;
+  photoUrl?: string | null;
 }
 
 export const TEAM: TeamMember[] = [
