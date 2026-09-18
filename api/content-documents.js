@@ -112,7 +112,29 @@ export default async function handler(req, res) {
     if (req.method === 'POST') {
       const payload = sanitizeDocumentInput(req.body || {});
       if (rejectInvalidType(payload, res)) return;
-      const { data, error } = await supabase.from('content_documents').insert({ ...payload, updated_by: actor.email }).select().single();
+      if (payload.content_type === 'localized-best-for') {
+      const intentSlug = String(payload.settings?.intent_slug || payload.topic_slug || '').trim();
+      if (!intentSlug) return res.status(400).json({ error: 'A canonical intent is required for localized Best-For content' });
+      const { data: owner, error: ownerError } = await supabase
+        .from('content_documents')
+        .select('id,slug')
+        .eq('content_type', 'global-best-for')
+        .eq('slug', intentSlug)
+        .maybeSingle();
+      if (ownerError) throw ownerError;
+      if (!owner) return res.status(400).json({ error: 'Localized Best-For must reference an existing global Best-For owner' });
+      const { data: intent, error: intentError } = await supabase
+        .from('intents')
+        .select('id,slug')
+        .eq('slug', intentSlug)
+        .maybeSingle();
+      if (intentError) throw intentError;
+      if (!intent) return res.status(400).json({ error: 'The canonical Best-For owner does not have a ranking intent yet' });
+      payload.topic_slug = intentSlug;
+      payload.settings = { ...payload.settings, intent_slug: intentSlug, canonicalIntentSlug: intentSlug, source_best_for_id: owner.id };
+    }
+
+    const { data, error } = await supabase.from('content_documents').insert({ ...payload, updated_by: actor.email }).select().single();
       if (error) throw error;
 
       // Global Best-For pages are the source of truth for ranking intents.
@@ -160,6 +182,18 @@ export default async function handler(req, res) {
       if (!existing) return res.status(404).json({ error: 'Content document not found' });
       const payload = sanitizeDocumentInput(rest, existing);
       if (rejectInvalidType(payload, res)) return;
+      if (existing.content_type === 'localized-best-for') {
+        const canonicalIntent = String(existing.settings?.intent_slug || existing.topic_slug || '').trim();
+        if (!canonicalIntent) return res.status(409).json({ error: 'Localized Best-For is missing its canonical intent' });
+        payload.topic_slug = existing.topic_slug;
+        payload.settings = {
+          ...existing.settings,
+          ...payload.settings,
+          intent_slug: canonicalIntent,
+          canonicalIntentSlug: canonicalIntent,
+          source_best_for_id: existing.settings?.source_best_for_id ?? null,
+        };
+      }
       delete payload.content_key;
       const { data, error } = await supabase.from('content_documents').update({ ...payload, updated_by: actor.email }).eq('id', documentId).select().single();
       if (error) throw error;
@@ -169,8 +203,21 @@ export default async function handler(req, res) {
     if (req.method === 'DELETE') {
       const documentId = Number(req.body?.id);
       if (!Number.isInteger(documentId) || documentId <= 0) return res.status(400).json({ error: 'A valid id is required' });
+      const { data: deleting, error: deletingError } = await supabase
+        .from('content_documents')
+        .select('id,content_type,slug')
+        .eq('id', documentId)
+        .maybeSingle();
+      if (deletingError) throw deletingError;
+      if (!deleting) return res.status(404).json({ error: 'Content document not found' });
+
       const { error } = await supabase.from('content_documents').delete().eq('id', documentId);
       if (error) throw error;
+
+      if (deleting.content_type === 'global-best-for' && deleting.slug) {
+        const { error: intentError } = await supabase.from('intents').delete().eq('slug', deleting.slug);
+        if (intentError) throw intentError;
+      }
       return res.status(200).json({ ok: true });
     }
 
