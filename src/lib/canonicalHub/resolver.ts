@@ -4,10 +4,11 @@ import { CANONICAL_BEST_FOR, CANONICAL_BEST_FOR_BY_SLUG } from './registry';
 import { fetchBroker, fetchCountry } from '../api';
 import { canonicalPathForDocument, canonicalKeyForDocument, encodeSegment, localeOf } from '../canonical-route-registry.mjs';
 
-function cleanPath(path: string): string { const normalized = `/${path.replace(/^\/+|\/+$/g, '')}`; return normalized === '/' ? '/' : normalized; }
+function cleanPath(path: string): string { const normalized = `/${path.replace(/^\\/+|\\/+$/g, '')}`; return normalized === '/' ? '/' : normalized; }
 function route(path: string, input: Omit<CanonicalRoute, 'path' | 'canonicalPath'> & { canonicalPath?: string }): CanonicalRoute { return { ...input, path, canonicalPath: input.canonicalPath ?? path }; }
 function encode(value: string): string { return encodeSegment(value); }
-export { canonicalPathForDocument, canonicalKeyForDocument } from '../canonical-route-registry.mjs';
+export { canonicalPathForDocument, canonicalKeyForDocument };
+export const canonicalContentKeyForDocument = canonicalKeyForDocument;
 
 function isPublishedCountry(country: any): boolean { return country?.publishing_state === 'published'; }
 
