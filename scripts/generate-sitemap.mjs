@@ -39,7 +39,7 @@ async function main() {
 
   const [brokersResult, countriesResult, documentsResult] = await Promise.all([
     supabase.from('brokers').select('slug, rating, updated_at'),
-    supabase.from('countries').select('id, slug, recommended, updated_at, publishing_state'),
+    supabase.from('countries').select('id, slug, updated_at, publishing_state'),
     supabase.from('content_documents').select('content_type, country_slug, topic_slug, slug, published, indexable, updated_at, content_key, settings').in('content_type', CANONICAL_CONTENT_TYPES).eq('published', true).eq('indexable', true),
   ]);
   for (const result of [brokersResult, countriesResult, documentsResult]) {
