@@ -27,24 +27,46 @@ export default async function handler(req, res) {
     if (isAdmin && !(await requireRole(req, res, CONTENT_WRITE))) return;
 
     if (req.method === 'GET') {
-      const [{ data: setting, error: settingError }, { data: rows, error: rowsError }, { data: brokers, error: brokerError }] = await Promise.all([
+      const requests = [
         supabase.from('country_broker_ranking_settings').select('ranking_mode').eq('country_id', countryRow.id).maybeSingle(),
         supabase.from('country_broker_final_rankings').select('*').eq('country_id', countryRow.id).order('final_rank', { ascending: true }),
         supabase.from('brokers').select('id,name,slug,rating,trust_score,brand_color,logo_url').order('trust_score', { ascending: false }),
-      ]);
-      if (settingError) throw settingError;
-      if (rowsError) throw rowsError;
-      if (brokerError) throw brokerError;
+      ];
 
-      const brokerMap = new Map((brokers || []).map((broker) => [Number(broker.id), broker]));
-      const hydrated = (rows || []).map((row) => ({
+      if (isAdmin) {
+        requests.push(
+          supabase.from('broker_country_availability')
+            .select('broker_id')
+            .eq('country_id', countryRow.id)
+            .eq('status', 'available')
+            .eq('is_available', true)
+        );
+      }
+
+      const results = await Promise.all(requests);
+      const [settingResult, rowsResult, brokersResult] = results;
+      if (settingResult.error) throw settingResult.error;
+      if (rowsResult.error) throw rowsResult.error;
+      if (brokersResult.error) throw brokersResult.error;
+
+      const setting = settingResult.data;
+      const rows = rowsResult.data || [];
+      const brokers = brokersResult.data || [];
+      const brokerMap = new Map(brokers.map((broker) => [Number(broker.id), broker]));
+      const hydrated = rows.map((row) => ({
         ...row,
         broker: brokerMap.get(Number(row.broker_id)) || null,
       })).filter((row) => row.broker);
 
       const rankingMode = setting?.ranking_mode === 'manual' ? 'manual' : 'automatic';
 
-      if (isAdmin) return res.status(200).json({ ranking_mode: rankingMode, rows: hydrated });
+      if (isAdmin) {
+        const availabilityResult = results[3];
+        if (availabilityResult.error) throw availabilityResult.error;
+        const eligibleIds = new Set((availabilityResult.data || []).map((row) => Number(row.broker_id)));
+        const eligibleBrokers = brokers.filter((broker) => eligibleIds.has(Number(broker.id)));
+        return res.status(200).json({ ranking_mode: rankingMode, rows: hydrated, eligible_brokers: eligibleBrokers });
+      }
 
       if (rankingMode === 'manual') {
         const manual = hydrated.filter((row) => Number.isInteger(Number(row.manual_rank)) && Number(row.manual_rank) >= 1 && Number(row.manual_rank) <= 9);
@@ -52,9 +74,7 @@ export default async function handler(req, res) {
         return res.status(200).json([...manual, ...rest].slice(0, 9).map((row, index) => ({ ...row, final_rank: index + 1 })));
       }
 
-      return res.status(200).json(
-        hydrated.slice(0, 9).map((row, index) => ({ ...row, final_rank: index + 1 }))
-      );
+      return res.status(200).json(hydrated.slice(0, 9).map((row, index) => ({ ...row, final_rank: index + 1 })));
     }
 
     if (!(await requireRole(req, res, CONTENT_WRITE))) return;
@@ -76,6 +96,17 @@ export default async function handler(req, res) {
     if (!brokerId) return res.status(400).json({ error: 'broker_id is required' });
 
     if (req.method === 'PUT') {
+      const { data: availability, error: availabilityError } = await supabase
+        .from('broker_country_availability')
+        .select('status,is_available')
+        .eq('country_id', countryRow.id)
+        .eq('broker_id', brokerId)
+        .maybeSingle();
+      if (availabilityError) throw availabilityError;
+      if (!availability || availability.status !== 'available' || availability.is_available !== true) {
+        return res.status(400).json({ error: 'Broker must have explicit available country eligibility before it can be ranked.' });
+      }
+
       const manualRank = req.body?.manual_rank === null || req.body?.manual_rank === ''
         ? null : Number(req.body.manual_rank);
       if (manualRank !== null && (!Number.isInteger(manualRank) || manualRank < 1 || manualRank > 9)) {
