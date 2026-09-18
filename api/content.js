@@ -197,6 +197,11 @@ async function handleCountryIntentRankings(req, res) {
     const isAdmin = String(req.query?.admin ?? '') === 'true';
     if (isAdmin && !(await requireRole(req, res, CONTENT_WRITE))) return;
 
+    const { data: setting, error: settingError } = await supabase.from('country_intent_ranking_settings')
+      .select('ranking_mode').eq('country_id', Number(countryRow.id)).eq('intent_id', Number(intentRow.id)).maybeSingle();
+    if (settingError) throw settingError;
+    const rankingMode = setting?.ranking_mode === 'manual' ? 'manual' : 'automatic';
+
     const [{ data: brokers, error: brokerError }, { data: availability, error: availabilityError }, { data: overrides, error: overrideError }, { data: baseRows, error: rankingError }] = await Promise.all([
       supabase.from('brokers').select('id,name,slug,rating,trust_score,brand_color,logo_url').order('rating', { ascending: false }),
       supabase.from('broker_country_availability').select('broker_id,status,note,priority').eq('country_id', Number(countryRow.id)),
@@ -260,7 +265,11 @@ async function handleCountryIntentRankings(req, res) {
     });
 
     if (isAdmin) {
-      return res.status(200).json(hydrated);
+      return res.status(200).json({ ranking_mode: rankingMode, rows: hydrated });
+    }
+
+    if (rankingMode === 'automatic') {
+      return res.status(200).json(hydrated.slice(0, 9).map((r, index) => ({ ...r, final_rank: index + 1 })));
     }
 
     const manuallyRanked = hydrated.filter((row) => Number.isInteger(Number(row.manual_rank)) && Number(row.manual_rank) >= 1 && Number(row.manual_rank) <= 9);
@@ -271,6 +280,16 @@ async function handleCountryIntentRankings(req, res) {
   }
 
   if (!(await requireRole(req, res, CONTENT_WRITE))) return;
+
+  if (req.method === 'PUT' && req.body?.ranking_mode !== undefined && req.body?.broker_id === undefined) {
+    const rankingMode = String(req.body.ranking_mode);
+    if (rankingMode !== 'automatic' && rankingMode !== 'manual') return res.status(400).json({ error: 'ranking_mode must be automatic or manual' });
+    const { data, error } = await supabase.from('country_intent_ranking_settings')
+      .upsert({ country_id: Number(countryRow.id), intent_id: Number(intentRow.id), ranking_mode: rankingMode, updated_at: new Date().toISOString() }, { onConflict: 'country_id,intent_id' })
+      .select().single();
+    if (error) throw error;
+    return res.status(200).json(data);
+  }
 
   if (req.method === 'PUT') {
     const b = req.body ?? {};
