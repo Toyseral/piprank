@@ -281,7 +281,7 @@ async function main() {
     const description = doc.seo_description || doc.excerpt || '';
     const faqs = Array.isArray(doc.settings?.faqs) ? doc.settings.faqs : [];
     const countryName = countriesBySlug.get(doc.country_slug)?.name || doc.country_slug;
-    const content = `<main><h1>${esc(doc.title)}</h1>${doc.excerpt ? `<p>${esc(doc.excerpt)}</p>` : ''}${renderDocument(doc, brokersById)}${faqs.length ? `<h2>Frequently Asked Questions</h2>${faqs.map((faq) => `<details><summary>${esc(faq.q)}</summary><p>${esc(faq.a)}</p></details>`).join('')}` : ''}</main>`;
+    const content = `<main><h1>${esc(doc.title)}</h1>${doc.excerpt ? `<p>${esc(doc.excerpt)}</p>` : ''}${attributionHtml(author)}${renderDocument(doc, brokersById)}${faqs.length ? `<h2>Frequently Asked Questions</h2>${faqs.map((faq) => `<details><summary>${esc(faq.q)}</summary><p>${esc(faq.a)}</p></details>`).join('')}` : ''}</main>`;
     if (writePage(shell, writtenPaths, path, { title, description }, content, [pageJsonLd(title, description, path, 'Article', reviewerJsonLd(author)), breadcrumbJsonLd([{ name: 'Home', path: '/' }, { name: countryName, path: `/${doc.country_slug}` }, { name: doc.title, path }]), ...(faqs.length ? [faqJsonLd(faqs)] : [])])) written++;
   }
 
