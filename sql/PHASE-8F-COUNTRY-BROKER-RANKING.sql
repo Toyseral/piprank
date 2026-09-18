@@ -26,41 +26,44 @@ CREATE TABLE IF NOT EXISTS public.country_broker_overrides (
 
 CREATE INDEX IF NOT EXISTS idx_cbo_country ON public.country_broker_overrides(country_id);
 
--- The base score is the existing broker trust score. Availability is resolved
--- from broker_country_availability; editorial overrides are applied separately.
+-- Eligibility comes only from an explicit country availability row.
+-- A missing availability row is NOT treated as available.
 CREATE OR REPLACE VIEW public.country_broker_final_rankings AS
 WITH base AS (
   SELECT
-    c.id AS country_id,
-    b.id AS broker_id,
+    a.country_id::BIGINT AS country_id,
+    a.broker_id::BIGINT AS broker_id,
     COALESCE(b.trust_score, 0)::NUMERIC AS score,
-    COALESCE(a.status, 'available') AS availability_status,
-    a.note AS availability_note,
+    a.status AS availability_status,
+    COALESCE(a.note, a.notes) AS availability_note,
     o.force_include,
     o.force_exclude,
     o.manual_rank,
     o.score_adjustment,
     o.featured_override,
     o.editorial_note
-  FROM public.countries c
-  CROSS JOIN public.brokers b
-  LEFT JOIN public.broker_country_availability a
-    ON a.country_id = c.id AND a.broker_id = b.id
+  FROM public.broker_country_availability a
+  JOIN public.brokers b ON b.id = a.broker_id
   LEFT JOIN public.country_broker_overrides o
-    ON o.country_id = c.id AND o.broker_id = b.id
+    ON o.country_id = a.country_id AND o.broker_id = a.broker_id
+  WHERE a.status = 'available'
+    AND COALESCE(a.is_available, TRUE) = TRUE
 ),
 resolved AS (
   SELECT *,
     (score + COALESCE(score_adjustment, 0)) AS final_score
   FROM base
   WHERE COALESCE(force_exclude, FALSE) = FALSE
-    AND availability_status = 'available'
 ),
 ordered AS (
   SELECT *,
     ROW_NUMBER() OVER (
       PARTITION BY country_id
-      ORDER BY manual_rank NULLS LAST, final_score DESC, broker_id
+      ORDER BY
+        CASE WHEN force_include THEN 0 ELSE 1 END,
+        manual_rank NULLS LAST,
+        final_score DESC,
+        broker_id
     )::INTEGER AS final_rank
   FROM resolved
 )
