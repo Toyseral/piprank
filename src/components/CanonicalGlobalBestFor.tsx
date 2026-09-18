@@ -8,6 +8,7 @@ import NotFound from '../pages/NotFound';
 import { useSEO } from '../hooks/useSEO';
 import { bestForPath, buildBreadcrumbJsonLd, buildFAQPageJsonLd, buildItemListJsonLd, buildWebPageJsonLd, type SeoInput } from '../lib/seo';
 import { useGeo } from '../lib/GeoContext';
+import { buildBestForPageModel, rankingIntentSlug } from '../lib/bestForModel.js';
 import { allInCost } from '../lib/score';
 import { fmtMoney } from '../lib/format';
 import { track } from '../lib/track';
@@ -17,11 +18,6 @@ type Props = { route: CanonicalRoute };
 function settingsOf(doc: ContentDocument | null) { return (doc?.settings ?? {}) as Record<string, any>; }
 function faqsOf(doc: ContentDocument | null) { const value = settingsOf(doc).faqs; return Array.isArray(value) ? value.filter((x: any) => x?.q && x?.a) : []; }
 function criteriaOf(doc: ContentDocument | null): string[] { const value = settingsOf(doc).criteria; return Array.isArray(value) ? value.map(String).filter(Boolean) : []; }
-function rankingIntentSlug(pageSlug: string, doc: ContentDocument | null): string {
-  const explicit = settingsOf(doc).ranking_intent_slug;
-  if (typeof explicit === 'string' && explicit.trim()) return explicit.trim().toLowerCase();
-  return pageSlug.replace(/^forex-brokers-for-/, '').replace(/-forex-brokers$/, '').replace(/-brokers$/, '').replace(/-forex$/, '');
-}
 function intentNote(intent: string, broker: Broker) {
   switch (intent) {
     case 'low-spread': return `${broker.spread_eurusd}p EUR/USD · ${allInCost(broker)} pips all-in per lot`;
@@ -62,17 +58,8 @@ export default function CanonicalGlobalBestFor({ route }: Props) {
   }, [route.document, slug, geoCountry?.slug]);
 
   const rankingSlug = rankingIntentSlug(slug, doc);
-  const ranked = useMemo(() => {
-    if (!intent) return [];
-    const settings = settingsOf(doc);
-    const excluded = new Set(Array.isArray(settings.excludedBrokerSlugs) ? settings.excludedBrokerSlugs : []);
-    const eligible = brokers.filter((broker) => broker.best_for.includes(intent.slug) && !excluded.has(broker.slug));
-    if (settings.rankingMode === 'manual' && Array.isArray(settings.pinnedBrokerSlugs)) {
-      const order = new Map(settings.pinnedBrokerSlugs.map((slug: string, index: number) => [slug, index]));
-      return eligible.filter((broker) => order.has(broker.slug)).sort((a, b) => Number(order.get(a.slug)) - Number(order.get(b.slug)));
-    }
-    return [...eligible].sort((a, b) => b.rating - a.rating || b.trust_score - a.trust_score);
-  }, [brokers, intent, doc]);
+  const model = useMemo(() => buildBestForPageModel({ document: doc, brokers, intentSlug: intent?.slug || rankingSlug }), [brokers, doc, intent, rankingSlug]);
+  const ranked = model.ranked;
   const faqs = faqsOf(doc);
   const criteria = criteriaOf(doc);
   const seo: SeoInput | null = doc ? {
