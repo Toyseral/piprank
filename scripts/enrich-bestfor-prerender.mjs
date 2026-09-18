@@ -3,6 +3,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { sanitizePublicSettings } from '../api/_lib/content-sanitizer.js';
+import { buildBestForPageModel, rankingIntentSlug } from '../src/lib/bestForModel.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DIST = join(ROOT, 'dist');
@@ -11,27 +12,6 @@ const esc = (value) => String(value ?? '')
   .replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
   .replaceAll('"', '&quot;').replaceAll("'", '&#39;');
 
-const healthScore = (broker) => Math.round(
-  Number(broker.health?.regulation || 0) * 0.3 +
-  Number(broker.health?.withdrawals || 0) * 0.2 +
-  Number(broker.health?.execution || 0) * 0.15 +
-  Number(broker.health?.longevity || 0) * 0.15 +
-  Number(broker.health?.support || 0) * 0.1 +
-  Number(broker.health?.sentiment || 0) * 0.1
-);
-const allInCost = (broker) => Math.round(
-  (Number(broker.spread_eurusd || 0) + Number(broker.commission_value || 0) / 10) * 100
-) / 100;
-const pipRankScore = (broker) => {
-  const cost = Math.max(0, 100 - allInCost(broker) * 12);
-  const deposit = Math.max(0, 100 - Math.min(Number(broker.min_deposit || 0), 500) / 5);
-  const trust = Number(broker.trust_score || 0);
-  const health = healthScore(broker);
-  const rating = Math.min(100, Number(broker.rating || 0) * 20);
-  return Math.max(1, Math.min(99, Math.round(
-    trust * 0.28 + health * 0.28 + cost * 0.18 + deposit * 0.08 + rating * 0.18
-  )));
-};
 
 function localeFor(doc) {
   const settings = sanitizePublicSettings(doc?.settings);
@@ -61,35 +41,9 @@ function matchesIntent(broker, intentSlug) {
   return wanted.some((token) => haystack.includes(token));
 }
 
-function rankBrokers(brokers, doc, countryRecommended) {
-  const settings = sanitizePublicSettings(doc?.settings);
-  const excluded = new Set(Array.isArray(settings.excludedBrokerSlugs) ? settings.excludedBrokerSlugs : []);
-  const eligible = brokers.filter((broker) => {
-    if (!broker.slug || excluded.has(broker.slug)) return false;
-    if (doc.country_slug && countryRecommended?.size && !countryRecommended.has(broker.slug)) return false;
-    return matchesIntent(broker, doc.slug);
-  });
-
-  const base = eligible.length >= 2 ? eligible : brokers.filter((broker) =>
-    broker.slug && !excluded.has(broker.slug) &&
-    (!doc.country_slug || !countryRecommended?.size || countryRecommended.has(broker.slug))
-  );
-
-  const ranked = [...base].sort((a, b) =>
-    pipRankScore(b) - pipRankScore(a) ||
-    Number(b.trust_score || 0) - Number(a.trust_score || 0) ||
-    String(a.name).localeCompare(String(b.name))
-  );
-
-  if (settings.rankingMode === 'manual' && Array.isArray(settings.pinnedBrokerSlugs)) {
-    const order = new Map(settings.pinnedBrokerSlugs.map((slug, i) => [String(slug), i]));
-    ranked.sort((a, b) => {
-      const ai = order.has(a.slug) ? order.get(a.slug) : Number.MAX_SAFE_INTEGER;
-      const bi = order.has(b.slug) ? order.get(b.slug) : Number.MAX_SAFE_INTEGER;
-      return ai - bi || pipRankScore(b) - pipRankScore(a);
-    });
-  }
-  return ranked.slice(0, 9);
+function rankBrokers(brokers, doc, country) {
+  const intentSlug = rankingIntentSlug(doc.slug, doc);
+  return buildBestForPageModel({ document: doc, brokers, country, intentSlug }).ranked;
 }
 
 function comparisonTable(ranked) {
@@ -157,12 +111,7 @@ async function main() {
   if (brokersRes.error) throw brokersRes.error;
   if (countriesRes.error) throw countriesRes.error;
 
-  const countries = new Map((countriesRes.data || []).map((country) => [
-    country.slug,
-    new Set((Array.isArray(country.recommended) ? country.recommended : [])
-      .map((item) => typeof item === 'string' ? item : item?.slug)
-      .filter(Boolean))
-  ]));
+  const countries = new Map((countriesRes.data || []).map((country) => [country.slug, country]));
 
   let enriched = 0;
   for (const doc of docsRes.data || []) {
@@ -171,7 +120,8 @@ async function main() {
     const file = path === '/' ? join(DIST, 'index.html') : join(DIST, path.replace(/^\//, ''), 'index.html');
     if (!existsSync(file)) continue;
     const html = readFileSync(file, 'utf8');
-    const ranked = rankBrokers(brokersRes.data || [], doc, countries.get(doc.country_slug));
+    const country = doc.country_slug ? countries.get(doc.country_slug) : null;
+    const ranked = rankBrokers(brokersRes.data || [], doc, country);
     const extra = `${rankingSection(ranked, doc)}${comparisonTable(ranked)}${detailSection(ranked, doc)}${criteriaSection(doc)}`;
     const output = inject(html, extra);
     if (output !== html) {
