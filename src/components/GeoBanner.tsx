@@ -37,7 +37,7 @@ export default function GeoBanner() {
           </span>
         </p>
         <Link
-          to={`/countries/${guess.slug}`}
+          to={`/${guess.slug}`}
           onClick={() => {
             setGeoPreference(guess.slug);
             dismiss();
@@ -53,7 +53,7 @@ export default function GeoBanner() {
             if (!v) return;
             setGeoPreference(v);
             dismiss();
-            navigate(`/countries/${v}`);
+            navigate(`/${v}`);
           }}
           className="h-8 rounded-lg border border-line bg-white px-2 text-xs font-semibold text-slate-500 outline-none transition hover:border-ink-900 focus:border-emerald-500"
           aria-label="Wrong region? Pick yours"
