@@ -73,8 +73,8 @@ export default function Brokers() {
 
   const results = useMemo(() => {
     const query = q.trim().toLowerCase();
-    const recommendedOrder = new Map((localizedCountry?.recommended ?? []).map((r, i) => [r.slug, i]));
-    const source = localizedCountry ? brokers.filter((b) => recommendedOrder.has(b.slug)) : brokers;
+    const availableSlugs = new Set(localizedCountry?.available_broker_slugs ?? brokers.map((broker) => broker.slug));
+    const source = localizedCountry ? brokers.filter((b) => availableSlugs.has(b.slug)) : brokers;
     let list = source.filter((b) => {
       if (query && !b.name.toLowerCase().includes(query) && !b.tagline.toLowerCase().includes(query))
         return false;
