@@ -243,7 +243,21 @@ async function main() {
       : '';
     const compareHtml = `<section><h2>Compare brokers available in ${esc(country.name)}</h2><p>Review pricing, platforms, trust signals and other broker data side by side.</p><p><a href="/compare">Open broker comparison</a> · <a href="/methodology">Read PipRank methodology</a></p></section>`;
     const content = `<main><nav><a href="/">Home</a> › <a href="/countries">Countries</a> › <span>${esc(country.name)}</span></nav><p>${esc(country.flag || '')} ${esc(country.name)} forex brokers</p><h1>${esc(doc.title || title)}</h1>${doc.excerpt ? `<p>${esc(doc.excerpt)}</p>` : ''}${editorialBlocks.map((block) => renderBlock(block, brokersById)).join('')} ${rankingHtml}${bestForHtml}${guidesHtml}${faqs.length ? `<section><h2>Frequently Asked Questions</h2>${faqs.map((faq) => `<details><summary>${esc(faq.q)}</summary><p>${esc(faq.a)}</p></details>`).join('')}</section>` : ''}${compareHtml}<p><a href="/find-my-broker">Find the broker that fits you</a></p><p><a href="/countries">Browse all countries</a></p></main>`;
-    const ld = [pageJsonLd(title, description, path), breadcrumbJsonLd([{ name: 'Home', path: '/' }, { name: 'Countries', path: '/countries' }, { name: country.name, path }])];
+    const ld = [
+      pageJsonLd(title, description, path),
+      breadcrumbJsonLd([{ name: 'Home', path: '/' }, { name: 'Countries', path: '/countries' }, { name: country.name, path }]),
+      ...(countryRows.length ? [{
+        '@context': 'https://schema.org',
+        '@type': 'ItemList',
+        name: `Forex brokers available in ${country.name}`,
+        itemListElement: countryRows.map((row, index) => ({
+          '@type': 'ListItem',
+          position: index + 1,
+          name: row.broker.name,
+          url: absolute(`/brokers/${row.broker.slug}`),
+        })),
+      }] : []),
+    ];
     if (faqs.length) ld.push(faqJsonLd(faqs));
     if (writePage(shell, writtenPaths, path, { title, description }, content, ld)) written++;
   }
