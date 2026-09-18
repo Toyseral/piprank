@@ -34,7 +34,6 @@ export async function fetchCountryHubPageModel(slug: string): Promise<CountryHub
 
   const documentSettings = countryDocument.settings || {};
   const documentFaqs = Array.isArray(documentSettings.faqs) ? documentSettings.faqs : [];
-  const legacyFaqs = Array.isArray(country.seo_faqs) ? country.seo_faqs : [];
 
   return {
     country,
