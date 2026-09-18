@@ -64,7 +64,7 @@ export function LocalizationManager({ countries, languages, contentDocs, mutate 
       country_slug: country.slug,
       topic_slug: slug,
       slug,
-      title: template.title,
+      title: template.title === templateKey ? `${fallbackTitle} in ${country.name}` : template.title,
       excerpt: template.description ?? '',
       html: (template.intro ?? []).map((p) => `<p>${String(p).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] || c))}</p>`).join(''),
       blocks: [],
