@@ -13,42 +13,6 @@ const CANONICAL_TYPES = new Set([
   'compare',
 ]);
 
-function canonicalKeyForDocument(doc) {
-  const country = String(doc.country_slug || '').trim();
-  const slug = String(doc.slug || '').trim();
-  const locale = localeOf(doc);
-  switch (doc.content_type) {
-    case 'guide': return slug && !country ? `guide:${slug}` : null;
-    case 'global-best-for': return slug && !country ? `best-for:${slug}` : null;
-    case 'country-guide': return country && slug ? `country-guide:${country}:${slug}` : null;
-    case 'country-best-for': return country && slug ? `country-best-for:${country}:${slug}` : null;
-    case 'localized-guide': return country && locale && slug ? `localized-guide:${country}:${locale}:${slug}` : null;
-    case 'localized-best-for': return country && locale && slug ? `localized-best-for:${country}:${locale}:${slug}` : null;
-    case 'broker': return slug ? `broker:${slug}:main` : null;
-    case 'country': return country || slug ? `country:${country || slug}:hub` : null;
-    case 'compare': return slug ? `compare:${slug}` : null;
-    default: return null;
-  }
-}
-
-function canonicalPathForDocument(doc) {
-  const country = encodeURIComponent(String(doc.country_slug || '').trim());
-  const slug = encodeURIComponent(String(doc.slug || '').trim());
-  const locale = encodeURIComponent(localeOf(doc));
-  switch (doc.content_type) {
-    case 'guide': return slug && !doc.country_slug ? `/guides/${slug}` : null;
-    case 'global-best-for': return slug && !doc.country_slug ? `/${slug}` : null;
-    case 'country-guide': return country && slug ? `/${country}/guides/${slug}` : null;
-    case 'country-best-for': return country && slug ? `/${country}/${slug}` : null;
-    case 'localized-guide': return country && locale && slug ? `/${country}/${locale}/guides/${slug}` : null;
-    case 'localized-best-for': return country && locale && slug ? `/${country}/${locale}/${slug}` : null;
-    case 'broker': return slug ? `/brokers/${slug}` : null;
-    case 'country': return country ? `/${country}` : slug ? `/${slug}` : null;
-    case 'compare': return slug ? `/compare/${slug}` : null;
-    default: return null;
-  }
-}
-
 async function main() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
