@@ -27,7 +27,16 @@ export function countryBestForSeo(countrySlug: string, p: CountryBestForSeoPage)
 export function countryBestForSeo(countrySlug: string, p: CountryBestForSeoPage | null): SeoInput | null { if (!p) return null; const year = new Date().getFullYear(); return { title: p.meta_title || `${p.title}${/\b20\d{2}\b/.test(p.title) ? '' : ` ${year}`} | ${SITE_NAME}`, description: p.meta_description || p.intro?.[0] || `${p.title} — country-specific forex broker recommendations and comparison from ${SITE_NAME}.`, path: `/${countrySlug}/${BEST_FOR_CANONICAL[p.slug] ?? p.slug}`, type: 'website', noindex: p.indexable === false }; }
 export function brokerSeo(b: BrokerLike): SeoInput { const year = new Date().getFullYear(); return { title: `${b.name} Review ${year}: Spreads, Fees & Verdict | ${SITE_NAME}`, description: b.tagline && b.tagline !== 'New broker under review' ? `${b.name} review: ${b.tagline} Real-money tested spreads, leverage, fees and withdrawal times — see if ${b.name} is right for you.` : `In-depth ${b.name} review: real-money tested spreads from ${b.spread_eurusd ?? '—'} pips, minimum deposit, leverage up to ${b.max_leverage ?? '—'}, and verified fees. Independently scored by ${SITE_NAME}.`, path: `/brokers/${b.slug}`, type: 'article' }; }
 interface CountryLike { name: string; slug: string; subtitle?: string | null; seo_title?: string | null; seo_description?: string | null; }
-export function countrySeo(c: CountryLike, pathOverride?: string): SeoInput { const year = new Date().getFullYear(); return { title: c.seo_title?.trim() || `Best Forex Brokers in ${c.name} ${year} | ${SITE_NAME}`, description: c.seo_description?.trim() || (c.subtitle?.trim() ? `${c.subtitle} Compare regulated forex brokers available to traders in ${c.name}, with real-money tested spreads and fees.` : `Compare the best forex brokers available to traders in ${c.name}. Regulation, spreads, deposit methods and verdicts — independently tested by ${SITE_NAME}.`), path: pathOverride || `/countries/${c.slug}`, type: 'website' }; }
+export function countrySeo(c: CountryLike, pathOverride?: string): SeoInput {
+  const year = new Date().getFullYear();
+  return {
+    title: c.seo_title?.trim() || `Best Forex Brokers in ${c.name} ${year} | ${SITE_NAME}`,
+    description: c.seo_description?.trim() || `Compare the best forex brokers available to traders in ${c.name}. Regulation, spreads, deposit methods and verdicts — independently tested by ${SITE_NAME}.`,
+    path: pathOverride || `/${c.slug}`,
+    type: 'website',
+    noindex: false,
+  };
+}
 interface GuideLike { title: string; slug: string; excerpt?: string | null; category?: string | null; }
 export function guideSeo(g: GuideLike): SeoInput { return { title: `${g.title} | ${SITE_NAME} Guides`, description: g.excerpt?.trim() ? g.excerpt : `${g.title} — a ${g.category ?? 'trading'} guide from ${SITE_NAME}.`, path: `/guides/${g.slug}`, type: 'article' }; }
 export function comparePairSeo(a: BrokerLike, b: BrokerLike): SeoInput { const year = new Date().getFullYear(); return { title: `${a.name} vs ${b.name} (${year}): Which Is Better? | ${SITE_NAME}`, description: `${a.name} vs ${b.name} head-to-head: spreads, fees, leverage, regulation and execution speed compared side by side, with a clear verdict.`, path: `/compare/${a.slug}-vs-${b.slug}`, type: 'article' }; }
