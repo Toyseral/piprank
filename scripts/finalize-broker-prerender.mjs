@@ -3,6 +3,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { requireSiteUrlForProduction } from './seo-config.mjs';
+import { sanitizeBlocks, sanitizePublicSettings } from '../api/_lib/content-sanitizer.js';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const DIST = join(ROOT, 'dist');
@@ -26,8 +27,26 @@ function brokerSeo(broker, document = null) {
 
 function jsonLd(data) { return `<script type="application/ld+json">${JSON.stringify(data).replace(/</g, '\\u003c')}</script>`; }
 function faqSchema(faqs) { return { '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: faqs.map((faq) => ({ '@type': 'Question', name: faq.q, acceptedAnswer: { '@type': 'Answer', text: faq.a } })) }; }
-function articleSchema(seo) { return { '@context': 'https://schema.org', '@type': 'Article', name: seo.title, headline: seo.title, description: seo.description, url: absolute(seo.path), isPartOf: { '@type': 'WebSite', name: SITE_NAME, url: ORIGIN } }; }
+function articleSchema(seo, reviewer = null) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    name: seo.title,
+    headline: seo.title,
+    description: seo.description,
+    url: absolute(seo.path),
+    isPartOf: { '@type': 'WebSite', name: SITE_NAME, url: ORIGIN },
+    ...(reviewer ? { author: { '@type': 'Person', name: reviewer.name, jobTitle: reviewer.role || undefined, url: absolute(`/authors#${reviewer.slug}`), ...(reviewer.photoUrl ? { image: reviewer.photoUrl } : {}) } } : {}),
+  };
+}
 function breadcrumbSchema(broker) { return { '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [{ '@type': 'ListItem', position: 1, name: 'Home', item: absolute('/') }, { '@type': 'ListItem', position: 2, name: 'Forex Brokers', item: absolute('/brokers') }, { '@type': 'ListItem', position: 3, name: broker.name, item: absolute(`/brokers/${broker.slug}`) }] }; }
+
+function reviewerSlugFor(brokerSlug) {
+  let hash = 0;
+  const value = String(brokerSlug || '');
+  for (let i = 0; i < value.length; i++) hash = (hash * 31 + value.charCodeAt(i)) >>> 0;
+  return ['r-adeyemi', 'j-okafor', 'l-mensah', 's-nwachukwu'][hash % 4];
+}
 
 const EDITORIAL_SECTIONS = new Set(['editorial', 'pricing', 'platforms', 'trust', 'accounts', 'funding']);
 function blockSection(block) { return EDITORIAL_SECTIONS.has(block?.editorialSection) ? block.editorialSection : 'editorial'; }
@@ -51,7 +70,7 @@ function documentFaqs(document, broker) {
   if (Array.isArray(settingsFaqs)) return settingsFaqs.filter((faq) => faq?.q && faq?.a);
   return Array.isArray(broker.faqs) ? broker.faqs.filter((faq) => faq?.q && faq?.a) : [];
 }
-function brokerContentHtml(broker, document) {
+function brokerContentHtml(broker, document, reviewer = null) {
   const faqs = documentFaqs(document, broker);
   const sections = [
     `<section><h2>${esc(broker.name)} at a glance</h2><p>${esc(broker.tagline || '')}</p></section>`,
@@ -62,6 +81,7 @@ function brokerContentHtml(broker, document) {
     sectionEditorialHtml(document, 'accounts') ? `<section><h2>Account types</h2><div class="piprank-rich-content">${sectionEditorialHtml(document, 'accounts')}</div></section>` : '',
     sectionEditorialHtml(document, 'funding') ? `<section><h2>Deposits & withdrawals</h2><div class="piprank-rich-content">${sectionEditorialHtml(document, 'funding')}</div></section>` : '',
     faqs.length ? `<section><h2>${esc(broker.name)} frequently asked questions</h2>${faqs.map((faq) => `<h3>${esc(faq.q)}</h3><p>${esc(faq.a)}</p>`).join('')}</section>` : '',
+    reviewer ? `<section><h2>Reviewed by ${esc(reviewer.name)}</h2><p>${esc(reviewer.role || '')}</p><p>${esc(reviewer.bio || '')}</p><p><a href="/authors#${encodeURIComponent(reviewer.slug)}">View editorial profile</a></p></section>` : '',
   ].filter(Boolean);
   return `<main><nav aria-label="Breadcrumb"><a href="/">Home</a> › <a href="/brokers">Forex Brokers</a> › <span>${esc(broker.name)}</span></nav><h1>${esc(broker.name)} Broker Review</h1><p>${esc(broker.tagline || '')}</p><ul><li>Minimum deposit: ${esc(broker.min_deposit ?? '—')}</li><li>EUR/USD spread: ${esc(broker.spread_eurusd ?? '—')}</li><li>Maximum leverage: ${esc(broker.max_leverage ?? '—')}</li><li>Platforms: ${esc((broker.platforms || []).join(', ') || '—')}</li></ul>${sections.join('')}<p><a href="/go/${encodeURIComponent(broker.slug)}">Open ${esc(broker.name)} Account</a></p></main>`;
 }
@@ -91,6 +111,31 @@ function replaceHead(html, seo, schemas) {
   return output.replace('</head>', `${head}</head>`);
 }
 
+function normalizeDocument(document) {
+  if (!document) return null;
+  return {
+    ...document,
+    blocks: sanitizeBlocks(document.blocks),
+    settings: sanitizePublicSettings(document.settings),
+  };
+}
+
+function reviewerFrom(document, authorByKey, broker) {
+  const settings = document?.settings || {};
+  const explicitSlug = String(settings.reviewed_by_slug || settings.author_slug || '').trim();
+  const fallbackSlug = explicitSlug || reviewerSlugFor(broker.slug);
+  const author = authorByKey.get(`author:${fallbackSlug}`);
+  if (!author?.published) return null;
+  const settingsAuthor = author.settings || {};
+  return {
+    slug: author.slug,
+    name: author.title,
+    role: settingsAuthor.role || '',
+    bio: settingsAuthor.short_bio || author.excerpt || '',
+    photoUrl: settingsAuthor.photo_url || '',
+  };
+}
+
 async function main() {
   if (!existsSync(DIST)) throw new Error('dist/ does not exist. Run vite build first.');
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -105,26 +150,31 @@ async function main() {
   const [
     { data: brokers, error: brokerError },
     { data: brokerDocuments, error: documentError },
+    { data: authorDocuments, error: authorError },
   ] = await Promise.all([
     supabase.from('brokers').select('id,name,slug,tagline,min_deposit,spread_eurusd,max_leverage,platforms,faqs').not('slug', 'is', null),
     supabase.from('content_documents').select('content_key,blocks,settings,seo_title,seo_description,published').like('content_key', 'broker:%:main').eq('content_type', 'broker').eq('published', true),
+    supabase.from('content_documents').select('content_key,slug,title,excerpt,settings,published').eq('content_type', 'author').eq('published', true),
   ]);
   if (brokerError) throw brokerError;
   if (documentError) throw documentError;
+  if (authorError) throw authorError;
 
-  const documentByKey = new Map((brokerDocuments || []).map((row) => [String(row.content_key), row]));
+  const documentByKey = new Map((brokerDocuments || []).map((row) => [String(row.content_key), normalizeDocument(row)]));
+  const authorByKey = new Map((authorDocuments || []).map((row) => [String(row.content_key), normalizeDocument(row)]));
   let finalized = 0;
   for (const broker of brokers || []) {
     const path = `/brokers/${broker.slug}`;
     const file = join(DIST, path.replace(/^\//, ''), 'index.html');
     if (!existsSync(file)) continue;
     const document = documentByKey.get(`broker:${broker.slug}:main`) || null;
+    const reviewer = reviewerFrom(document, authorByKey, broker);
     const faqs = documentFaqs(document, broker);
     const seo = brokerSeo(broker, document);
     const html = readFileSync(file, 'utf8');
-    const schemas = [articleSchema(seo), breadcrumbSchema(broker), ...(faqs.length ? [faqSchema(faqs)] : [])].map(jsonLd);
+    const schemas = [articleSchema(seo, reviewer), breadcrumbSchema(broker), ...(faqs.length ? [faqSchema(faqs)] : [])].map(jsonLd);
     const withHead = replaceHead(html, seo, schemas);
-    const finalHtml = replaceRootContent(withHead, brokerContentHtml(broker, document));
+    const finalHtml = replaceRootContent(withHead, brokerContentHtml(broker, document, reviewer));
     writeFileSync(file, finalHtml, 'utf8');
     finalized++;
   }

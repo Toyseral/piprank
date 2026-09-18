@@ -121,7 +121,12 @@ function BrokerCanonicalPageEditor({
   const [blocks, setBlocks] = useState<PageBlock[]>(normalizeBlocks(document));
   const [activeSlot, setActiveSlot] = useState<CanonicalSlot>('overview');
   const [busy, setBusy] = useState(false);
+  const [authors, setAuthors] = useState<ContentDocument[]>([]);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    fetch('/api/content-documents?type=author').then((r) => r.ok ? r.json() : []).then((rows) => setAuthors(Array.isArray(rows) ? rows : [])).catch(() => setAuthors([]));
+  }, []);
 
   useEffect(() => {
     setForm(document ? { ...document, settings: document.settings ?? {} } : {
@@ -173,6 +178,7 @@ function BrokerCanonicalPageEditor({
         content_type: 'broker',
         blocks,
         html: blocksToHtml(blocks, brokers),
+        settings: { ...(form.settings ?? {}), reviewed_by_slug: String((form.settings as Record<string, unknown>)?.reviewed_by_slug || '').trim().toLowerCase() },
       }, !document);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save broker content');
@@ -226,6 +232,7 @@ function BrokerCanonicalPageEditor({
               <label><span className="text-xs font-bold text-slate-600">Title</span><input value={form.title || ''} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} className="mt-1.5 w-full rounded-xl border border-line px-3 py-2.5 text-sm outline-none focus:border-emerald-500" /></label>
               <label><span className="text-xs font-bold text-slate-600">Slug</span><input value={form.slug || ''} onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value }))} className="mt-1.5 w-full rounded-xl border border-line px-3 py-2.5 text-sm outline-none focus:border-emerald-500" /></label>
             </div>
+            <section className="mt-4 rounded-2xl border border-line bg-paper p-4"><p className="text-[10px] font-bold uppercase tracking-widest text-emerald-700">Attribution</p><label className="mt-2 block"><span className="text-xs font-bold text-slate-600">Reviewed by</span><select value={String((form.settings as Record<string, unknown>)?.reviewed_by_slug || '')} onChange={(e) => setForm((f) => ({ ...f, settings: { ...(f.settings ?? {}), reviewed_by_slug: e.target.value } }))} className="mt-1.5 w-full rounded-xl border border-line bg-white px-3 py-2.5 text-sm"><option value="">Use deterministic reviewer fallback</option>{authors.map((author) => <option key={author.slug} value={author.slug}>{author.title}</option>)}</select></label></section>
             <label className="mt-4 block"><span className="text-xs font-bold text-slate-600">Excerpt</span><textarea value={form.excerpt || ''} onChange={(e) => setForm((f) => ({ ...f, excerpt: e.target.value }))} rows={2} className="mt-1.5 w-full rounded-xl border border-line px-3 py-2.5 text-sm outline-none focus:border-emerald-500" /></label>
 
             <div className="mt-6 rounded-2xl border border-line bg-paper p-4">

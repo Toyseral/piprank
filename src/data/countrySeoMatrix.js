@@ -55,8 +55,8 @@ export function brokerMatchesTopic(broker, topicOrKey) {
   const checks = {
     'eur-usd': () => Number.isFinite(Number(broker.spread_eurusd)) && Number(broker.spread_eurusd) >= 0,
     gold: () => Number(broker.assets?.commodities ?? 0) > 0,
-    mt5: () => Array.isArray(broker.platforms) && broker.platforms.some((p) => String(p).toLowerCase() === 'mt5'),
-    mt4: () => Array.isArray(broker.platforms) && broker.platforms.some((p) => String(p).toLowerCase() === 'mt4'),
+    mt5: () => Array.isArray(broker.platforms) && broker.platforms.some((p) => String(typeof p === 'object' ? p?.name : p).toLowerCase() === 'mt5'),
+    mt4: () => Array.isArray(broker.platforms) && broker.platforms.some((p) => String(typeof p === 'object' ? p?.name : p).toLowerCase() === 'mt4'),
     'low-spread': () => Number.isFinite(Number(broker.spread_eurusd)),
     beginners: () => Boolean(broker.demo_account) || Number(broker.min_deposit ?? 999999) <= 100 || (broker.best_for ?? []).includes('beginners'),
     scalping: () => Boolean(broker.scalping),
@@ -76,7 +76,7 @@ export function brokerMatchesTopic(broker, topicOrKey) {
 }
 
 export function rankCountryTopicBrokers(brokers, country, topic) {
-  const recommendedSlugs = Array.isArray(country?.recommended) ? country.recommended.map((x) => x.slug) : [];
+  const recommendedSlugs = Array.isArray(country?.recommended) ? country.recommended.map((x) => typeof x === 'string' ? x : x?.slug).filter(Boolean) : [];
   const countryPool = brokers.filter((broker) => recommendedSlugs.includes(broker.slug));
   const eligible = countryPool.filter((broker) => brokerMatchesTopic(broker, topic));
   return eligible.sort((a, b) => {
