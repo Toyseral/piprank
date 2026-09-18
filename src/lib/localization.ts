@@ -1,11 +1,21 @@
 import { GEO_OPTIONS } from './geo';
-import { countrySeoTopics } from '../data/countrySeoMatrix.js';
 
-/** Map localization topic_key → English country SEO topic slug. */
+/**
+ * Map the supported localization topic keys directly to canonical English
+ * commercial slugs. Country SEO topic matrix data is no longer a runtime
+ * dependency.
+ */
+const ENGLISH_TOPIC_SLUGS: Record<string, string> = {
+  beginners: 'forex-brokers-for-beginners',
+  mt4: 'mt4-forex-brokers',
+  mt5: 'mt5-forex-brokers',
+  gold: 'gold-forex-brokers',
+  'low-spread': 'low-spread-forex-brokers',
+};
+
 export function englishSlugForTopicKey(topicKey: string | null | undefined): string | null {
   if (!topicKey || topicKey === 'all') return null;
-  const topic = countrySeoTopics.find((t) => t.key === topicKey);
-  return topic?.slug ?? null;
+  return ENGLISH_TOPIC_SLUGS[topicKey] ?? null;
 }
 
 /** English alternate path for a localized commercial page. */
