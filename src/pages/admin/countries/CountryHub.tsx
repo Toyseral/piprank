@@ -88,7 +88,11 @@ function CountryHubEditor({ country, document, token, onClose, onSaved, notify }
   };
 
   const faqs = Array.isArray(form.settings?.faqs)
-    ? form.settings.faqs.filter((faq): faq is { q: string; a: string } => Boolean(faq && typeof faq === 'object' && typeof faq.q === 'string' && typeof faq.a === 'string'))
+    ? (form.settings.faqs as unknown[]).flatMap((faq) => {
+        if (!faq || typeof faq !== 'object') return [];
+        const item = faq as Record<string, unknown>;
+        return typeof item.q === 'string' && typeof item.a === 'string' ? [{ q: item.q, a: item.a }] : [];
+      })
     : [];
 
   const setFaqs = (next: { q: string; a: string }[]) =>
