@@ -107,7 +107,7 @@ async function main() {
     supabase.from('content_documents').select('id,content_type,country_slug,slug,settings,published,indexable').in('content_type', ['global-best-for', 'country-best-for', 'localized-best-for']).eq('published', true).eq('indexable', true),
     supabase.from('brokers').select('id,name,slug,tagline,rating,trust_score,min_deposit,spread_eurusd,commission_value,commission,max_leverage,payments,regulations,health,platforms,best_for,assets,scalping,islamic_account,copy_trading,hedging,account_types,demo_account'),
     supabase.from('countries').select('slug,recommended,publishing_state').eq('publishing_state', 'published'),
-    supabase.from('country_intent_broker_final_rankings').select('final_rank,broker_id,countries!inner(slug),intents!inner(slug)'),
+    supabase.from('country_intent_broker_final_rankings').select('final_rank,final_score,broker_id,countries!inner(slug),intents!inner(slug)'),
     supabase.from('country_intent_broker_overrides').select('broker_id,manual_rank,force_include,force_exclude,countries!inner(slug),intents!inner(slug)'),
     supabase.from('broker_country_availability').select('broker_id,status,countries!inner(slug)'),
     supabase.from('country_intent_ranking_settings').select('ranking_mode,countries!inner(slug),intents!inner(slug)'),
@@ -128,7 +128,7 @@ async function main() {
     if (!countrySlug || !intentSlug) continue;
     const key = `${countrySlug}:${intentSlug}`;
     const rows = rankingMap.get(key) || [];
-    rows.push({ broker_id: row.broker_id, final_rank: row.final_rank });
+    rows.push({ broker_id: row.broker_id, final_rank: row.final_rank, final_score: row.final_score });
     rankingMap.set(key, rows);
   }
 
@@ -168,6 +168,7 @@ async function main() {
         const override = overrides.find((item) => Number(item.broker_id) === Number(row.broker_id));
         return {
           ...row,
+          final_rank: rankingMode === 'manual' ? row.final_rank : null,
           manual_rank: rankingMode === 'manual' ? (override?.manual_rank ?? null) : null,
           force_exclude: Boolean(override?.force_exclude),
           availability_status: availabilityMap.get(country.slug + ':' + row.broker_id) || 'available',
@@ -184,6 +185,7 @@ async function main() {
       .map((row) => ({
         broker_id: Number(row.broker_id),
         final_rank: rankingMode === 'manual' && Number.isInteger(Number(row.manual_rank)) ? Number(row.manual_rank) : null,
+        final_score: 0,
         manual_rank: rankingMode === 'manual' && Number.isInteger(Number(row.manual_rank)) ? Number(row.manual_rank) : null,
         force_include: Boolean(row.force_include),
         availability_status: 'available',
