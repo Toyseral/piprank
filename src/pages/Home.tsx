@@ -117,8 +117,8 @@ export default function Home() {
 
   const localizedBrokers = useMemo(() => {
     if (!localizedCountry) return brokers;
-    const order = new Map((localizedCountry.recommended ?? []).map((r, i) => [r.slug, i]));
-    if (!order.size) return [];
+    const order = new Map((localizedCountry.available_broker_slugs ?? []).map((slug, i) => [slug, i]));
+    if (!order.size) return brokers;
     return brokers
       .filter((b) => order.has(b.slug))
       .sort((a, b) => (order.get(a.slug) ?? 99) - (order.get(b.slug) ?? 99));
