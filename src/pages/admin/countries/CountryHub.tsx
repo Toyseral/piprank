@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Eye, Loader2, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
+import { Eye, Loader2, Pencil, Plus, Search, Trash2, X, Wand2 } from 'lucide-react';
 import type { Broker, ContentDocument, CountryPage } from '../../../lib/types';
 import CountryGuides from '../CountryGuides';
 import BestForEditorialPageBuilder from '../../../components/BestForEditorialPageBuilder';
@@ -16,6 +16,76 @@ type Props = {
 
 function HubMetric({ label, value, sub }: { label: string; value: string; sub: string }) {
   return <div className="rounded-xl border border-line bg-paper p-3"><p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{label}</p><p className="mt-1 font-display text-xl font-bold text-ink-900">{value}</p><p className="mt-0.5 text-[10px] text-slate-400">{sub}</p></div>;
+}
+
+const SEO_GENERATOR_TOPICS = [
+  ['eur-usd-forex-brokers', 'EUR/USD Forex Brokers'],
+  ['gold-forex-brokers', 'Gold Forex Brokers'],
+  ['mt5-forex-brokers', 'MT5 Forex Brokers'],
+  ['low-spread-forex-brokers', 'Low Spread Forex Brokers'],
+  ['forex-brokers-for-beginners', 'Forex Brokers for Beginners'],
+  ['forex-brokers-for-scalping', 'Forex Brokers for Scalping'],
+  ['islamic-forex-brokers', 'Islamic Forex Brokers'],
+  ['low-minimum-deposit-forex-brokers', 'Low Minimum Deposit Forex Brokers'],
+  ['copy-trading-forex-brokers', 'Copy Trading Forex Brokers'],
+  ['forex-brokers-with-demo-accounts', 'Forex Brokers with Demo Accounts'],
+  ['forex-brokers-for-hedging', 'Forex Brokers for Hedging'],
+  ['raw-spread-forex-brokers', 'Raw Spread Forex Brokers'],
+  ['ecn-forex-brokers', 'ECN Forex Brokers'],
+  ['standard-account-forex-brokers', 'Standard Account Forex Brokers'],
+  ['forex-brokers-for-swing-trading', 'Forex Brokers for Swing Trading'],
+  ['high-leverage-forex-brokers', 'High Leverage Forex Brokers'],
+  ['eur-usd-mt5-forex-brokers', 'EUR/USD MT5 Forex Brokers'],
+  ['eur-usd-forex-brokers-for-scalping', 'EUR/USD Forex Brokers for Scalping'],
+  ['mt5-gold-forex-brokers', 'MT5 Gold Forex Brokers'],
+  ['gold-forex-brokers-for-scalping', 'Gold Forex Brokers for Scalping'],
+  ['mt5-forex-brokers-for-scalping', 'MT5 Forex Brokers for Scalping'],
+  ['low-spread-mt5-forex-brokers', 'Low Spread MT5 Forex Brokers'],
+  ['low-spread-forex-brokers-for-scalping', 'Low Spread Forex Brokers for Scalping'],
+  ['islamic-mt5-forex-brokers', 'Islamic MT5 Forex Brokers'],
+  ['mt5-forex-brokers-for-beginners', 'MT5 Forex Brokers for Beginners'],
+  ['low-spread-gold-forex-brokers', 'Low Spread Gold Forex Brokers'],
+] as const;
+
+function SeoGeneratorPanel({ country, token, notify, onCreated }: { country: CountryPage; token: string; notify: (msg: string) => void; onCreated: () => void }) {
+  const [topic, setTopic] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
+  const generate = async () => {
+    if (!topic) return setMessage('Select an SEO topic first.');
+    setBusy(true); setMessage('Generating draft and checking canonical broker eligibility…');
+    try {
+      const res = await fetch('/api/seo-page-generator', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ country_slug: country.slug, topic_slug: topic }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Generation failed');
+      setMessage(`Draft created with ${data.qualifyingBrokerCount} qualifying brokers. ${data.eligibleForIndexing ? 'It meets the indexing threshold; review before publishing.' : 'It is noindex because it does not meet the broker threshold.'}`);
+      notify('SEO draft generated');
+      setTopic('');
+      onCreated();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Generation failed');
+    } finally {
+      setBusy(false);
+    }
+  };
+  return <div className="rounded-2xl border border-line bg-white p-5">
+    <div className="flex flex-wrap items-start justify-between gap-3">
+      <div><p className="text-xs font-bold uppercase tracking-widest text-emerald-700">SEO generator</p><h3 className="mt-1 font-display text-lg font-bold text-ink-900">Generate a country Best-For draft</h3><p className="mt-1 max-w-2xl text-xs leading-5 text-slate-500">Creates a canonical country Best-For draft using the country broker ranking eligibility rules. It never auto-publishes.</p></div>
+      <Wand2 size={18} className="text-emerald-600"/>
+    </div>
+    <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+      <select value={topic} onChange={e=>setTopic(e.target.value)} className="h-10 flex-1 rounded-xl border border-line bg-paper px-3 text-sm">
+        <option value="">Select SEO topic</option>
+        {SEO_GENERATOR_TOPICS.map(([slug,label])=><option key={slug} value={slug}>{label}</option>)}
+      </select>
+      <button disabled={busy} onClick={generate} className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-ink-950 px-4 text-xs font-bold text-white disabled:opacity-60"><Wand2 size={14}/>{busy?'Generating…':'Generate draft'}</button>
+    </div>
+    {message&&<p className="mt-3 rounded-xl bg-paper px-3 py-2.5 text-xs leading-5 text-slate-600">{message}</p>}
+  </div>;
 }
 
 function EntityPanel({ title, items }: { title: string; items: string[] }) {
@@ -249,5 +319,5 @@ export default function CountryHub({ countries, brokers, contentDocs, token, not
     if (res.ok && Array.isArray(data)) setDocs(data);
   };
 
-  return <div className="grid gap-5 lg:grid-cols-[300px_1fr]"><section className="rounded-2xl border border-line bg-white p-4"><div className="flex items-center justify-between"><h2 className="font-display text-lg font-bold text-ink-900">Countries</h2><button onClick={onNewCountry} className="rounded-lg bg-ink-950 px-3 py-1.5 text-xs font-bold text-white"><Plus size={13} className="inline"/> New</button></div><div className="mt-3 flex items-center gap-2 rounded-xl border border-line bg-paper px-3"><Search size={14} className="text-slate-400"/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search countries…" className="h-10 flex-1 bg-transparent text-sm outline-none"/></div><div className="mt-3 max-h-[560px] space-y-1 overflow-auto">{filtered.map(country=><button key={country.id} onClick={()=>setSelectedSlug(country.slug)} className={`w-full rounded-xl px-3 py-2 text-left text-sm transition ${selected.id===country.id?'bg-emerald-50 text-emerald-800':'hover:bg-paper'}`}><span className="font-bold">{country.flag} {country.name}</span><span className="block text-xs text-slate-400">/{country.slug}</span></button>)}</div></section><section className="space-y-5"><div className="rounded-2xl border border-line bg-white p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Country Workspace</p><h2 className="font-display text-2xl font-bold text-ink-900">{selected.flag} {selected.name}</h2><p className="mt-1 text-sm text-slate-500">Canonical country guides and Best-For pages are managed as Content Studio documents.</p></div><button onClick={()=>setEditingCountryHub(true)} className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-4 py-2 text-xs font-bold text-white"><Pencil size={14}/> Edit country hub</button></div><div className="mt-4 grid gap-3 sm:grid-cols-3"><HubMetric label="Publishing" value={publishedState} sub="draft · published · closed"/><HubMetric label="Best-For" value={String(bestFor.length)} sub="canonical country documents"/><HubMetric label="Country content" value={String(countryDocs.length + bestFor.length)} sub="guides and content docs"/></div></div><CountryBrokerRankingPanel country={selected} brokers={brokers} token={token} notify={notify}/><div className="grid gap-5 xl:grid-cols-2"><EntityPanel title="SEO QA" items={[selected.seo_title?'SEO title present':'Missing SEO title',selected.seo_description?'Meta description present':'Missing meta description']}/><EntityPanel title="Broker coverage" items={[`${brokers.length} brokers in database`,'Country eligibility is opt-out: brokers are eligible unless explicitly restricted or unavailable.','Use Broker Workspace to manage country availability states.']}/></div><div className="rounded-2xl border border-line bg-white p-5"><div className="flex flex-wrap items-center justify-between gap-2"><div><h3 className="font-display text-lg font-bold text-ink-900">Best-For pages</h3><p className="mt-0.5 text-xs text-slate-500">Canonical Content Studio ownership — no legacy country_best_for rows.</p></div><button onClick={()=>setEditingBestFor('new')} className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3.5 py-1.5 text-xs font-bold text-white"><Plus size={13}/> Add new page</button></div><div className="mt-3 divide-y divide-line rounded-xl border border-line">{bestFor.map(doc=><div key={doc.id} className="flex items-center justify-between px-4 py-3"><button onClick={()=>setEditingBestFor(doc)} className="min-w-0 flex-1 text-left"><span className="block truncate text-sm font-bold text-ink-900">{doc.title || doc.slug || doc.content_key}</span><span className="text-xs text-slate-400">/{selected.slug}/{doc.slug} · {doc.published?'Published':'Draft'} · {doc.indexable?'Indexable':'Noindex'}</span></button><div className="flex shrink-0 items-center gap-1">{doc.slug&&<a href={`/${selected.slug}/${doc.slug}`} target="_blank" rel="noreferrer" className="rounded-lg p-2 text-slate-400 hover:bg-paper" title="Preview live page"><Eye size={14}/></a>}<button onClick={()=>setEditingBestFor(doc)} className="rounded-lg p-2 text-slate-400 hover:bg-paper" title="Edit page"><Pencil size={14}/></button><button onClick={async()=>{if(!window.confirm('Delete this canonical Best-For document?'))return;const res=await fetch('/api/content-documents',{method:'DELETE',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({id:doc.id})});if(!res.ok){const out=await res.json().catch(()=>({}));notify(out.error||'Could not delete page');return;}notify('Country Best-For page deleted');await reload();}} className="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600" title="Delete page"><Trash2 size={14}/></button></div></div>)}{!bestFor.length&&<p className="p-4 text-sm text-slate-400">No canonical country Best-For documents yet.</p>}</div></div><CountryGuides country={selected} countries={countries} brokers={brokers} token={token} notify={notify}/></section>{editingCountryHub&&<CountryHubEditor country={selected} document={docs.find(doc=>doc.content_type==='country'&&doc.content_key===`country:${selected.slug}:hub`) ?? null} token={token} notify={notify} onClose={()=>setEditingCountryHub(false)} onSaved={reload}/>} {editingBestFor&&<CountryBestForEditor country={selected} document={editingBestFor==='new'?null:editingBestFor} brokers={brokers} token={token} notify={notify} onClose={()=>setEditingBestFor(null)} onSaved={reload}/>}</div>;
+  return <div className="grid gap-5 lg:grid-cols-[300px_1fr]"><section className="rounded-2xl border border-line bg-white p-4"><div className="flex items-center justify-between"><h2 className="font-display text-lg font-bold text-ink-900">Countries</h2><button onClick={onNewCountry} className="rounded-lg bg-ink-950 px-3 py-1.5 text-xs font-bold text-white"><Plus size={13} className="inline"/> New</button></div><div className="mt-3 flex items-center gap-2 rounded-xl border border-line bg-paper px-3"><Search size={14} className="text-slate-400"/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search countries…" className="h-10 flex-1 bg-transparent text-sm outline-none"/></div><div className="mt-3 max-h-[560px] space-y-1 overflow-auto">{filtered.map(country=><button key={country.id} onClick={()=>setSelectedSlug(country.slug)} className={`w-full rounded-xl px-3 py-2 text-left text-sm transition ${selected.id===country.id?'bg-emerald-50 text-emerald-800':'hover:bg-paper'}`}><span className="font-bold">{country.flag} {country.name}</span><span className="block text-xs text-slate-400">/{country.slug}</span></button>)}</div></section><section className="space-y-5"><div className="rounded-2xl border border-line bg-white p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Country Workspace</p><h2 className="font-display text-2xl font-bold text-ink-900">{selected.flag} {selected.name}</h2><p className="mt-1 text-sm text-slate-500">Canonical country guides and Best-For pages are managed as Content Studio documents.</p></div><button onClick={()=>setEditingCountryHub(true)} className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-4 py-2 text-xs font-bold text-white"><Pencil size={14}/> Edit country hub</button></div><div className="mt-4 grid gap-3 sm:grid-cols-3"><HubMetric label="Publishing" value={publishedState} sub="draft · published · closed"/><HubMetric label="Best-For" value={String(bestFor.length)} sub="canonical country documents"/><HubMetric label="Country content" value={String(countryDocs.length + bestFor.length)} sub="guides and content docs"/></div></div><CountryBrokerRankingPanel country={selected} brokers={brokers} token={token} notify={notify}/><SeoGeneratorPanel country={selected} token={token} notify={notify} onCreated={reload}/><div className="grid gap-5 xl:grid-cols-2"><EntityPanel title="SEO QA" items={[selected.seo_title?'SEO title present':'Missing SEO title',selected.seo_description?'Meta description present':'Missing meta description']}/><EntityPanel title="Broker coverage" items={[`${brokers.length} brokers in database`,'Country eligibility is opt-out: brokers are eligible unless explicitly restricted or unavailable.','Use Broker Workspace to manage country availability states.']}/></div><div className="rounded-2xl border border-line bg-white p-5"><div className="flex flex-wrap items-center justify-between gap-2"><div><h3 className="font-display text-lg font-bold text-ink-900">Best-For pages</h3><p className="mt-0.5 text-xs text-slate-500">Canonical Content Studio ownership — no legacy country_best_for rows.</p></div><button onClick={()=>setEditingBestFor('new')} className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3.5 py-1.5 text-xs font-bold text-white"><Plus size={13}/> Add new page</button></div><div className="mt-3 divide-y divide-line rounded-xl border border-line">{bestFor.map(doc=><div key={doc.id} className="flex items-center justify-between px-4 py-3"><button onClick={()=>setEditingBestFor(doc)} className="min-w-0 flex-1 text-left"><span className="block truncate text-sm font-bold text-ink-900">{doc.title || doc.slug || doc.content_key}</span><span className="text-xs text-slate-400">/{selected.slug}/{doc.slug} · {doc.published?'Published':'Draft'} · {doc.indexable?'Indexable':'Noindex'}</span></button><div className="flex shrink-0 items-center gap-1">{doc.slug&&<a href={`/${selected.slug}/${doc.slug}`} target="_blank" rel="noreferrer" className="rounded-lg p-2 text-slate-400 hover:bg-paper" title="Preview live page"><Eye size={14}/></a>}<button onClick={()=>setEditingBestFor(doc)} className="rounded-lg p-2 text-slate-400 hover:bg-paper" title="Edit page"><Pencil size={14}/></button><button onClick={async()=>{if(!window.confirm('Delete this canonical Best-For document?'))return;const res=await fetch('/api/content-documents',{method:'DELETE',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({id:doc.id})});if(!res.ok){const out=await res.json().catch(()=>({}));notify(out.error||'Could not delete page');return;}notify('Country Best-For page deleted');await reload();}} className="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600" title="Delete page"><Trash2 size={14}/></button></div></div>)}{!bestFor.length&&<p className="p-4 text-sm text-slate-400">No canonical country Best-For documents yet.</p>}</div></div><CountryGuides country={selected} countries={countries} brokers={brokers} token={token} notify={notify}/></section>{editingCountryHub&&<CountryHubEditor country={selected} document={docs.find(doc=>doc.content_type==='country'&&doc.content_key===`country:${selected.slug}:hub`) ?? null} token={token} notify={notify} onClose={()=>setEditingCountryHub(false)} onSaved={reload}/>} {editingBestFor&&<CountryBestForEditor country={selected} document={editingBestFor==='new'?null:editingBestFor} brokers={brokers} token={token} notify={notify} onClose={()=>setEditingBestFor(null)} onSaved={reload}/>}</div>;
 }
