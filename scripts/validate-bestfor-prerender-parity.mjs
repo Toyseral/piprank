@@ -85,6 +85,7 @@ async function main() {
     if (expected.length > 0 && !hasClass(readFileSync(file, 'utf8'), 'piprank-prerender-ranking')) failures.push(`${path}: ranking section missing`);
     if (expected.length > 1 && !hasClass(readFileSync(file, 'utf8'), 'piprank-prerender-comparison')) failures.push(`${path}: comparison section missing`);
     if (model.criteria.length > 0 && !hasClass(readFileSync(file, 'utf8'), 'piprank-prerender-criteria')) failures.push(`${path}: criteria section missing`);
+    if (expected.length > 0 && !hasClass(html, 'piprank-prerender-verdict')) failures.push(`${path}: verdict section missing`);
     const expectedTitles = expectedAdditionalTitles(doc);
     const html = readFileSync(file, 'utf8');
     for (const title of expectedTitles) {
