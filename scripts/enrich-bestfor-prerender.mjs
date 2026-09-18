@@ -28,18 +28,6 @@ function canonicalPath(doc) {
   return null;
 }
 
-function tokens(slug) {
-  return String(slug || '').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
-}
-
-function matchesIntent(broker, intentSlug) {
-  const wanted = tokens(intentSlug);
-  const tags = Array.isArray(broker.best_for) ? broker.best_for.flatMap(tokens) : [];
-  if (!wanted.length) return true;
-  if (wanted.every((token) => tags.includes(token))) return true;
-  const haystack = `${broker.slug || ''} ${broker.tagline || ''} ${tags.join(' ')}`.toLowerCase();
-  return wanted.some((token) => haystack.includes(token));
-}
 
 function rankBrokers(brokers, doc, country, rankingRows) {
   const intentSlug = rankingIntentSlug(doc.slug, doc);
@@ -76,12 +64,13 @@ function criteriaSection(doc) {
     : '';
 }
 
-function faqSection(doc) {
+function additionalSections(doc) {
   const settings = sanitizePublicSettings(doc?.settings);
-  const faqs = Array.isArray(settings.faqs) ? settings.faqs : [];
-  return faqs.length
-    ? `<section class="piprank-prerender-faq"><h2>Frequently asked questions</h2>${faqs.map((faq) => `<details><summary>${esc(faq.q)}</summary><p>${esc(faq.a)}</p></details>`).join('')}</section>`
-    : '';
+  const sections = Array.isArray(settings.sections) ? settings.sections : [];
+  const reserved = new Set(['__bestfor_ranking_description', '__bestfor_comparison_description', '__bestfor_broker_analysis_description']);
+  const visible = sections.filter((section) => section && (section.title || section.html) && !reserved.has(String(section.title || '')));
+  if (!visible.length) return '';
+  return `<section class="piprank-prerender-additional"><h2>More on this category</h2>${visible.map((section) => `<article>${section.title ? `<h3>${esc(section.title)}</h3>` : ''}${section.html ? `<div class="piprank-rich-content">${String(section.html)}</div>` : ''}</article>`).join('')}</section>`;
 }
 
 function inject(html, extra) {
@@ -136,7 +125,7 @@ async function main() {
     const intentSlug = rankingIntentSlug(doc.slug, doc);
     const rankingRows = country ? (rankingMap.get(`${country.slug}:${intentSlug}`) || []) : [];
     const ranked = rankBrokers(brokersRes.data || [], doc, country, rankingRows);
-    const extra = `${rankingSection(ranked, doc)}${comparisonTable(ranked)}${detailSection(ranked, doc)}${criteriaSection(doc)}`;
+    const extra = `${rankingSection(ranked, doc)}${comparisonTable(ranked)}${detailSection(ranked, doc)}${criteriaSection(doc)}${additionalSections(doc)}`;
     const output = inject(html, extra);
     if (output !== html) {
       writeFileSync(file, output, 'utf8');
