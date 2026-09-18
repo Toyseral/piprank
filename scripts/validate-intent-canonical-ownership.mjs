@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
-if (process.env.VERCEL_ENV !== 'production' && process.env.CI !== 'true') {
-  console.log('[validate-intent-canonical-ownership] Non-production build — skipped.');
+if (process.env.VERCEL_ENV !== 'production') {
+  console.log('[validate-intent-canonical-ownership] Non-production build — skipped (CI has no production database credentials).');
   process.exit(0);
 }
 
