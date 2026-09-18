@@ -106,7 +106,7 @@ async function main() {
   const supabase = createClient(url, key);
   const [docsRes, brokersRes, countriesRes, rankingsRes] = await Promise.all([
     supabase.from('content_documents').select('id,content_type,country_slug,slug,settings,published,indexable').in('content_type', ['global-best-for', 'country-best-for', 'localized-best-for']).eq('published', true).eq('indexable', true),
-    supabase.from('brokers').select('id,name,slug,tagline,rating,trust_score,min_deposit,spread_eurusd,commission_value,health,platforms,best_for,assets,scalping,islamic_account,copy_trading,hedging,account_types,demo_account'),
+    supabase.from('brokers').select('id,name,slug,tagline,rating,trust_score,min_deposit,spread_eurusd,commission_value,commission,max_leverage,payments,regulations,health,platforms,best_for,assets,scalping,islamic_account,copy_trading,hedging,account_types,demo_account'),
     supabase.from('countries').select('slug,recommended,publishing_state').eq('publishing_state', 'published'),
     supabase.from('country_intent_broker_final_rankings').select('final_rank,broker_id,countries!inner(slug),intents!inner(slug)'),
   ]);
