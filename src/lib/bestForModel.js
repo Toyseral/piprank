@@ -57,9 +57,21 @@ export function rankCountryBestFor(brokers, country, doc, intentSlug, rankingRow
   const excluded = excludedSet(settings);
 
   if (manualRows.length > 0) {
-    return manualRows
+    const eligibleManual = manualRows
+      .filter((row) => !row.availability_status || row.availability_status === 'available')
+      .filter((row) => row.force_exclude !== true);
+    const manualIds = new Set(eligibleManual.map((row) => Number(row.broker_id)));
+    const automaticFill = normalizedRows
+      .filter((row) => !manualIds.has(Number(row.broker_id)))
       .filter((row) => !row.availability_status || row.availability_status === 'available')
       .filter((row) => row.force_exclude !== true)
+      .sort((a, b) => {
+        const ar = Number.isFinite(Number(a.final_rank)) ? Number(a.final_rank) : 9999;
+        const br = Number.isFinite(Number(b.final_rank)) ? Number(b.final_rank) : 9999;
+        return ar - br || Number(b.final_score || 0) - Number(a.final_score || 0);
+      });
+    return [...eligibleManual, ...automaticFill]
+      .slice(0, 9)
       .map((row) => brokerById.get(Number(row.broker_id)))
       .filter((broker) => Boolean(broker) && !excluded.has(broker.slug));
   }
