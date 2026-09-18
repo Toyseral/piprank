@@ -111,17 +111,17 @@ function CountryBestForEditor({ country, document, brokers, token, onClose, onSa
     return out.url;
   };
 
-  const save = async () => {
+  const save = async (publish = false) => {
     const slug = String(form.slug || '').trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-|-$/g, '');
     if (!slug) return setError('Best-For slug is required.');
     if (String(form.title || '').trim().length < 8) return setError('Write a useful page H1/title.');
     setBusy(true); setError('');
     try {
-      const payload = { ...form, slug, country_slug: country.slug, content_type: 'country-best-for', content_key: `country-best-for:${country.slug}:${slug}`, blocks, html: blocksToHtml(blocks) };
+      const payload = { ...form, slug, country_slug: country.slug, content_type: 'country-best-for', content_key: `country-best-for:${country.slug}:${slug}`, blocks, html: blocksToHtml(blocks), published: publish ? true : Boolean(form.published), indexable: Boolean(form.indexable) };
       const res = await fetch('/api/content-documents', { method: form.id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(form.id ? { ...payload, id: form.id } : payload) });
       const out = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(out.error || 'Could not save Best-For page');
-      notify(form.id ? 'Country Best-For page saved' : 'Country Best-For page created');
+      notify(publish ? 'Country Best-For page published' : (form.id ? 'Country Best-For page saved' : 'Country Best-For page created'));
       onSaved();
       onClose();
     } catch (e) { setError(e instanceof Error ? e.message : 'Could not save Best-For page'); } finally { setBusy(false); }
@@ -133,7 +133,7 @@ function CountryBestForEditor({ country, document, brokers, token, onClose, onSa
   analysisBrokers={brokers}
   onChange={next=>{setBlocks(next);setForm(f=>({...f,blocks:next,html:blocksToHtml(next)}))}}
   onUploadImage={uploadImage}
-/></div><div className="mt-5 grid gap-4 sm:grid-cols-2"><label><span className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-slate-400">SEO title</span><input value={form.seo_title || ''} onChange={e=>setForm({...form,seo_title:e.target.value})} className="h-10 w-full rounded-xl border border-line bg-paper px-3 text-sm outline-none focus:border-emerald-500"/></label><label><span className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-slate-400">SEO description</span><textarea value={form.seo_description || ''} onChange={e=>setForm({...form,seo_description:e.target.value})} rows={2} className="w-full rounded-xl border border-line bg-paper px-3 py-2.5 text-sm outline-none focus:border-emerald-500"/></label></div><div className="mt-4 flex items-center justify-between rounded-xl border border-line bg-paper p-4"><div><p className="text-sm font-bold text-ink-900">Index this page</p><p className="text-xs text-slate-500">Only index substantial, unique commercial content.</p></div><button type="button" onClick={()=>setForm(f=>({...f,indexable:!f.indexable}))} className={`relative h-6 w-11 rounded-full ${form.indexable?'bg-emerald-500':'bg-slate-300'}`}><span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow ${form.indexable?'left-[22px]':'left-0.5'}`}/></button></div><button onClick={save} disabled={busy} className="mt-5 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-ink-950 text-sm font-bold text-white disabled:opacity-60">{busy&&<Loader2 size={15} className="animate-spin"/>}{form.id?'Save changes':'Create Best-For page'}</button></div></div></div>;
+/></div><div className="mt-5 grid gap-4 sm:grid-cols-2"><label><span className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-slate-400">SEO title</span><input value={form.seo_title || ''} onChange={e=>setForm({...form,seo_title:e.target.value})} className="h-10 w-full rounded-xl border border-line bg-paper px-3 text-sm outline-none focus:border-emerald-500"/></label><label><span className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-slate-400">SEO description</span><textarea value={form.seo_description || ''} onChange={e=>setForm({...form,seo_description:e.target.value})} rows={2} className="w-full rounded-xl border border-line bg-paper px-3 py-2.5 text-sm outline-none focus:border-emerald-500"/></label></div><div className="mt-4 flex items-center justify-between rounded-xl border border-line bg-paper p-4"><div><p className="text-sm font-bold text-ink-900">Index this page</p><p className="text-xs text-slate-500">Only index substantial, unique commercial content.</p></div><button type="button" onClick={()=>setForm(f=>({...f,indexable:!f.indexable}))} className={`relative h-6 w-11 rounded-full ${form.indexable?'bg-emerald-500':'bg-slate-300'}`}><span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow ${form.indexable?'left-[22px]':'left-0.5'}`}/></button></div><div className="mt-5 grid gap-2 sm:grid-cols-2"><button onClick={()=>save(false)} disabled={busy} className="flex h-11 items-center justify-center gap-2 rounded-xl border border-line bg-white text-sm font-bold text-ink-950 disabled:opacity-60">{busy&&<Loader2 size={15} className="animate-spin"/>}{form.id?'Save changes':'Save draft'}</button><button onClick={()=>save(true)} disabled={busy} className="flex h-11 items-center justify-center gap-2 rounded-xl bg-emerald-500 text-sm font-bold text-white disabled:opacity-60">{busy&&<Loader2 size={15} className="animate-spin"/>}{form.published?'Publish again':'Publish page'}</button></div></div></div></div>;
 }
 
 
