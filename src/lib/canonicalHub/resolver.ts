@@ -61,14 +61,27 @@ export async function resolveCanonicalPath(pathname: string): Promise<CanonicalR
   if (segments.length === 2 && segments[0] === 'compare') return route(path, { type: 'compare', slug: segments[1], indexable: true, published: true });
 
   if (segments.length === 2) {
-    const [countrySlug, slug] = segments; const [country, countryBestFor] = await Promise.all([fetchCountry(countrySlug).catch(() => null), fetchPublicContentDocumentByKey(canonicalKeyForDocument({ content_type: 'country-best-for', country_slug: countrySlug, slug })!)]);
-    if (!country || !isPublishedCountry(country) || !countryBestFor || countryBestFor.content_type !== 'country-best-for' || countryBestFor.published === false) return null;
-    return route(path, { type: 'country-best-for', countrySlug, slug, contentKey: countryBestFor.content_key, indexable: countryBestFor.indexable !== false, published: countryBestFor.published, document: countryBestFor });
+    const [countrySlug, slug] = segments;
+    const [country, countryBestFor] = await Promise.all([
+      fetchCountry(countrySlug).catch(() => null),
+      fetchPublicContentDocumentByTypeAndSlug('country-best-for', slug, countrySlug).catch(() => null),
+    ]);
+    if (!country || !isPublishedCountry(country) || !countryBestFor ||
+        countryBestFor.content_type !== 'country-best-for' ||
+        countryBestFor.country_slug !== countrySlug ||
+        countryBestFor.slug !== slug ||
+        countryBestFor.published !== true) return null;
+    return route(path, { type: 'country-best-for', countrySlug, slug, contentKey: countryBestFor.content_key, indexable: countryBestFor.indexable !== false, published: true, document: countryBestFor });
   }
   if (segments.length === 1) {
-    const slug = segments[0]; const bestForDocument = await fetchPublicContentDocumentByKey(canonicalKeyForDocument({ content_type: 'global-best-for', slug })!);
-    if (bestForDocument && bestForDocument.content_type === 'global-best-for' && bestForDocument.published !== false) return route(path, { type: 'global-best-for', slug, contentKey: bestForDocument.content_key, indexable: bestForDocument.indexable !== false, published: bestForDocument.published, document: bestForDocument });
-    const country = await fetchCountry(slug).catch(() => null); if (!country || !isPublishedCountry(country)) return null;
+    const slug = segments[0];
+    const bestForDocument = await fetchPublicContentDocumentByTypeAndSlug('global-best-for', slug).catch(() => null);
+    if (bestForDocument && bestForDocument.content_type === 'global-best-for' &&
+        bestForDocument.slug === slug && bestForDocument.published === true) {
+      return route(path, { type: 'global-best-for', slug, contentKey: bestForDocument.content_key, indexable: bestForDocument.indexable !== false, published: true, document: bestForDocument });
+    }
+    const country = await fetchCountry(slug).catch(() => null);
+    if (!country || !isPublishedCountry(country)) return null;
     return route(path, { type: 'country', slug, indexable: true, published: true });
   }
   return null;
