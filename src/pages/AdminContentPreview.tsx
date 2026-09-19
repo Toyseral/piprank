@@ -18,10 +18,10 @@ export default function AdminContentPreview() {
     let active = true;
 
     const load = async () => {
-      const { data } = await supabase.auth.getSession();
+      const { data: sessionData } = await supabase.auth.getSession();
       if (!active) return;
 
-      const currentSession = data.session;
+      const currentSession = sessionData.session;
       if (!currentSession) {
         setState('error');
         setMessage('Your admin session has expired. Sign in again to preview this draft.');
@@ -38,22 +38,22 @@ export default function AdminContentPreview() {
       const res = await fetch(`/api/content-documents?id=${documentId}&admin=true`, {
         headers: { Authorization: `Bearer ${currentSession.access_token}` },
       });
-      const data = await res.json().catch(() => null);
+      const payload = await res.json().catch(() => null);
 
-      if (!res.ok || !data) {
+      if (!res.ok || !payload) {
         setState('error');
-        setMessage(data?.error || 'The draft could not be loaded.');
+        setMessage(payload?.error || 'The draft could not be loaded.');
         return;
       }
 
-      if (data.content_type !== 'country-best-for' || !data.country_slug || !data.slug) {
+      if (payload.content_type !== 'country-best-for' || !payload.country_slug || !payload.slug) {
         setState('error');
         setMessage('Only canonical country Best-For documents can be previewed here.');
         return;
       }
 
       const previewDocument: ContentDocument = {
-        ...data,
+        ...payload,
         // ContentRenderer intentionally hides unpublished documents. The route
         // itself is protected by the authenticated admin API above, so this
         // temporary flag only enables the normal public renderer for preview.
@@ -61,15 +61,15 @@ export default function AdminContentPreview() {
         indexable: false,
       };
 
-      const previewPath = `/${previewDocument.country_slug}/${previewDocument.slug}`;
+      const previewPath = `/${previewDocument.country_slug!}/${previewDocument.slug!}`;
       const previewRoute: CanonicalRoute = {
         type: 'country-best-for',
         path: previewPath,
         canonicalPath: previewPath,
         contentKey: previewDocument.content_key,
-        countrySlug: previewDocument.country_slug,
+        countrySlug: previewDocument.country_slug || undefined,
         topicSlug: previewDocument.topic_slug || undefined,
-        slug: previewDocument.slug,
+        slug: previewDocument.slug || undefined,
         indexable: false,
         published: true,
         document: previewDocument,

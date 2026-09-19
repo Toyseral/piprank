@@ -10,7 +10,7 @@ import { isoToSlug, slugToIso2, parseCookieCountry } from './_lib/geo-map.js';
 //   broker slug → country-specific affiliate URL → global affiliate URL
 //   → broker website fallback → redirect.
 const FALLBACK_PATH = '/brokers';
-const ALLOWED_REDIRECT_PROTOCOLS = new Set(['https:', 'http:']);
+const ALLOWED_REDIRECT_PROTOCOLS = new Set(['https:']);
 
 function safeExternalUrl(value) {
   const raw = String(value ?? '').trim();
@@ -61,14 +61,32 @@ export default async function handler(req, res) {
       .single();
     if (brokerErr || !broker) return redirectTo(FALLBACK_PATH);
 
+    // Treat Vercel geo as the compliance/routing source when available.
+    // The country cookie is only a fallback preference and must not override
+    // a server-derived country for availability or affiliate routing.
     const explicitCountry = parseCookieCountry(req.headers.cookie);
     const ipCountryIso = req.headers['x-vercel-ip-country'];
     const ipCountrySlug = isoToSlug(ipCountryIso);
-    const ipCountryCode = ipCountryIso ? String(ipCountryIso).trim().toUpperCase() : null;
+    const ipCountryCode = ipCountrySlug ? slugToIso2(ipCountrySlug) : null;
     const explicitCountryCode = explicitCountry ? slugToIso2(explicitCountry) : null;
-    const countryCode = explicitCountryCode || ipCountryCode || null;
-    const country = explicitCountry || ipCountrySlug || null;
-    const countrySource = explicitCountryCode ? 'explicit' : ipCountryCode ? 'ip_geo' : null;
+    const countryCode = ipCountryCode || explicitCountryCode || null;
+    const country = ipCountrySlug || explicitCountry || null;
+    const countrySource = ipCountryCode ? 'ip_geo' : explicitCountryCode ? 'explicit' : null;
+
+    const countryId = country
+      ? (await supabase.from('countries').select('id').eq('slug', country).maybeSingle()).data?.id ?? -1
+      : -1;
+
+    const { data: availability } = await supabase
+      .from('broker_country_availability')
+      .select('status,is_available')
+      .eq('broker_id', broker.id)
+      .eq('country_id', countryId)
+      .maybeSingle();
+
+    const countryBlocked = Boolean(availability && (
+      availability.is_available === false || String(availability.status || 'available').toLowerCase() !== 'available'
+    ));
 
     const { data: links } = await supabase
       .from('affiliate_links')
@@ -82,6 +100,10 @@ export default async function handler(req, res) {
     let targetUrl = null;
     let resolvedType = null;
     let trackingParams = {};
+
+    if (countryBlocked) {
+      return redirectTo(`/brokers/${broker.slug}`);
+    }
 
     if (countryRow) {
       targetUrl = countryRow.affiliate_url;

@@ -215,7 +215,21 @@ export default async function handler(req, res) {
       if (error) throw error;
 
       if (deleting.content_type === 'global-best-for' && deleting.slug) {
-        const { error: intentError } = await supabase.from('intents').delete().eq('slug', deleting.slug);
+        const canonicalSlug = String(deleting.slug).trim();
+        const { data: dependents, error: dependentError } = await supabase
+          .from('content_documents')
+          .select('id')
+          .in('content_type', ['country-best-for', 'localized-best-for'])
+          .eq('topic_slug', canonicalSlug)
+          .limit(1);
+        if (dependentError) throw dependentError;
+        if (dependents?.length) {
+          return res.status(409).json({
+            error: 'Cannot delete a global Best-For owner while country or localized Best-For pages still depend on it'
+          });
+        }
+
+        const { error: intentError } = await supabase.from('intents').delete().eq('slug', canonicalSlug);
         if (intentError) throw intentError;
       }
       return res.status(200).json({ ok: true });

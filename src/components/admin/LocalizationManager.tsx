@@ -63,8 +63,8 @@ export function LocalizationManager({ countries, languages, contentDocs, mutate 
     const owner = globalBestForOwners.find((doc) => doc.slug === ownerSlug);
     if (!owner) return;
 
-    const ownerSlug = String(owner.slug || '').trim();
-    if (!ownerSlug) return;
+    const canonicalOwnerSlug = String(owner.slug || '').trim();
+    if (!canonicalOwnerSlug) return;
 
     const templateKeyBySlug: Record<string, string> = {
       'forex-brokers-for-beginners': 'beginners',
@@ -73,7 +73,7 @@ export function LocalizationManager({ countries, languages, contentDocs, mutate 
       'gold-forex-brokers': 'gold',
       'low-spread-forex-brokers': 'low-spread',
     };
-    const templateKey = templateKeyBySlug[ownerSlug] ?? ownerSlug;
+    const templateKey = templateKeyBySlug[canonicalOwnerSlug] ?? canonicalOwnerSlug;
     const template = getLanguageTopicTemplate(selectedLang.code, templateKey, country.name);
     const slug = template.slug;
     const contentKey = `localized-best-for:${country.slug}:${selectedLang.code}:${slug}`;
@@ -83,7 +83,7 @@ export function LocalizationManager({ countries, languages, contentDocs, mutate 
       content_key: contentKey,
       content_type: 'localized-best-for',
       country_slug: country.slug,
-      topic_slug: owner.slug,
+      topic_slug: canonicalOwnerSlug,
       slug,
       title: template.title,
       excerpt: template.description ?? '',
@@ -92,8 +92,8 @@ export function LocalizationManager({ countries, languages, contentDocs, mutate 
       settings: {
         locale: selectedLang.code,
         language_code: selectedLang.code,
-        intent_slug: owner.slug,
-        canonicalIntentSlug: owner.slug,
+        intent_slug: canonicalOwnerSlug,
+        canonicalIntentSlug: canonicalOwnerSlug,
         source_best_for_id: owner.id,
       },
       published: false,

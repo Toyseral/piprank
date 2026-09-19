@@ -1550,7 +1550,6 @@ function BrokerEditor({
   }));
 
   const ratingPreview = parseFloat(String(form.rating)) || 0;
-  const ratingPreview = parseFloat(String(form.rating)) || 0;
   const completed = EDITOR_TABS.filter((t) => t.done(form)).length;
 
   return (

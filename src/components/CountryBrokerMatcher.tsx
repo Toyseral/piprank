@@ -25,7 +25,7 @@ export default function CountryBrokerMatcher({ countrySlug, countryName, country
   const results = useMemo(() => {
     if (!done) return [];
     const order = new Map(rankings.map((r, i) => [r.broker?.slug ?? '', r.final_rank ?? i + 1]));
-    const allowed = new Set(rankings.filter((r) => r.broker && r.availability_status !== 'unavailable' && r.availability_status !== 'restricted').map((r) => r.broker?.slug).filter((s): s is string => Boolean(s)));
+    const allowed = new Set(rankings.filter((r) => r.broker && r.availability_status === 'available').map((r) => r.broker?.slug).filter((s): s is string => Boolean(s)));
     return brokers.filter((b) => allowed.has(b.slug)).map((broker) => {
       const scored = scoreBroker(broker, answers as BrokerMatchAnswers);
       const rank = order.get(broker.slug) ?? 99;

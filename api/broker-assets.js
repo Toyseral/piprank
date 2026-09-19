@@ -66,31 +66,38 @@ async function handleAvailability(req, res) {
     const broker_id = Number(body.broker_id);
     if (!Number.isInteger(broker_id) || broker_id <= 0) return res.status(400).json({ error: 'broker_id is required' });
     const rows = Array.isArray(body.rows) ? body.rows : [];
-    const { error: delError } = await supabase.from('broker_country_availability').delete().eq('broker_id', broker_id);
-    if (delError) throw delError;
 
-    // Availability is sparse: a missing row means "available". Do not persist
-    // synthetic default rows returned by the GET matrix (available + no note +
-    // priority 0), otherwise the admin editor would recreate an N x M matrix
-    // every time a broker is saved.
-    const payload = rows
-      .filter((r) => Number.isInteger(Number(r?.country_id)) && Number(r.country_id) > 0)
-      .map((r) => ({
-        broker_id,
-        country_id: Number(r.country_id),
-        is_available: !['unavailable'].includes(r.status),
-        status: ['available', 'restricted', 'unavailable', 'unknown'].includes(r.status) ? r.status : 'unknown',
-        notes: r.note ? String(r.note).slice(0, 500) : null,
-        note: r.note ? String(r.note).slice(0, 500) : null,
-        priority: Number.isFinite(Number(r.priority)) ? Number(r.priority) : 0,
-        updated_at: new Date().toISOString(),
-      }))
-      .filter((row) => row.status !== 'available' || row.notes !== null || row.priority !== 0);
+    // Validate the complete payload before changing any rows. The database RPC
+    // performs the replacement inside one transaction, so a failed insert
+    // cannot leave the broker with an empty availability matrix.
+    const payload = rows.map((r) => {
+      const countryId = Number(r?.country_id);
+      const status = String(r?.status ?? 'available').trim().toLowerCase();
+      const priority = r?.priority === undefined || r?.priority === null || r?.priority === '' ? 0 : Number(r.priority);
+      return {
+        country_id: countryId,
+        status,
+        note: r?.note ? String(r.note).slice(0, 500) : null,
+        priority,
+      };
+    });
 
-    if (payload.length) {
-      const { error } = await supabase.from('broker_country_availability').insert(payload);
-      if (error) throw error;
+    if (payload.some((row) => !Number.isInteger(row.country_id) || row.country_id <= 0)) {
+      return res.status(400).json({ error: 'Every availability row must include a valid country_id' });
     }
+    if (payload.some((row) => !['available', 'restricted', 'unavailable'].includes(row.status))) {
+      return res.status(400).json({ error: 'Availability status must be available, restricted or unavailable' });
+    }
+    if (payload.some((row) => !Number.isInteger(row.priority) || row.priority < 0)) {
+      return res.status(400).json({ error: 'Availability priority must be a non-negative integer' });
+    }
+
+    const { error } = await supabase.rpc('replace_broker_country_availability', {
+      p_broker_id: broker_id,
+      p_rows: payload,
+    });
+    if (error) throw error;
+
     return res.status(200).json({ ok: true });
   }
   return res.status(405).json({ error: 'Method not allowed' });

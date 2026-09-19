@@ -54,12 +54,27 @@ async function adminUsers(req, res) {
     if (!MANAGEABLE_ROLES.includes(role)) return res.status(400).json({ error: `Role must be one of: ${MANAGEABLE_ROLES.join(', ')}` });
     const pwd = String(password ?? ''); if (pwd.length < 8) return res.status(400).json({ error: 'Set an initial password of at least 8 characters' });
     const { data: existing } = await supabase.from('admin_users').select('id').eq('email', clean).limit(1); if (existing?.length) return res.status(400).json({ error: 'That email already has admin access' });
-    const { error: createErr } = await supabase.auth.admin.createUser({ email: clean, password: pwd, email_confirm: true });
+    const { data: createdAuth, error: createErr } = await supabase.auth.admin.createUser({ email: clean, password: pwd, email_confirm: true });
     if (createErr) {
-      if (/already|exists|registered|duplicate/i.test(String(createErr.message ?? ''))) { const uid = await findAuthUserId(clean); if (!uid) return res.status(500).json({ error: 'Auth account exists but could not be resolved' }); const { error: upErr } = await supabase.auth.admin.updateUserById(uid, { password: pwd }); if (upErr) return res.status(500).json({ error: 'Could not update login' }); }
-      else return res.status(500).json({ error: 'Could not create login' });
+      if (/already|exists|registered|duplicate/i.test(String(createErr.message ?? ''))) {
+        return res.status(409).json({ error: 'An authentication account already exists for this email. Use that account instead of resetting its password.' });
+      }
+      return res.status(500).json({ error: 'Could not create login' });
     }
-    const { data, error } = await supabase.from('admin_users').insert({ email: clean, role, active: true }).select().single(); if (error) throw error; return res.status(201).json(data);
+
+    // Keep Auth and admin_users consistent. If the database record cannot be
+    // created, remove the just-created Auth user so we do not leave an orphan
+    // login that cannot be administered through the dashboard.
+    const { data, error } = await supabase.from('admin_users').insert({ email: clean, role, active: true }).select().single();
+    if (error) {
+      if (createdAuth?.user?.id) {
+        const { error: rollbackError } = await supabase.auth.admin.deleteUser(createdAuth.user.id);
+        if (rollbackError) console.error('admin user Auth rollback failed:', rollbackError);
+      }
+      if (error.code === '23505') return res.status(409).json({ error: 'That email already has admin access' });
+      throw error;
+    }
+    return res.status(201).json(data);
   }
   if (req.method === 'PUT') {
     const { id, role, active, password } = req.body ?? {}; if (!id) return res.status(400).json({ error: 'id is required' });

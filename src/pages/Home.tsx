@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   ArrowRight,
@@ -112,15 +111,15 @@ export default function Home() {
   });
 
 
-  useEffect(() => {
-    if (!localizedCountry) { setLocalizedRankings([]); return; }
-    fetchCountryBrokerRankings(localizedCountry.slug).then(setLocalizedRankings).catch(() => setLocalizedRankings([]));
-  }, [localizedCountry]);
-
   const localizedCountry = useMemo(
     () => activeGeo ? countries.find((c) => c.slug === activeGeo.slug) ?? null : null,
     [activeGeo, countries]
   );
+
+  useEffect(() => {
+    if (!localizedCountry) { setLocalizedRankings([]); return; }
+    fetchCountryBrokerRankings(localizedCountry.slug).then(setLocalizedRankings).catch(() => setLocalizedRankings([]));
+  }, [localizedCountry]);
 
   const localizedBrokers = useMemo(() => {
     if (!localizedCountry || !localizedRankings.length) return brokers;

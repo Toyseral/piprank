@@ -5,6 +5,7 @@ import { requireRole } from './_lib/admin-guard.js';
 const SITE_ORIGIN = 'https://piprank.com';
 const STAFF_ALL = ['super_admin', 'admin', 'brokers_admin', 'content_admin', 'moderator'];
 const REVIEW_MODERATION = ['super_admin', 'admin', 'moderator'];
+function positiveInt(value) { const n = Number(value); return Number.isInteger(n) && n > 0 ? n : null; }
 const recentReviewSubmissions = new Map();
 const recentHelpfulVotes = new Map();
 
@@ -36,7 +37,9 @@ export default async function handler(req, res) {
     if (req.method === 'GET') {
       const { broker_id } = req.query;
       if (broker_id) {
-        const { data, error } = await supabase.from('reviews').select('*').eq('broker_id', Number(broker_id)).eq('verified', true).order('created_at', { ascending: false });
+        const brokerId = positiveInt(broker_id);
+        if (!brokerId) return res.status(400).json({ error: 'broker_id must be a positive integer' });
+        const { data, error } = await supabase.from('reviews').select('*').eq('broker_id', brokerId).eq('verified', true).order('created_at', { ascending: false });
         if (error) throw error;
         return res.status(200).json(data);
       }
@@ -64,7 +67,8 @@ export default async function handler(req, res) {
       recentReviewSubmissions.set(key, now);
       for (const [k, timestamp] of recentReviewSubmissions) if (now - timestamp > 10 * 60_000) recentReviewSubmissions.delete(k);
 
-      const brokerId = Number(broker_id);
+      const brokerId = positiveInt(broker_id);
+      if (!brokerId) return res.status(400).json({ error: 'broker_id must be a positive integer' });
       const normalizedAuthor = String(author).trim().slice(0, 40);
       const normalizedTitle = String(title).trim().slice(0, 90);
       const normalizedBody = String(body).trim().slice(0, 1200);
@@ -84,15 +88,19 @@ export default async function handler(req, res) {
     if (req.method === 'PUT') {
       const body = req.body ?? {};
       const { id } = body;
-      if (!id) return res.status(400).json({ error: 'id is required' });
+      const reviewId = positiveInt(id);
+      if (!reviewId) return res.status(400).json({ error: 'id must be a positive integer' });
       if ('verified' in body) {
         if (!(await requireRole(req, res, REVIEW_MODERATION))) return;
-        const { data, error } = await supabase.from('reviews').update({ verified: !!body.verified }).eq('id', Number(id)).select().single();
+        const { data, error } = await supabase.from('reviews').update({ verified: !!body.verified }).eq('id', reviewId).select().single();
         if (error) throw error;
         return res.status(200).json(data);
       }
 
-      const voterKey = String(body.voter_key || '').trim() || voterFingerprint(req);
+      // Do not trust a client-supplied voter key for abuse prevention: an attacker
+      // could generate a new key for every request and bypass the per-voter constraint.
+      // Bind the vote to a server-derived fingerprint instead.
+      const voterKey = voterFingerprint(req);
       const fingerprint = ipHash(req);
       const rateKey = `${fingerprint}:${voterKey}`;
       const now = Date.now();
@@ -102,9 +110,9 @@ export default async function handler(req, res) {
       for (const [k, timestamp] of recentHelpfulVotes) if (now - timestamp > 10 * 60_000) recentHelpfulVotes.delete(k);
 
       const { data: rpcResult, error: rpcError } = await supabase.rpc('increment_review_helpful', {
-        review_id: Number(id),
-        voter_key: voterKey,
-        ip_hash: fingerprint,
+        p_review_id: reviewId,
+        p_voter_key: voterKey,
+        p_ip_hash: fingerprint,
       });
       if (rpcError) {
         console.error('review helpful RPC error:', rpcError);
@@ -116,8 +124,9 @@ export default async function handler(req, res) {
     if (req.method === 'DELETE') {
       if (!(await requireRole(req, res, REVIEW_MODERATION))) return;
       const { id } = req.body ?? {};
-      if (!id) return res.status(400).json({ error: 'id is required' });
-      const { error } = await supabase.from('reviews').delete().eq('id', Number(id));
+      const reviewId = positiveInt(id);
+      if (!reviewId) return res.status(400).json({ error: 'id must be a positive integer' });
+      const { error } = await supabase.from('reviews').delete().eq('id', reviewId);
       if (error) throw error;
       return res.status(200).json({ ok: true });
     }

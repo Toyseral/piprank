@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLocation, Navigate } from 'react-router-dom';
 import type { CanonicalRoute } from '../lib/canonicalHub/types';
 import { resolveCanonicalPath } from '../lib/canonicalHub/resolver';
+import { fetchCountry } from '../lib/api';
 import { useSEO } from '../hooks/useSEO';
 import ContentRenderer from '../components/ContentRenderer';
 import CanonicalGlobalBestFor from '../components/CanonicalGlobalBestFor';
@@ -27,7 +28,22 @@ export default function CanonicalHub() {
       const first = await resolveCanonicalPath(pathname).catch(() => null);
       if (first) return first;
       await new Promise<void>((resolveDelay) => { retryTimer = setTimeout(resolveDelay, 350); });
-      return resolveCanonicalPath(pathname).catch(() => null);
+      const second = await resolveCanonicalPath(pathname).catch(() => null);
+      if (second) return second;
+      const match = pathname.match(/^\/([^/]+)\/?$/);
+      if (!match) return null;
+      const slug = decodeURIComponent(match[1]).trim().toLowerCase();
+      if (!slug || ['guides', 'brokers', 'compare', 'countries'].includes(slug)) return null;
+      const country = await fetchCountry(slug).catch(() => null);
+      if (!country || country.publishing_state !== 'published') return null;
+      return {
+        type: 'country',
+        path: pathname,
+        canonicalPath: `/${encodeURIComponent(country.slug)}`,
+        slug: country.slug,
+        indexable: true,
+        published: true,
+      } as CanonicalRoute;
     };
     resolve().then((resolved) => {
       if (!active) return;

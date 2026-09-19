@@ -23,15 +23,27 @@ export async function fetchCountryHubPageModel(slug: string): Promise<CountryHub
   const country = await fetchCountry(slug).catch(() => null);
   if (!country || country.publishing_state === 'closed' || country.publishing_state === 'draft') return null;
 
-  const [countryDocument, brokers, availability, topBrokers, countryGuides, countryBestFor, localizedGuides, localizedBestFor] = await Promise.all([
-    fetchPublishedContentDocument(`country:${country.slug}:hub`),
-    fetchBrokers(),
-    fetchCountryBrokerAvailability(country.slug),
-    fetchCountryBrokerRankings(country.slug),
-    fetchPublishedContentDocuments({ type: 'country-guide', country: country.slug }),
-    fetchPublishedContentDocuments({ type: 'country-best-for', country: country.slug }),
-    fetchPublishedContentDocuments({ type: 'localized-guide', country: country.slug }),
-    fetchPublishedContentDocuments({ type: 'localized-best-for', country: country.slug }),
+  // The country record and its canonical hub document are required. Everything
+  // else is supporting content and must not make an otherwise valid country
+  // page disappear when one public endpoint is temporarily unavailable.
+  const [
+    countryDocument,
+    brokers,
+    availability,
+    topBrokers,
+    countryGuides,
+    countryBestFor,
+    localizedGuides,
+    localizedBestFor,
+  ] = await Promise.all([
+    fetchPublishedContentDocument(`country:${country.slug}:hub`).catch(() => null),
+    fetchBrokers().catch(() => []),
+    fetchCountryBrokerAvailability(country.slug).catch(() => []),
+    fetchCountryBrokerRankings(country.slug).catch(() => []),
+    fetchPublishedContentDocuments({ type: 'country-guide', country: country.slug }).catch(() => []),
+    fetchPublishedContentDocuments({ type: 'country-best-for', country: country.slug }).catch(() => []),
+    fetchPublishedContentDocuments({ type: 'localized-guide', country: country.slug }).catch(() => []),
+    fetchPublishedContentDocuments({ type: 'localized-best-for', country: country.slug }).catch(() => []),
   ]);
 
   if (!countryDocument) return null;

@@ -3,6 +3,7 @@ import {
   Landmark, MonitorSmartphone, Moon, Server, TrendingUp, Zap, type LucideIcon,
 } from 'lucide-react';
 import type { Broker } from './types';
+import { hasPlatform } from './types';
 import { allInCost } from './score';
 import { fmtMoney } from './format';
 
@@ -72,24 +73,32 @@ export const BROKER_MATCH_LOADER_LINES = ['Checking eligibility in your countryâ
 export const VPS_HOSTS = new Set(['ic-markets','pepperstone','fp-markets','fxpro','exness','thinkmarkets','tmgm','vantage']);
 
 export function scoreBroker(b: Broker, a: BrokerMatchAnswers): { score:number; reasons:string[] } {
-  let s = 44 + b.rating * 4 + b.trust_score * 0.14;
+  const rating = Number.isFinite(Number(b.rating)) ? Number(b.rating) : 0;
+  const trustScore = Number.isFinite(Number(b.trust_score)) ? Number(b.trust_score) : 0;
+  const spread = Number.isFinite(Number(b.spread_eurusd)) ? Number(b.spread_eurusd) : Number.POSITIVE_INFINITY;
+  const executionMs = Number.isFinite(Number(b.execution_ms)) ? Number(b.execution_ms) : Number.POSITIVE_INFINITY;
+  const leverageValue = Number.isFinite(Number(b.leverage_value)) ? Number(b.leverage_value) : 0;
+  const minDeposit = Number.isFinite(Number(b.min_deposit)) ? Number(b.min_deposit) : Number.POSITIVE_INFINITY;
+  const platforms = Array.isArray(b.platforms) ? b.platforms : [];
+  const bestFor = Array.isArray(b.best_for) ? b.best_for : [];
+  let s = 44 + rating * 4 + trustScore * 0.14;
   const reasons:string[] = [];
-  if (a.style === 'scalping') { if (b.scalping) {s+=12;reasons.push('Scalping fully allowed');} else s-=18; if(b.spread_eurusd<=0.2){s+=6;reasons.push(`Raw ${b.spread_eurusd}p EUR/USD spread`);} if(b.execution_ms<=35){s+=4;reasons.push(`${b.execution_ms}ms median execution`);} }
-  else if(a.style==='day'){if(b.spread_eurusd<=0.3){s+=6;reasons.push(`Tight ${b.spread_eurusd}p spreads all session`);}else s+=1;}
-  else if(a.style==='swing'){if(b.best_for.includes('swing-trading')){s+=8;reasons.push('Strong multi-day conditions');}}
+  if (a.style === 'scalping') { if (b.scalping) {s+=12;reasons.push('Scalping fully allowed');} else s-=18; if(spread<=0.2){s+=6;reasons.push(`Raw ${b.spread_eurusd}p EUR/USD spread`);} if(executionMs<=35){s+=4;reasons.push(`${b.execution_ms}ms median execution`);} }
+  else if(a.style==='day'){if(spread<=0.3){s+=6;reasons.push(`Tight ${b.spread_eurusd}p spreads all session`);}else s+=1;}
+  else if(a.style==='swing'){if(bestFor.includes('swing-trading')){s+=8;reasons.push('Strong multi-day conditions');}}
   else if(a.style==='copy'){if(b.copy_trading){s+=14;reasons.push('Native copy-trading platform');}else s-=12;}
-  if(a.platform!=='any'){if(b.platforms.includes(a.platform)){s+=9;reasons.push(`${a.platform} supported`);}else s-=8;}
-  if(a.priority==='lowcost'){const cost=allInCost(b);s+=Math.max(0,13-cost*6);reasons.push(`${cost} pips all-in per EUR/USD lot`);}
-  else if(a.priority==='platform'){s+=b.platforms.length*3;reasons.push(`${b.platforms.length} platforms incl. ${b.platforms[0]}`);}
-  else if(a.priority==='education'){if(b.best_for.includes('beginners')){s+=10;reasons.push('Dedicated beginner education');}if(b.demo_account){s+=3;reasons.push('Free unlimited demo account');}}
-  else if(a.priority==='leverage'){s+=b.leverage_value>=1000?12:b.leverage_value>=500?10:b.leverage_value>=400?6:2;reasons.push(`Leverage up to ${b.max_leverage}`);}
+  if(a.platform!=='any'){if(hasPlatform(platforms, a.platform)){s+=9;reasons.push(`${a.platform} supported`);}else s-=8;}
+  if(a.priority==='lowcost'){const cost=allInCost(b);if(Number.isFinite(cost)){s+=Math.max(0,13-cost*6);reasons.push(`${cost} pips all-in per EUR/USD lot`);}else{s-=8;reasons.push('Cost data needs verification');}}
+  else if(a.priority==='platform'){s+=platforms.length*3;reasons.push(`${platforms.length} platforms incl. ${platforms[0]?.name ?? 'platform'}`);}
+  else if(a.priority==='education'){if(bestFor.includes('beginners')){s+=10;reasons.push('Dedicated beginner education');}if(b.demo_account){s+=3;reasons.push('Free unlimited demo account');}}
+  else if(a.priority==='leverage'){s+=leverageValue>=1000?12:leverageValue>=500?10:leverageValue>=400?6:2;reasons.push(`Leverage up to ${b.max_leverage}`);}
   const prefs=a.prefs??[];
-  if(prefs.includes('islamic')){if(b.islamic_account){s+=10;reasons.push('Certified swap-free account');}else s-=8;}
+  if(prefs.includes('islamic')){if(b.islamic_account){s+=10;reasons.push('Swap-free account available');}else s-=8;}
   if(prefs.includes('copy')&&a.style!=='copy'){if(b.copy_trading){s+=10;reasons.push('Built-in copy trading');}else s-=6;}
-  if(prefs.includes('lowdeposit')){if(b.min_deposit<=50){s+=8;reasons.push(`Start with ${fmtMoney(Math.max(b.min_deposit,1))||'$0'}`);}else if(b.min_deposit>250)s-=6;}
-  if(prefs.includes('highleverage')&&a.priority!=='leverage'){if(b.leverage_value>=500){s+=8;reasons.push(`Leverage up to ${b.max_leverage}`);}}
+  if(prefs.includes('lowdeposit')){if(minDeposit<=50){s+=8;reasons.push(`Start with ${fmtMoney(Math.max(minDeposit,1))||'$0'}`);}else if(minDeposit>250)s-=6;}
+  if(prefs.includes('highleverage')&&a.priority!=='leverage'){if(leverageValue>=500){s+=8;reasons.push(`Leverage up to ${b.max_leverage}`);}}
   if(prefs.includes('vps')&&VPS_HOSTS.has(b.slug)){s+=8;reasons.push('Free VPS for 24/7 EAs');}
-  if(a.experience==='beginner'){if(b.best_for.includes('beginners')){s+=7;reasons.unshift('Beginner-friendly onboarding');}if(b.demo_account)s+=2;}
-  else if(a.experience==='advanced'&&b.best_for.includes('ecn')){s+=6;reasons.push('True ECN execution model');}
+  if(a.experience==='beginner'){if(bestFor.includes('beginners')){s+=7;reasons.unshift('Beginner-friendly onboarding');}if(b.demo_account)s+=2;}
+  else if(a.experience==='advanced'&&bestFor.includes('ecn')){s+=6;reasons.push('True ECN execution model');}
   return {score:s,reasons};
 }
