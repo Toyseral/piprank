@@ -10,7 +10,7 @@ import { isoToSlug, slugToIso2, parseCookieCountry } from './_lib/geo-map.js';
 //   broker slug → country-specific affiliate URL → global affiliate URL
 //   → broker website fallback → redirect.
 const FALLBACK_PATH = '/brokers';
-const ALLOWED_REDIRECT_PROTOCOLS = new Set(['https:', 'http:']);
+const ALLOWED_REDIRECT_PROTOCOLS = new Set(['https:']);
 
 function safeExternalUrl(value) {
   const raw = String(value ?? '').trim();
@@ -70,6 +70,17 @@ export default async function handler(req, res) {
     const country = explicitCountry || ipCountrySlug || null;
     const countrySource = explicitCountryCode ? 'explicit' : ipCountryCode ? 'ip_geo' : null;
 
+    const { data: availability } = await supabase
+      .from('broker_country_availability')
+      .select('status,is_available')
+      .eq('broker_id', broker.id)
+      .eq('country_id', (await supabase.from('countries').select('id').eq('slug', country).maybeSingle()).data?.id ?? -1)
+      .maybeSingle();
+
+    const countryBlocked = Boolean(availability && (
+      availability.is_available === false || String(availability.status || 'available').toLowerCase() !== 'available'
+    ));
+
     const { data: links } = await supabase
       .from('affiliate_links')
       .select('country_code, affiliate_url, tracking_params, active')
@@ -82,6 +93,10 @@ export default async function handler(req, res) {
     let targetUrl = null;
     let resolvedType = null;
     let trackingParams = {};
+
+    if (countryBlocked) {
+      return redirectTo(`/brokers/${broker.slug}`);
+    }
 
     if (countryRow) {
       targetUrl = countryRow.affiliate_url;
