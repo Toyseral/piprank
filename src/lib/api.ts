@@ -188,7 +188,7 @@ export const fetchBrokers = async () => (await get<Broker[]>('/api/brokers')).ma
 export const fetchGeo = () => get<{ slug: string | null; iso2: string | null; source: string }>('/api/site?resource=geo');
 export const fetchBroker = async (slug: string) => normalizeBroker(await get<Broker>(`/api/brokers?slug=${encodeURIComponent(slug)}`));
 export const fetchIntents = () => get<Intent[]>('/api/content?resource=intents');
-export const fetchIntent = async (slug: string) => { const mapped = publicIntentSlug(slug); try { return await get<Intent>(`/api/content?resource=intents?slug=${encodeURIComponent(mapped)}`); } catch (e) { if (mapped === slug) throw e; return get<Intent>(`/api/content?resource=intents?slug=${encodeURIComponent(slug)}`); } };
+export const fetchIntent = async (slug: string) => { const mapped = publicIntentSlug(slug); try { return await get<Intent>(`/api/content?resource=intents&slug=${encodeURIComponent(mapped)}`); } catch (e) { if (mapped === slug) throw e; return get<Intent>(`/api/content?resource=intents&slug=${encodeURIComponent(slug)}`); } };
 export const fetchReviews = (brokerId: number) => get<Review[]>(`/api/reviews?broker_id=${brokerId}`);
 
 export const fetchBrokerAvailability = (brokerId: number) => get<BrokerCountryAvailability[]>(`/api/broker-assets?resource=availability&broker_id=${brokerId}`);
