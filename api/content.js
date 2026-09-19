@@ -111,12 +111,24 @@ async function handleIntents(req,res){
   if(req.method==='DELETE'){
     const {id}=req.body??{};
     if(!id)return res.status(400).json({error:'id is required'});
-    const {data:intent,error:findError}=await supabase.from('intents').select('slug').eq('id',Number(id)).maybeSingle();
+    const intentId=Number(id);
+    if(!Number.isInteger(intentId) || intentId <= 0)return res.status(400).json({error:'A valid id is required'});
+    const {data:intent,error:findError}=await supabase.from('intents').select('slug').eq('id',intentId).maybeSingle();
     if(findError)throw findError;
     if(!intent)return res.status(404).json({error:'Category not found'});
-    const {error}=await supabase.from('intents').delete().eq('id',Number(id));
+    const canonicalSlug=canonicalIntentSlug(intent.slug);
+    if(!canonicalSlug)return res.status(400).json({error:'Intent is not a canonical ranking intent'});
+    const {data:dependents,error:dependentError}=await supabase
+      .from('content_documents')
+      .select('id')
+      .in('content_type',['country-best-for','localized-best-for'])
+      .eq('topic_slug',canonicalSlug)
+      .limit(1);
+    if(dependentError)throw dependentError;
+    if(dependents?.length)return res.status(409).json({error:'Cannot delete an intent while country or localized Best-For pages still depend on it'});
+    const {error}=await supabase.from('intents').delete().eq('id',intentId);
     if(error)throw error;
-    const {error:docError}=await supabase.from('content_documents').delete().eq('content_key',`best-for:${canonicalIntentSlug(intent.slug)}`).eq('content_type','global-best-for');
+    const {error:docError}=await supabase.from('content_documents').delete().eq('content_key',`best-for:${canonicalSlug}`).eq('content_type','global-best-for');
     if(docError)throw docError;
     return res.status(200).json({ok:true});
   }
