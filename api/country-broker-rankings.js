@@ -109,7 +109,7 @@ export default async function handler(req, res) {
         .maybeSingle();
       if (availabilityError) throw availabilityError;
       const explicitlyIneligible = Boolean(availability && (
-        availability.is_available === false || ['unavailable', 'restricted'].includes(String(availability.status || '').toLowerCase())
+        availability.is_available === false || String(availability.status || 'available').toLowerCase() !== 'available'
       ));
       if (explicitlyIneligible && !Boolean(req.body?.force_exclude)) {
         return res.status(400).json({ error: 'This broker is explicitly ineligible for this country. Change country eligibility first or leave it excluded.' });
