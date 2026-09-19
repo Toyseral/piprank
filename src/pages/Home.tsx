@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   ArrowRight,
@@ -23,7 +24,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import type { Broker, CountryPage, ContentDocument, Intent } from '../lib/types';
-import { fetchBrokers, fetchCountries, fetchIntents } from '../lib/api';
+import { fetchBrokers, fetchCountries, fetchIntents, fetchCountryBrokerRankings } from '../lib/api';
 import { fetchPublishedContentDocuments } from '../lib/canonicalContent';
 import { useGeo } from '../lib/GeoContext';
 import BrokerCard from '../components/BrokerCard';
@@ -67,6 +68,7 @@ export default function Home() {
   const [countries, setCountries] = useState<CountryPage[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [localizedRankings, setLocalizedRankings] = useState<any[]>([]);
   const { country: activeGeo } = useGeo();
   const location = useLocation();
 
