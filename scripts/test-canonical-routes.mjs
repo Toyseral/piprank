@@ -28,9 +28,14 @@ assert.equal(publishedGlobal.has('eur-usd-forex-brokers'), false, '/eur-usd-fore
 assert.equal(publishedGlobal.has('crypto-brokers'), false, '/crypto-brokers must not resolve while its canonical document is unpublished');
 assert.equal(docByKey.has('country-best-for:nigeria:forex-brokers-for-beginners'), false, '/nigeria/forex-brokers-for-beginners must not resolve without a published canonical country document');
 
+const seenPaths = new Map();
 for (const doc of docs || []) {
   const path = canonicalPathForDocument(doc);
   assert.ok(path, `Published canonical document has no canonical path: ${doc.content_key}`);
+  const previous = seenPaths.get(path);
+  assert.ok(!previous, `Duplicate canonical route ${path}: ${previous || ''} and ${doc.content_key}`);
+  seenPaths.set(path, doc.content_key);
+  if (doc.country_slug) assert.ok(countrySet.has(doc.country_slug), `Canonical document references unpublished/missing country: ${doc.content_key}`);
   if (doc.content_type === 'localized-guide' || doc.content_type === 'localized-best-for') assert.ok(localeOf(doc), `Localized document has no resolvable locale: ${doc.content_key}`);
   sanitizePublicSettings(doc.settings);
   sanitizeBlocks(doc.blocks);
