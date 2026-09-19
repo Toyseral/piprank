@@ -117,6 +117,8 @@ export default function CountryDetail() {
 
   if (loading) return <div className="mx-auto max-w-7xl px-4 py-20 text-center text-sm text-slate-500">Loading country…</div>;
   if (!country || !document) return <NotFound />;
+  const comparisonPath = model?.comparisonPath ?? '/compare';
+  const methodologyPath = model?.methodologyPath ?? '/methodology';
 
   return (
     <main className="bg-paper">
@@ -230,12 +232,12 @@ export default function CountryDetail() {
         <div className="mx-auto grid max-w-7xl gap-8 px-4 py-12 sm:px-6 lg:grid-cols-[1fr_320px] lg:items-center lg:py-16">
           <div>
             <SectionIntro eyebrow="Compare & verify" title={`Compare brokers available in ${country.name}`} copy="Use PipRank’s comparison tools to review pricing, platforms, trust signals and other broker data side by side." />
-            <Link to={model.comparisonPath} className="inline-flex items-center gap-1.5 text-sm font-bold text-emerald-700">Open broker comparison <ArrowRight size={14} /></Link>
+            <Link to={comparisonPath} className="inline-flex items-center gap-1.5 text-sm font-bold text-emerald-700">Open broker comparison <ArrowRight size={14} /></Link>
           </div>
           <div className="rounded-2xl border border-line bg-white p-5">
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">PipRank methodology</p>
             <p className="mt-2 text-sm leading-6 text-slate-600">Learn how PipRank evaluates broker data, eligibility and category fit.</p>
-            <Link to={model.methodologyPath} className="mt-4 inline-flex items-center gap-1 text-sm font-bold text-emerald-700">Read methodology <ArrowRight size={13} /></Link>
+            <Link to={methodologyPath} className="mt-4 inline-flex items-center gap-1 text-sm font-bold text-emerald-700">Read methodology <ArrowRight size={13} /></Link>
           </div>
         </div>
       </section>
@@ -253,7 +255,7 @@ export default function CountryDetail() {
 
       <section className="border-t border-line bg-paper">
         <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
-          <Link to={model.methodologyPath} className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-emerald-700"><ExternalLink size={13} /> How PipRank evaluates brokers</Link>
+          <Link to={methodologyPath} className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-emerald-700"><ExternalLink size={13} /> How PipRank evaluates brokers</Link>
         </div>
       </section>
     </main>
