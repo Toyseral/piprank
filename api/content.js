@@ -13,7 +13,6 @@ const CANONICAL_INTENT_SLUGS = {
   'eur-usd': 'eur-usd-forex-brokers',
   mt4: 'mt4-forex-brokers',
   mt5: 'mt5-forex-brokers',
-  gold: 'gold-forex-brokers',
   ecn: 'ecn-forex-brokers',
   'copy-trading': 'copy-trading-forex-brokers',
   scalping: 'forex-brokers-for-scalping',
