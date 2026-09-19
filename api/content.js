@@ -218,36 +218,24 @@ async function handleSeoPageGenerator(req, res) {
   if (!country) return res.status(404).json({ error: `Country not found: ${countrySlug}` });
   if (existing) return res.status(409).json({ error: 'This canonical country Best-For page already exists', document: existing });
 
-  const [{ data: rankings, error: rankingError }, { data: availability, error: availabilityError }] = await Promise.all([
-    supabase.from('country_broker_final_rankings')
-      .select('broker_id,availability_status')
-      .eq('country_id', Number(country.id)),
-    supabase.from('broker_country_availability')
-      .select('broker_id,status,is_available')
-      .eq('country_id', Number(country.id)),
+  const [{ data: intent, error: intentError }, { data: rankings, error: rankingError }] = await Promise.all([
+    supabase.from('intents').select('id,slug').eq('slug', topicSlug).maybeSingle(),
+    supabase.from('country_intent_broker_final_rankings')
+      .select('broker_id,final_rank,eligibility_status')
+      .eq('country_id', Number(country.id))
+      .eq('intent_id', Number((await supabase.from('intents').select('id').eq('slug', topicSlug).maybeSingle()).data?.id || 0)),
   ]);
+  if (intentError) throw intentError;
   if (rankingError) throw rankingError;
-  if (availabilityError) throw availabilityError;
+  if (!intent) return res.status(400).json({ error: 'Canonical intent is not configured' });
 
-  const availabilityMap = new Map((availability ?? []).map((row) => [Number(row.broker_id), row]));
-  const eligibleBrokerIds = new Set(
+  const qualifyingIds = new Set(
     (rankings ?? [])
-      .filter((row) => {
-        const a = availabilityMap.get(Number(row.broker_id));
-        const rankingStatus = String(row.availability_status ?? '').toLowerCase();
-        const availabilityStatus = String(a?.status ?? '').toLowerCase();
-        const explicitlyUnavailable =
-          a?.is_available === false ||
-          ['unavailable', 'restricted'].includes(availabilityStatus) ||
-          ['unavailable', 'restricted'].includes(rankingStatus);
-        return !explicitlyUnavailable;
-      })
+      .filter((row) => String(row.eligibility_status ?? '').toLowerCase() === 'eligible')
       .map((row) => Number(row.broker_id))
       .filter(Number.isInteger)
   );
-
-  const countryPool = (brokers || []).filter((b) => eligibleBrokerIds.has(Number(b.id)));
-  const qualifying = countryPool.filter((b) => matches(b, topic.key));
+  const qualifying = (brokers || []).filter((b) => qualifyingIds.has(Number(b.id)));
   const minBrokers = 2;
   const eligible = qualifying.length >= minBrokers;
   const year = new Date().getFullYear();
