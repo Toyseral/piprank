@@ -1,7 +1,7 @@
 import type { Broker, ContentDocument, CountryPage, CountryBrokerRanking, FAQ } from './types';
 import { fetchBrokers, fetchCountry, fetchCountryBrokerAvailability, fetchCountryBrokerRankings } from './api';
 import { fetchPublishedContentDocument, fetchPublishedContentDocuments } from './canonicalContent';
-import { buildCountryHubModel } from './countryHubModel.shared';
+import { buildCountryHubModel } from './countryHubModel.shared.mjs';
 
 export type CountryHubPageModel = {
   country: CountryPage;
