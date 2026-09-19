@@ -1932,8 +1932,8 @@ function BrokerEditor({
                             set(
                               'best_for',
                               on
-                                ? form.best_for.filter((s: string) => s !== opt.value)
-                                : [...form.best_for, opt.value]
+                                ? form.best_for.filter((s: string) => s !== opt.storageValue)
+                                : [...form.best_for, opt.storageValue]
                             )
                           }
                           className={`rounded-full border px-3.5 py-2 text-xs font-bold transition ${
