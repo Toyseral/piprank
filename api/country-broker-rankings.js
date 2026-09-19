@@ -62,7 +62,7 @@ export default async function handler(req, res) {
         const availabilityResult = results[3];
         if (availabilityResult.error) throw availabilityResult.error;
         const ineligibleIds = new Set((availabilityResult.data || [])
-          .filter((row) => row.is_available === false || ['unavailable', 'restricted'].includes(String(row.status || '').toLowerCase()))
+          .filter((row) => row.is_available === false || String(row.status || 'available').toLowerCase() !== 'available')
           .map((row) => Number(row.broker_id)));
         const eligibleBrokers = brokers.filter((broker) => !ineligibleIds.has(Number(broker.id)));
         return res.status(200).json({ ranking_mode: rankingMode, rows: hydrated, eligible_brokers: eligibleBrokers });
