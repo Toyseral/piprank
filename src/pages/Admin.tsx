@@ -1539,14 +1539,11 @@ function BrokerEditor({
       await onSave(out);
       savedSnapshot.current = JSON.stringify(form);
      const categoryOptions = intents.map((i) => ({
-    value: i.slug,
-    storageValue: brokerIntentStorageSlug(i.slug),
-    label: i.label,
-  }));
-  const ratingPreviewslug] ?? i.slug,
-    label: i.label,
-  }));
-  const ratingPreview = parseFloat(String(form.rating)) || 0;
+       value: i.slug,
+       storageValue: brokerIntentStorageSlug(i.slug),
+       label: i.label,
+     }));
+     const ratingPreview = parseFloat(String(form.rating)) || 0;
   const completed = EDITOR_TABS.filter((t) => t.done(form)).length;
 
   return (
