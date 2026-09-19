@@ -118,15 +118,17 @@ export default function CountryGuidesIndex() {
 
   const localizedGroups = useMemo(() => {
     const groups = new Map<string, ContentDocument[]>();
-    for (const doc of localizedGuides) {
+    for (const doc of [...localizedGuides, ...localizedBestFor]) {
       const locale = localeOf(doc);
       if (!locale) continue;
       const group = groups.get(locale) || [];
-      group.push(doc);
+      if (!group.some((item) => item.content_key === doc.content_key)) group.push(doc);
       groups.set(locale, group);
     }
-    return [...groups.entries()].sort(([a], [b]) => a.localeCompare(b));
-  }, [localizedGuides]);
+    return [...groups.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([locale, docs]) => [locale, docs.filter((doc) => doc.content_type === 'localized-guide')] as const);
+  }, [localizedGuides, localizedBestFor]);
 
   const hasContent = guides.length > 0 || bestFor.length > 0 || localizedGuides.length > 0 || localizedBestFor.length > 0;
 
