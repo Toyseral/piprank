@@ -63,6 +63,9 @@ export function LocalizationManager({ countries, languages, contentDocs, mutate 
     const owner = globalBestForOwners.find((doc) => doc.slug === ownerSlug);
     if (!owner) return;
 
+    const ownerSlug = String(owner.slug || '').trim();
+    if (!ownerSlug) return;
+
     const templateKeyBySlug: Record<string, string> = {
       'forex-brokers-for-beginners': 'beginners',
       'mt4-forex-brokers': 'mt4',
@@ -70,7 +73,7 @@ export function LocalizationManager({ countries, languages, contentDocs, mutate 
       'gold-forex-brokers': 'gold',
       'low-spread-forex-brokers': 'low-spread',
     };
-    const templateKey = templateKeyBySlug[owner.slug] ?? owner.slug;
+    const templateKey = templateKeyBySlug[ownerSlug] ?? ownerSlug;
     const template = getLanguageTopicTemplate(selectedLang.code, templateKey, country.name);
     const slug = template.slug;
     const contentKey = `localized-best-for:${country.slug}:${selectedLang.code}:${slug}`;
@@ -129,7 +132,7 @@ export function LocalizationManager({ countries, languages, contentDocs, mutate 
             <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-4"><div className="flex flex-wrap items-center justify-between gap-2"><div><p className="text-sm font-bold text-ink-950">Localized Best-For pages</p><p className="text-xs text-slate-500">{localizedBestFors.length} existing pages for {language.native_name}.</p></div><span className="rounded-full bg-white px-2.5 py-1 text-xs font-bold text-emerald-700">Canonical content_documents</span></div></div>
             {selectedDocs.filter((doc) => doc.content_type === 'localized-best-for').map((doc) => <LocalizedDocumentRow key={doc.id} doc={doc} mutate={mutate} countrySlug={languageCountrySlug || ''} languagePrefix={language.url_prefix || language.code} />)}
             {localizedBestFors.length === 0 && <p className="rounded-xl border border-dashed border-line bg-paper p-4 text-sm text-slate-500">No localized Best-For pages exist for this language yet. Add one below.</p>}
-            {addableOwners.length > 0 && <div className="rounded-xl border border-dashed border-line bg-paper p-4"><p className="text-xs font-bold uppercase tracking-widest text-slate-500">Add localized Best-For</p><p className="mt-1 text-xs text-slate-500">Select the canonical global Best-For owner. The localized URL and title can be translated, but the country × intent ranking stays tied to the canonical owner.</p><div className="mt-3 flex flex-wrap gap-2">{addableOwners.map((owner) => <button key={owner.id} type="button" onClick={() => addTopic(owner.slug)} className="rounded-lg border border-line bg-white px-2.5 py-1.5 text-xs font-semibold hover:border-emerald-400">+ {owner.title || owner.slug}</button>)}</div></div>}
+            {addableOwners.length > 0 && <div className="rounded-xl border border-dashed border-line bg-paper p-4"><p className="text-xs font-bold uppercase tracking-widest text-slate-500">Add localized Best-For</p><p className="mt-1 text-xs text-slate-500">Select the canonical global Best-For owner. The localized URL and title can be translated, but the country × intent ranking stays tied to the canonical owner.</p><div className="mt-3 flex flex-wrap gap-2">{addableOwners.map((owner) => <button key={owner.id} type="button" onClick={() => owner.slug && addTopic(owner.slug)} className="rounded-lg border border-line bg-white px-2.5 py-1.5 text-xs font-semibold hover:border-emerald-400">+ {owner.title || owner.slug}</button>)}</div></div>}
           </div>}
         </div>;
       })}
