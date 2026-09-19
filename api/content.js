@@ -64,9 +64,8 @@ async function handleIntents(req,res){
     if(error) throw error;
     if(requestedCanonicalSlug && !intents?.[0]) return res.status(404).json({error:'Category not found'});
 
-    // Expose one canonical intent per Best-For owner. Legacy short intent rows
-    // remain in the database for backward compatibility but are not separate
-    // editorial/ranking choices in the admin UI.
+    // Expose exactly one canonical intent per global Best-For owner. Legacy short
+    // intent aliases are accepted only at the API boundary and are not stored.
     const canonicalRows = new Map();
     for (const intent of (intents ?? [])) {
       const canonicalSlug = canonicalIntentSlug(intent.slug);
