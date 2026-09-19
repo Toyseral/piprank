@@ -194,6 +194,124 @@ function GlobalBestForOwnerCreator({ onClose, onCreate }: { onClose: () => void;
   </div>;
 }
 
+function CountryHubEditor({ country, document, brokers, token, onClose, onSaved, notify }: { country: CountryPage; document: ContentDocument | null; brokers: Broker[]; token: string; onClose: () => void; onSaved: () => void; notify: (msg: string) => void }) {
+  const empty: ContentDocument = {
+    id: 0, content_key: `country:${country.slug}:hub`, content_type: 'country',
+    country_slug: country.slug, topic_slug: null, slug: country.slug,
+    title: `Forex Brokers in ${country.name}`, excerpt: '', html: '', blocks: [],
+    seo_title: `Forex Brokers in ${country.name} | PipRank`,
+    seo_description: `Compare forex brokers available to traders in ${country.name}.`,
+    indexable: true, published: false, updated_by: null, created_at: '', updated_at: '', settings: {},
+  };
+  const [form, setForm] = useState<ContentDocument>(() => document ? { ...document, settings: { ...(document.settings || {}) } } : empty);
+  const [blocks, setBlocks] = useState<PageBlock[]>(() => Array.isArray(document?.blocks) && document.blocks.length ? document.blocks as PageBlock[] : document?.html ? [{ id: 'legacy', type: 'richtext', html: document.html }] : []);
+  const [busy, setBusy] = useState(false);
+  const settings = (form.settings || {}) as Record<string, any>;
+  const setSetting = (key: string, value: unknown) => setForm((current) => ({ ...current, settings: { ...(current.settings || {}), [key]: value } }));
+  const input = 'h-10 w-full rounded-xl border border-line bg-paper px-3 text-sm outline-none focus:border-emerald-500';
+  const text = 'w-full rounded-xl border border-line bg-paper px-3 py-2.5 text-sm outline-none focus:border-emerald-500';
+  const faqs = Array.isArray(settings.faqs) ? settings.faqs : [];
+
+  const save = async () => {
+    setBusy(true);
+    try {
+      const slug = country.slug;
+      const payload = {
+        ...form, id: form.id || undefined, content_key: `country:${country.slug}:hub`, content_type: 'country',
+        country_slug: country.slug, slug, blocks, html: blocksToHtml(blocks),
+        settings: form.settings || {}, published: true, indexable: Boolean(form.indexable),
+      };
+      const res = await fetch('/api/content-documents', {
+        method: form.id ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(payload),
+      });
+      const out = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(out.error || 'Could not save country hub');
+      notify('Country hub saved');
+      onSaved();
+      onClose();
+    } catch (error) {
+      notify(error instanceof Error ? error.message : 'Could not save country hub');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const updateFaq = (index: number, patch: Record<string, string>) => setSetting('faqs', faqs.map((faq: any, i: number) => i === index ? { ...faq, ...patch } : faq));
+  return <div className="fixed inset-0 z-[110] flex items-center justify-center bg-ink-950/60 p-3 backdrop-blur-sm">
+    <div className="flex max-h-[96vh] w-full max-w-6xl flex-col overflow-hidden rounded-3xl bg-white shadow-soft-lg">
+      <div className="flex items-center gap-3 bg-ink-950 px-5 py-4 text-white"><div className="min-w-0 flex-1"><p className="font-display font-bold">Edit {country.name} country hub</p><p className="text-xs text-slate-400">Every editable public section is controlled here. Broker data remains live from Broker Workspace and Country Ranking.</p></div><button onClick={onClose} className="rounded-lg p-2 text-slate-400 hover:bg-white/10"><X size={18}/></button></div>
+      <div className="flex-1 overflow-y-auto p-5 sm:p-7">
+        <div className="grid gap-5 lg:grid-cols-2">
+          <div className="rounded-2xl border border-line bg-paper p-4">
+            <p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Hero</p>
+            <label className="mt-3 block"><span className="mb-1 block text-[10px] font-bold uppercase text-slate-400">H1</span><input value={String(form.title || settings.hero_title || '')} onChange={e=>{setForm({...form,title:e.target.value});setSetting('hero_title',e.target.value)}} className={input}/></label>
+            <label className="mt-3 block"><span className="mb-1 block text-[10px] font-bold uppercase text-slate-400">Hero copy</span><textarea value={String(settings.hero_excerpt ?? form.excerpt ?? '')} onChange={e=>{setForm({...form,excerpt:e.target.value});setSetting('hero_excerpt',e.target.value)}} rows={4} className={text}/></label>
+            <p className="mt-2 text-[10px] text-slate-500">The primary CTA is fixed as “Match Me with a Broker” to keep the country funnel consistent.</p>
+          </div>
+          <div className="rounded-2xl border border-line bg-paper p-4">
+            <p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Matcher</p>
+            <label className="mt-3 block"><span className="mb-1 block text-[10px] font-bold uppercase text-slate-400">Heading</span><input value={String(settings.matcher_title ?? '')} onChange={e=>setSetting('matcher_title',e.target.value)} className={input} placeholder="Find a forex broker that fits your needs"/></label>
+            <label className="mt-3 block"><span className="mb-1 block text-[10px] font-bold uppercase text-slate-400">Intro</span><textarea value={String(settings.matcher_copy ?? '')} onChange={e=>setSetting('matcher_copy',e.target.value)} rows={4} className={text}/></label>
+            <p className="mt-2 text-[10px] text-slate-500">Matcher logic remains system-controlled; this editor controls the presentation copy.</p>
+          </div>
+          <div className="rounded-2xl border border-line bg-paper p-4">
+            <p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Broker list</p>
+            <label className="mt-3 block"><span className="mb-1 block text-[10px] font-bold uppercase text-slate-400">Section heading</span><input value={String(settings.brokers_title ?? '')} onChange={e=>setSetting('brokers_title',e.target.value)} className={input} placeholder={`Top forex brokers available in ${country.name}`}/></label>
+            <label className="mt-3 block"><span className="mb-1 block text-[10px] font-bold uppercase text-slate-400">Section intro</span><textarea value={String(settings.brokers_intro ?? '')} onChange={e=>setSetting('brokers_intro',e.target.value)} rows={4} className={text}/></label>
+            <p className="mt-2 text-[10px] text-slate-500">The first 9 are the country ranking. “Show more” reveals the remaining eligible brokers without leaving the page.</p>
+          </div>
+          <div className="rounded-2xl border border-line bg-paper p-4">
+            <p className="text-xs font-bold uppercase tracking-widest text-emerald-700">What Matters</p>
+            <label className="mt-3 block"><span className="mb-1 block text-[10px] font-bold uppercase text-slate-400">Heading</span><input value={String(settings.matters_title ?? '')} onChange={e=>setSetting('matters_title',e.target.value)} className={input}/></label>
+            <label className="mt-3 block"><span className="mb-1 block text-[10px] font-bold uppercase text-slate-400">Intro</span><textarea value={String(settings.matters_intro ?? '')} onChange={e=>setSetting('matters_intro',e.target.value)} rows={4} className={text}/></label>
+          </div>
+          <div className="rounded-2xl border border-line bg-paper p-4">
+            <p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Best For</p>
+            <label className="mt-3 block"><span className="mb-1 block text-[10px] font-bold uppercase text-slate-400">Heading</span><input value={String(settings.best_for_title ?? '')} onChange={e=>setSetting('best_for_title',e.target.value)} className={input}/></label>
+            <label className="mt-3 block"><span className="mb-1 block text-[10px] font-bold uppercase text-slate-400">Intro</span><textarea value={String(settings.best_for_intro ?? '')} onChange={e=>setSetting('best_for_intro',e.target.value)} rows={4} className={text}/></label>
+          </div>
+          <div className="rounded-2xl border border-line bg-paper p-4">
+            <p className="text-xs font-bold uppercase tracking-widest text-emerald-700">What Matters content</p>
+            <div className="mt-3 space-y-3">{(Array.isArray(settings.what_matters) ? settings.what_matters : []).map((item:any,i:number)=><div key={i} className="rounded-xl border border-line bg-white p-3"><div className="flex gap-2"><input value={item.title||''} onChange={e=>setSetting('what_matters',(settings.what_matters||[]).map((x:any,n:number)=>n===i?{...x,title:e.target.value}:x))} className={input} placeholder="Factor title"/><button type="button" onClick={()=>setSetting('what_matters',(settings.what_matters||[]).filter((_:any,n:number)=>n!==i))} className="rounded-lg px-2 text-rose-500">×</button></div><textarea value={item.description||''} onChange={e=>setSetting('what_matters',(settings.what_matters||[]).map((x:any,n:number)=>n===i?{...x,description:e.target.value}:x))} rows={3} className={text} placeholder="Explain why this matters"/></div>)}<button type="button" onClick={()=>setSetting('what_matters',[...(Array.isArray(settings.what_matters)?settings.what_matters:[]),{title:'',description:''}])} className="rounded-lg border border-dashed border-line px-3 py-2 text-xs font-bold">Add factor</button></div>
+            <p className="mt-2 text-[10px] text-slate-500">Leave empty to use the country's data-driven defaults.</p>
+          </div>
+          <div className="rounded-2xl border border-line bg-paper p-4">
+            <p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Guides & comparison</p>
+            <label className="mt-3 block"><span className="mb-1 block text-[10px] font-bold uppercase text-slate-400">Guides heading</span><input value={String(settings.guides_title ?? '')} onChange={e=>setSetting('guides_title',e.target.value)} className={input}/></label>
+            <label className="mt-3 block"><span className="mb-1 block text-[10px] font-bold uppercase text-slate-400">Guides intro</span><textarea value={String(settings.guides_intro ?? '')} onChange={e=>setSetting('guides_intro',e.target.value)} rows={3} className={text}/></label>
+            <label className="mt-3 block"><span className="mb-1 block text-[10px] font-bold uppercase text-slate-400">Compare heading</span><input value={String(settings.compare_title ?? '')} onChange={e=>setSetting('compare_title',e.target.value)} className={input}/></label>
+            <label className="mt-3 block"><span className="mb-1 block text-[10px] font-bold uppercase text-slate-400">Compare intro</span><textarea value={String(settings.compare_intro ?? '')} onChange={e=>setSetting('compare_intro',e.target.value)} rows={3} className={text}/></label>
+          </div>
+          <div className="rounded-2xl border border-line bg-paper p-4">
+            <p className="text-xs font-bold uppercase tracking-widest text-emerald-700">FAQ & final CTA</p>
+            <label className="mt-3 block"><span className="mb-1 block text-[10px] font-bold uppercase text-slate-400">FAQ heading</span><input value={String(settings.faq_title ?? '')} onChange={e=>setSetting('faq_title',e.target.value)} className={input}/></label>
+            <div className="mt-3 space-y-2">{faqs.map((faq:any,i:number)=><div key={i} className="rounded-xl border border-line bg-white p-3"><div className="flex gap-2"><input value={faq.q||''} onChange={e=>updateFaq(i,{q:e.target.value})} className={input} placeholder="Question"/><button type="button" onClick={()=>setSetting('faqs',faqs.filter((_:any,n:number)=>n!==i))} className="rounded-lg px-2 text-rose-500">×</button></div><textarea value={faq.a||''} onChange={e=>updateFaq(i,{a:e.target.value})} rows={3} className={text}/></div>)}<button type="button" onClick={()=>setSetting('faqs',[...faqs,{q:'',a:''}])} className="rounded-lg border border-dashed border-line px-3 py-2 text-xs font-bold">Add FAQ</button></div>
+            <label className="mt-4 block"><span className="mb-1 block text-[10px] font-bold uppercase text-slate-400">Final CTA heading</span><input value={String(settings.final_cta_title ?? '')} onChange={e=>setSetting('final_cta_title',e.target.value)} className={input}/></label>
+            <label className="mt-3 block"><span className="mb-1 block text-[10px] font-bold uppercase text-slate-400">Final CTA copy</span><textarea value={String(settings.final_cta_copy ?? '')} onChange={e=>setSetting('final_cta_copy',e.target.value)} rows={3} className={text}/></label>
+          </div>
+        </div>
+        <div className="mt-5 rounded-2xl border border-line bg-paper p-4">
+          <p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Methodology presentation</p>
+          <label className="mt-3 block"><span className="mb-1 block text-[10px] font-bold uppercase text-slate-400">Heading</span><input value={String(settings.methodology_title ?? '')} onChange={e=>setSetting('methodology_title',e.target.value)} className={input}/></label>
+          <label className="mt-3 block"><span className="mb-1 block text-[10px] font-bold uppercase text-slate-400">Copy</span><textarea value={String(settings.methodology_copy ?? '')} onChange={e=>setSetting('methodology_copy',e.target.value)} rows={3} className={text}/></label>
+        </div>
+        <div className="mt-5 rounded-2xl border border-line bg-white p-4">
+          <p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Editorial content</p>
+          <p className="mt-1 text-xs text-slate-500">Build or edit the long-form content inserted between the matcher and broker list. Broker facts remain live and are not copied into content.</p>
+          <div className="mt-3"><PageBuilder value={blocks} brokers={brokers} onChange={next=>{setBlocks(next);setForm(f=>({...f,blocks:next,html:blocksToHtml(next)}))}} /></div>
+        </div>
+        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+          <label><span className="mb-1 block text-[10px] font-bold uppercase text-slate-400">SEO title</span><input value={form.seo_title || ''} onChange={e=>setForm({...form,seo_title:e.target.value})} className={input}/></label>
+          <label><span className="mb-1 block text-[10px] font-bold uppercase text-slate-400">SEO description</span><textarea value={form.seo_description || ''} onChange={e=>setForm({...form,seo_description:e.target.value})} rows={2} className={text}/></label>
+        </div>
+        <div className="mt-4 flex items-center justify-between rounded-xl border border-line bg-paper p-4"><div><p className="text-sm font-bold">Publish country hub</p><p className="text-xs text-slate-500">Save changes directly to the canonical country hub document.</p></div><button type="button" onClick={save} disabled={busy} className="inline-flex h-10 items-center gap-2 rounded-xl bg-ink-950 px-4 text-xs font-bold text-white disabled:opacity-60">{busy&&<Loader2 size={14} className="animate-spin"/>}Save country hub</button></div>
+      </div>
+    </div>
+  </div>;
+}
+
 function CountryBrokerRankingPanel({ country, brokers, token, notify }: { country: CountryPage; brokers: Broker[]; token: string; notify: (msg: string) => void }) {
   const [rows, setRows] = useState<any[]>([]);
   const [eligibleBrokers, setEligibleBrokers] = useState<Broker[]>([]);
@@ -258,6 +376,7 @@ export default function CountryHub({ countries, brokers, contentDocs, token, not
   const [query, setQuery] = useState('');
   const [selectedSlug, setSelectedSlug] = useState(() => countries[0]?.slug ?? '');
   const [editingBestFor, setEditingBestFor] = useState<ContentDocument | null | 'new'>(null);
+  const [editingHub, setEditingHub] = useState(false);
   const [docs, setDocs] = useState<ContentDocument[]>(contentDocs);
   useEffect(() => setDocs(contentDocs), [contentDocs]);
 
@@ -276,7 +395,7 @@ export default function CountryHub({ countries, brokers, contentDocs, token, not
     if (res.ok && Array.isArray(data)) setDocs(data);
   };
 
-  return <div className="grid gap-5 lg:grid-cols-[300px_1fr]"><section className="rounded-2xl border border-line bg-white p-4"><div className="flex items-center justify-between"><h2 className="font-display text-lg font-bold text-ink-900">Countries</h2></div><div className="mt-3 flex items-center gap-2 rounded-xl border border-line bg-paper px-3"><Search size={14} className="text-slate-400"/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search countries…" className="h-10 flex-1 bg-transparent text-sm outline-none"/></div><div className="mt-3 max-h-[560px] space-y-1 overflow-auto">{filtered.map(country=><button key={country.id} onClick={()=>setSelectedSlug(country.slug)} className={`w-full rounded-xl px-3 py-2 text-left text-sm transition ${selected.id===country.id?'bg-emerald-50 text-emerald-800':'hover:bg-paper'}`}><span className="font-bold">{country.flag} {country.name}</span><span className="block text-xs text-slate-400">/{country.slug}</span></button>)}</div></section><section className="space-y-5"><div className="rounded-2xl border border-line bg-white p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Country Workspace</p><h2 className="font-display text-2xl font-bold text-ink-900">{selected.flag} {selected.name}</h2><p className="mt-1 text-sm text-slate-500">Canonical country guides and Best-For pages are managed as Content Studio documents.</p></div></div><div className="mt-4 grid gap-3 sm:grid-cols-3"><HubMetric label="Publishing" value={publishedState} sub="draft · published · closed"/><HubMetric label="Best-For" value={String(bestFor.length)} sub="canonical country documents"/><HubMetric label="Country content" value={String(countryDocs.length + bestFor.length)} sub="guides and content docs"/></div></div><CountryBrokerRankingPanel country={selected} brokers={brokers} token={token} notify={notify}/><SeoGeneratorPanel country={selected} token={token} notify={notify} onCreated={reload}/><div className="grid gap-5 xl:grid-cols-2"><EntityPanel title="SEO QA" items={[selected.seo_title?'SEO title present':'Missing SEO title',selected.seo_description?'Meta description present':'Missing meta description']}/><EntityPanel title="Broker coverage" items={[`${brokers.length} brokers in database`,'Country eligibility is opt-out: brokers are eligible unless explicitly restricted or unavailable.','Use Broker Workspace to manage country availability states.']}/></div><div className="rounded-2xl border border-line bg-white p-5"><div className="flex flex-wrap items-center justify-between gap-2"><div><h3 className="font-display text-lg font-bold text-ink-900">Best-For pages</h3><p className="mt-0.5 text-xs text-slate-500">Canonical Content Studio ownership — no legacy country_best_for rows.</p></div><button onClick={()=>setEditingBestFor('new')} className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3.5 py-1.5 text-xs font-bold text-white"><Plus size={13}/> Add new page</button></div><div className="mt-3 divide-y divide-line rounded-xl border border-line">{bestFor.map(doc=><div key={doc.id} className="flex items-center justify-between px-4 py-3"><button onClick={()=>setEditingBestFor(doc)} className="min-w-0 flex-1 text-left"><span className="block truncate text-sm font-bold text-ink-900">{doc.title || doc.slug || doc.content_key}</span><span className="text-xs text-slate-400">/{selected.slug}/{doc.slug} · {doc.published?'Published':'Draft'} · {doc.indexable?'Indexable':'Noindex'}</span></button><div className="flex shrink-0 items-center gap-1">{doc.slug && (doc.published
+  return <div className="grid gap-5 lg:grid-cols-[300px_1fr]"><section className="rounded-2xl border border-line bg-white p-4"><div className="flex items-center justify-between"><h2 className="font-display text-lg font-bold text-ink-900">Countries</h2></div><div className="mt-3 flex items-center gap-2 rounded-xl border border-line bg-paper px-3"><Search size={14} className="text-slate-400"/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search countries…" className="h-10 flex-1 bg-transparent text-sm outline-none"/></div><div className="mt-3 max-h-[560px] space-y-1 overflow-auto">{filtered.map(country=><button key={country.id} onClick={()=>setSelectedSlug(country.slug)} className={`w-full rounded-xl px-3 py-2 text-left text-sm transition ${selected.id===country.id?'bg-emerald-50 text-emerald-800':'hover:bg-paper'}`}><span className="font-bold">{country.flag} {country.name}</span><span className="block text-xs text-slate-400">/{country.slug}</span></button>)}</div></section><section className="space-y-5"><div className="rounded-2xl border border-line bg-white p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Country Workspace</p><h2 className="font-display text-2xl font-bold text-ink-900">{selected.flag} {selected.name}</h2><p className="mt-1 text-sm text-slate-500">Canonical country hub, broker ranking, Best-For pages and guides.</p></div><div className="flex gap-2"><a href={`/${selected.slug}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-xl border border-line px-3 py-2 text-xs font-bold text-slate-600"><Eye size={13}/> View page</a><button onClick={()=>setEditingHub(true)} className="inline-flex items-center gap-1.5 rounded-xl bg-ink-950 px-3 py-2 text-xs font-bold text-white"><Pencil size={13}/> Edit hub</button></div></div><div className="mt-4 grid gap-3 sm:grid-cols-3"><HubMetric label="Publishing" value={publishedState} sub="draft · published · closed"/><HubMetric label="Best-For" value={String(bestFor.length)} sub="canonical country documents"/><HubMetric label="Country content" value={String(countryDocs.length + bestFor.length)} sub="guides and content docs"/></div></div><CountryBrokerRankingPanel country={selected} brokers={brokers} token={token} notify={notify}/><SeoGeneratorPanel country={selected} token={token} notify={notify} onCreated={reload}/><div className="grid gap-5 xl:grid-cols-2"><EntityPanel title="SEO QA" items={[selected.seo_title?'SEO title present':'Missing SEO title',selected.seo_description?'Meta description present':'Missing meta description']}/><EntityPanel title="Broker coverage" items={[`${brokers.length} brokers in database`,'Country eligibility is opt-out: brokers are eligible unless explicitly restricted or unavailable.','Use Broker Workspace to manage country availability states.']}/></div><div className="rounded-2xl border border-line bg-white p-5"><div className="flex flex-wrap items-center justify-between gap-2"><div><h3 className="font-display text-lg font-bold text-ink-900">Best-For pages</h3><p className="mt-0.5 text-xs text-slate-500">Canonical Content Studio ownership — no legacy country_best_for rows.</p></div><button onClick={()=>setEditingBestFor('new')} className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3.5 py-1.5 text-xs font-bold text-white"><Plus size={13}/> Add new page</button></div><div className="mt-3 divide-y divide-line rounded-xl border border-line">{bestFor.map(doc=><div key={doc.id} className="flex items-center justify-between px-4 py-3"><button onClick={()=>setEditingBestFor(doc)} className="min-w-0 flex-1 text-left"><span className="block truncate text-sm font-bold text-ink-900">{doc.title || doc.slug || doc.content_key}</span><span className="text-xs text-slate-400">/{selected.slug}/{doc.slug} · {doc.published?'Published':'Draft'} · {doc.indexable?'Indexable':'Noindex'}</span></button><div className="flex shrink-0 items-center gap-1">{doc.slug && (doc.published
   ? <a href={`/${selected.slug}/${doc.slug}`} target="_blank" rel="noreferrer" className="rounded-lg p-2 text-slate-400 hover:bg-paper" title="Open published page"><Eye size={14}/></a>
-  : <a href={`/archypage/preview/${doc.id}`} target="_blank" rel="noreferrer" className="rounded-lg p-2 text-emerald-600 hover:bg-emerald-50" title="Preview draft"><Eye size={14}/></a>)}<button onClick={()=>setEditingBestFor(doc)} className="rounded-lg p-2 text-slate-400 hover:bg-paper" title="Edit page"><Pencil size={14}/></button><button onClick={async()=>{if(!window.confirm('Delete this canonical Best-For document?'))return;const res=await fetch('/api/content-documents',{method:'DELETE',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({id:doc.id})});if(!res.ok){const out=await res.json().catch(()=>({}));notify(out.error||'Could not delete page');return;}notify('Country Best-For page deleted');await reload();}} className="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600" title="Delete page"><Trash2 size={14}/></button></div></div>)}{!bestFor.length&&<p className="p-4 text-sm text-slate-400">No canonical country Best-For documents yet.</p>}</div></div><CountryGuides country={selected} countries={countries} brokers={brokers} token={token} notify={notify}/></section>{editingBestFor&&<CountryBestForEditor country={selected} document={editingBestFor==='new'?null:editingBestFor} brokers={brokers} globalBestFor={globalBestFor} token={token} notify={notify} onClose={()=>setEditingBestFor(null)} onSaved={reload}/>}</div>;
+  : <a href={`/archypage/preview/${doc.id}`} target="_blank" rel="noreferrer" className="rounded-lg p-2 text-emerald-600 hover:bg-emerald-50" title="Preview draft"><Eye size={14}/></a>)}<button onClick={()=>setEditingBestFor(doc)} className="rounded-lg p-2 text-slate-400 hover:bg-paper" title="Edit page"><Pencil size={14}/></button><button onClick={async()=>{if(!window.confirm('Delete this canonical Best-For document?'))return;const res=await fetch('/api/content-documents',{method:'DELETE',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({id:doc.id})});if(!res.ok){const out=await res.json().catch(()=>({}));notify(out.error||'Could not delete page');return;}notify('Country Best-For page deleted');await reload();}} className="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600" title="Delete page"><Trash2 size={14}/></button></div></div>)}{!bestFor.length&&<p className="p-4 text-sm text-slate-400">No canonical country Best-For documents yet.</p>}</div></div><CountryGuides country={selected} countries={countries} brokers={brokers} token={token} notify={notify}/></section>{editingHub&&<CountryHubEditor country={selected} document={countryDocs.find((doc)=>doc.content_key===`country:${selected.slug}:hub`) || null} brokers={brokers} token={token} notify={notify} onClose={()=>setEditingHub(false)} onSaved={reload}/>} {editingBestFor&&<CountryBestForEditor country={selected} document={editingBestFor==='new'?null:editingBestFor} brokers={brokers} globalBestFor={globalBestFor} token={token} notify={notify} onClose={()=>setEditingBestFor(null)} onSaved={reload}/>}</div>;
 }
