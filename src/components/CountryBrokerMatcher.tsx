@@ -25,7 +25,7 @@ export default function CountryBrokerMatcher({ countrySlug, countryName, country
   const results = useMemo(() => {
     if (!done) return [];
     const order = new Map(rankings.map((r, i) => [r.broker?.slug ?? '', r.final_rank ?? i + 1]));
-    const allowed = new Set(rankings.map((r) => r.broker?.slug).filter((s): s is string => Boolean(s)));
+    const allowed = new Set(rankings.filter((r) => r.availability_status !== 'unavailable' && r.availability_status !== 'restricted').map((r) => r.broker?.slug).filter((s): s is string => Boolean(s)));
     return brokers.filter((b) => allowed.has(b.slug)).map((broker) => {
       const scored = scoreBroker(broker, answers as BrokerMatchAnswers);
       const rank = order.get(broker.slug) ?? 99;
@@ -37,7 +37,7 @@ export default function CountryBrokerMatcher({ countrySlug, countryName, country
   const choose = (value: string) => {
     if (!q) return;
     if (q.multi) { const current = answers.prefs ?? []; setAnswers((prev) => ({ ...prev, prefs: current.includes(value) ? current.filter((v) => v !== value) : [...current, value] })); return; }
-    const next = { ...answers, [q.key]: value }; setAnswers(next);
+    const next = { ...answers, [q.key]: value } as Partial<BrokerMatchAnswers>; setAnswers(next);
     if (step === questions.length - 1) setDone(true); else setStep((s) => s + 1);
   };
   const reset = () => { setAnswers({ country: countrySlug, prefs: [] }); setStep(0); setDone(false); };
