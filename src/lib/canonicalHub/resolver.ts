@@ -27,7 +27,7 @@ export async function resolveCanonicalPath(pathname: string): Promise<CanonicalR
 
   if (segments.length === 2 && segments[0] === 'countries') {
     const slug = segments[1]; const country = await fetchCountry(slug).catch(() => null); if (!country || !isPublishedCountry(country)) return null;
-    return route(path, { type: 'country', slug, indexable: true, published: true, canonicalPath: `/${encode(slug)}` });
+    return route(path, { type: 'country', slug, country, indexable: true, published: true, canonicalPath: `/${encode(slug)}` });
   }
   if (segments.length === 2 && segments[0] === 'guides') {
     const slug = segments[1]; const document = await fetchPublicContentDocumentByTypeAndSlug('guide', slug);
@@ -82,7 +82,7 @@ export async function resolveCanonicalPath(pathname: string): Promise<CanonicalR
     }
     const country = await fetchCountry(slug).catch(() => null);
     if (!country || !isPublishedCountry(country)) return null;
-    return route(path, { type: 'country', slug, indexable: true, published: true });
+    return route(path, { type: 'country', slug, country, indexable: true, published: true });
   }
   return null;
 }
