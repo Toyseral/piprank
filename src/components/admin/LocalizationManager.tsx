@@ -64,7 +64,7 @@ export function LocalizationManager({ countries, languages, contentDocs, mutate 
     if (!owner) return;
 
     const canonicalOwnerSlug = String(owner.slug || '').trim();
-    if (!ownerSlug) return;
+    if (!canonicalOwnerSlug) return;
 
     const templateKeyBySlug: Record<string, string> = {
       'forex-brokers-for-beginners': 'beginners',
