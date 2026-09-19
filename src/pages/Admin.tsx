@@ -1543,7 +1543,25 @@ function BrokerEditor({
     }
   };
 
-  const categoryOptions = intents.map((i) => ({ value: i.slug, label: i.label }));
+  const BROKER_INTENT_STORAGE_SLUGS: Record<string, string> = {
+    'forex-brokers-for-beginners': 'beginners',
+    'low-spread-forex-brokers': 'low-spread',
+    'mt4-forex-brokers': 'mt4',
+    'mt5-forex-brokers': 'mt5',
+    'gold-forex-brokers': 'gold',
+    'ecn-forex-brokers': 'ecn',
+    'copy-trading-forex-brokers': 'copy-trading',
+    'forex-brokers-for-scalping': 'scalping',
+    'forex-brokers-for-swing-trading': 'swing-trading',
+    'high-leverage-forex-brokers': 'high-leverage',
+    'islamic-forex-brokers': 'islamic',
+  };
+
+  const categoryOptions = intents.map((i) => ({
+    value: i.slug,
+    storageValue: BROKER_INTENT_STORAGE_SLUGS[i.slug] ?? i.slug,
+    label: i.label,
+  }));
   const ratingPreview = parseFloat(String(form.rating)) || 0;
   const completed = EDITOR_TABS.filter((t) => t.done(form)).length;
 
@@ -1905,7 +1923,7 @@ function BrokerEditor({
                   <FieldLabel hint="controls where this broker appears in /best/* rankings">Categories</FieldLabel>
                   <div className="mt-2.5 flex flex-wrap gap-2">
                     {categoryOptions.map((opt) => {
-                      const on = (form.best_for as string[]).includes(opt.value);
+                      const on = (form.best_for as string[]).includes(opt.storageValue);
                       return (
                         <button
                           type="button"
@@ -1914,8 +1932,8 @@ function BrokerEditor({
                             set(
                               'best_for',
                               on
-                                ? form.best_for.filter((s: string) => s !== opt.value)
-                                : [...form.best_for, opt.value]
+                                ? form.best_for.filter((s: string) => s !== opt.storageValue)
+                                : [...form.best_for, opt.storageValue]
                             )
                           }
                           className={`rounded-full border px-3.5 py-2 text-xs font-bold transition ${
