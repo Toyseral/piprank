@@ -269,7 +269,7 @@ export default function Admin() {
   useEffect(() => {
     if (!session) return;
     setRole('checking');
-    fetch('/api/admin-users?self=1', {
+    fetch('/api/site?resource=admin-users?self=1', {
       headers: { Authorization: `Bearer ${session.access_token}` },
     })
       .then((r) => (r.ok ? r.json() : { role: null }))
@@ -1468,7 +1468,7 @@ function BrokerEditor({
     reader.onload = async () => {
       try {
         const base64 = String(reader.result ?? '').split(',')[1] ?? '';
-        const res = await fetch('/api/logo-upload', {
+        const res = await fetch('/api/site?resource=logo-upload', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({ brokerId: broker.id, fileName: file.name, fileBase64: base64, contentType: file.type }),
