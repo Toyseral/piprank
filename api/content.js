@@ -218,16 +218,18 @@ async function handleSeoPageGenerator(req, res) {
   if (!country) return res.status(404).json({ error: `Country not found: ${countrySlug}` });
   if (existing) return res.status(409).json({ error: 'This canonical country Best-For page already exists', document: existing });
 
-  const [{ data: intent, error: intentError }, { data: rankings, error: rankingError }] = await Promise.all([
-    supabase.from('intents').select('id,slug').eq('slug', topicSlug).maybeSingle(),
-    supabase.from('country_intent_broker_final_rankings')
-      .select('broker_id,final_rank,eligibility_status')
-      .eq('country_id', Number(country.id))
-      .eq('intent_id', Number((await supabase.from('intents').select('id').eq('slug', topicSlug).maybeSingle()).data?.id || 0)),
-  ]);
+  const { data: intent, error: intentError } = await supabase.from('intents')
+    .select('id,slug')
+    .eq('slug', topicSlug)
+    .maybeSingle();
   if (intentError) throw intentError;
-  if (rankingError) throw rankingError;
   if (!intent) return res.status(400).json({ error: 'Canonical intent is not configured' });
+
+  const { data: rankings, error: rankingError } = await supabase.from('country_intent_broker_final_rankings')
+    .select('broker_id,final_rank,eligibility_status')
+    .eq('country_id', Number(country.id))
+    .eq('intent_id', Number(intent.id));
+  if (rankingError) throw rankingError;
 
   const qualifyingIds = new Set(
     (rankings ?? [])
