@@ -440,8 +440,10 @@ async function handleCountryIntentRankings(req, res) {
     const { data: availability, error: availabilityError } = await supabase.from('broker_country_availability')
       .select('status,is_available').eq('country_id', Number(countryRow.id)).eq('broker_id', brokerId).maybeSingle();
     if (availabilityError) throw availabilityError;
-    if (manualRank !== null && (availability?.is_available === false || (availability?.status && !['available'].includes(String(availability.status).toLowerCase())))) {
-      return res.status(400).json({ error: 'Only brokers available in this country can be ranked' });
+    const availabilityStatus = String(availability?.status ?? 'available').toLowerCase();
+    const brokerUnavailable = availability?.is_available === false || ['unavailable', 'restricted'].includes(availabilityStatus);
+    if (brokerUnavailable && (manualRank !== null || Boolean(b.force_include))) {
+      return res.status(400).json({ error: 'Unavailable or restricted brokers cannot be included or manually ranked in this country' });
     }
 
     if (manualRank !== null) {
