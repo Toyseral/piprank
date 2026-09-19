@@ -84,6 +84,12 @@ SET
 WHERE d.content_type = 'localized-best-for'
   AND (d.topic_slug = 'eur-usd' OR d.slug = 'eur-usd-forex-brokers');
 
+-- Keep seeded owners as drafts until editorial content and broker membership are reviewed.
+UPDATE public.content_documents
+SET published = false, indexable = false, updated_at = now()
+WHERE content_type = 'global-best-for'
+  AND slug IN ('crypto-brokers', 'eur-usd-forex-brokers');
+
 -- Re-run the ranking sync for the new canonical intents. Membership is based
 -- only on explicit brokers.best_for values; no broker is auto-classified here.
 DO $$
