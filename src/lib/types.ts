@@ -14,7 +14,7 @@ export interface Promotion { id: number; broker_id: number; title: string; descr
 export interface PlatformDetail extends BrokerPlatform {}
 export interface AccountType { name: string; spread_from: string; commission: string; min_deposit: string; best_for: string; }
 export interface PaymentRail { method: string; deposit: string; withdrawal: string; fee: string; }
-export interface BrokerCountryAvailability { id: number; broker_id: number; country_id: number; country_slug?: string; country_name?: string; status: 'available' | 'restricted' | 'unavailable' | 'unknown'; note?: string | null; priority?: number; updated_at?: string; }
+export interface BrokerCountryAvailability { id: number; broker_id: number; country_id: number; country_slug?: string; country_name?: string; is_available?: boolean; status: 'available' | 'restricted' | 'unavailable' | 'unknown'; note?: string | null; priority?: number; updated_at?: string; }
 export interface BrokerCountryVerification { id: number; broker_id: number; country_slug?: string; broker_name?: string; country_id: number; country_name?: string; broker_slug?: string; availability_verified: boolean; local_authorisation_status: 'authorised' | 'not_authorised' | 'not_applicable' | 'not_verified'; client_entity?: string | null; regulator?: string | null; affiliate_eligible?: boolean | null; verification_date?: string | null; source_url?: string | null; notes?: string | null; updated_at?: string; }
 export interface CountryFact { label: string; value: string; }
 export interface CountryRec { slug: string; note: string; }
