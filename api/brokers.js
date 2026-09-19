@@ -59,6 +59,19 @@ export default async function handler(req, res) {
       if (existingBrokerError) throw existingBrokerError;
       if (!existingBroker) return res.status(404).json({ error: 'Broker not found' });
 
+      if (existingBroker.slug !== fields.slug && fields.slug) {
+        const { data: conflictingContent, error: contentConflictError } = await supabase
+          .from('content_documents')
+          .select('id')
+          .eq('content_type', 'broker')
+          .or(`slug.eq.${fields.slug},content_key.like.broker:${fields.slug}:%`)
+          .limit(1);
+        if (contentConflictError) throw contentConflictError;
+        if (conflictingContent?.length) {
+          return res.status(409).json({ error: 'Broker content already exists for the requested slug' });
+        }
+      }
+
       const { data, error } = await supabase.from('brokers').update(fields).eq('id', brokerId).select().single();
       if (error) throw error;
 
