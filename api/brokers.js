@@ -42,7 +42,36 @@ export default async function handler(req, res) {
     }
     if (!(await requireRole(req, res, BROKER_WRITE))) return;
     if (req.method === 'POST') { const body = req.body ?? {}; if (!body.name || String(body.name).trim().length < 2) return res.status(400).json({ error: 'Broker name is required' }); const payload = { ...BROKER_DEFAULTS, ...pickBrokerFields(body), name: String(body.name).trim(), slug: body.slug ? slugify(body.slug) : slugify(body.name), platforms: normalizePlatforms(body.platforms ?? BROKER_DEFAULTS.platforms) }; const { data, error } = await supabase.from('brokers').insert(payload).select().single(); if (error) throw error; return res.status(201).json(normalizeBroker(data)); }
-    if (req.method === 'PUT') { const { id, ...input } = req.body ?? {}; if (!id) return res.status(400).json({ error: 'id is required' }); const fields = pickBrokerFields(input); if (Object.prototype.hasOwnProperty.call(input, 'slug')) fields.slug = slugify(input.slug); if (Object.prototype.hasOwnProperty.call(input, 'name')) fields.name = String(input.name).trim(); if (Object.prototype.hasOwnProperty.call(input, 'platforms')) fields.platforms = normalizePlatforms(input.platforms); if (Object.prototype.hasOwnProperty.call(fields, 'bonus') && !fields.bonus) fields.bonus = null; if (!Object.keys(fields).length) return res.status(400).json({ error: 'No valid broker fields supplied' }); const { data, error } = await supabase.from('brokers').update(fields).eq('id', Number(id)).select().single(); if (error) throw error; return res.status(200).json(normalizeBroker(data)); }
+    if (req.method === 'PUT') {
+      const { id, ...input } = req.body ?? {};
+      if (!id) return res.status(400).json({ error: 'id is required' });
+      const brokerId = Number(id);
+      if (!Number.isInteger(brokerId) || brokerId <= 0) return res.status(400).json({ error: 'A valid id is required' });
+      const fields = pickBrokerFields(input);
+      if (Object.prototype.hasOwnProperty.call(input, 'slug')) fields.slug = slugify(input.slug);
+      if (Object.prototype.hasOwnProperty.call(input, 'name')) fields.name = String(input.name).trim();
+      if (Object.prototype.hasOwnProperty.call(input, 'platforms')) fields.platforms = normalizePlatforms(input.platforms);
+      if (Object.prototype.hasOwnProperty.call(fields, 'bonus') && !fields.bonus) fields.bonus = null;
+      if (!Object.keys(fields).length) return res.status(400).json({ error: 'No valid broker fields supplied' });
+
+      const { data: existingBroker, error: existingBrokerError } = await supabase
+        .from('brokers').select('id,slug').eq('id', brokerId).maybeSingle();
+      if (existingBrokerError) throw existingBrokerError;
+      if (!existingBroker) return res.status(404).json({ error: 'Broker not found' });
+
+      const { data, error } = await supabase.from('brokers').update(fields).eq('id', brokerId).select().single();
+      if (error) throw error;
+
+      if (existingBroker.slug !== data.slug) {
+        const { error: syncError } = await supabase.rpc('rename_broker_content_documents', {
+          p_old_slug: existingBroker.slug,
+          p_new_slug: data.slug,
+        });
+        if (syncError) throw syncError;
+      }
+
+      return res.status(200).json(normalizeBroker(data));
+    }
     if (req.method === 'DELETE') {
       const brokerId = Number(req.body?.id); if (!Number.isInteger(brokerId) || brokerId <= 0) return res.status(400).json({ error: 'A valid id is required' });
       const { data: broker, error: brokerLookupError } = await supabase.from('brokers').select('id,slug').eq('id', brokerId).maybeSingle(); if (brokerLookupError) throw brokerLookupError; if (!broker) return res.status(404).json({ error: 'Broker not found' });
