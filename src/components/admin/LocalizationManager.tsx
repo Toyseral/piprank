@@ -83,7 +83,7 @@ export function LocalizationManager({ countries, languages, contentDocs, mutate 
       content_key: contentKey,
       content_type: 'localized-best-for',
       country_slug: country.slug,
-      topic_slug: owner.slug,
+      topic_slug: canonicalOwnerSlug,
       slug,
       title: template.title,
       excerpt: template.description ?? '',
