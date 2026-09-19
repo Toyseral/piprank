@@ -38,9 +38,9 @@ export default function AdminContentPreview() {
       const res = await fetch(`/api/content-documents?id=${documentId}&admin=true`, {
         headers: { Authorization: `Bearer ${currentSession.access_token}` },
       });
-      const data = await res.json().catch(() => null);
+      const payload = await res.json().catch(() => null);
 
-      if (!res.ok || !data) {
+      if (!res.ok || !payload) {
         setState('error');
         setMessage(data?.error || 'The draft could not be loaded.');
         return;
