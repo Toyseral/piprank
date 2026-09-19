@@ -69,7 +69,7 @@ export default function CountryDetail() {
   }, [ranked]);
 
   const whatMatters = useMemo(() => {
-    const configured = document?.settings?.what_matters;
+    const configured = (document?.settings as Record<string, unknown> | undefined)?.what_matters;
     if (Array.isArray(configured)) return configured.filter((x: any) => x && typeof x.title === 'string').slice(0, 8);
     return [
       { title: 'Regulation', description: `Check which legal entity and regulatory protections apply to residents of ${country?.name ?? 'this country'}.` },
