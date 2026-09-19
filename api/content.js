@@ -441,7 +441,7 @@ async function handleCountryIntentRankings(req, res) {
       .select('status,is_available').eq('country_id', Number(countryRow.id)).eq('broker_id', brokerId).maybeSingle();
     if (availabilityError) throw availabilityError;
     const availabilityStatus = String(availability?.status ?? 'available').toLowerCase();
-    const brokerUnavailable = availability?.is_available === false || ['unavailable', 'restricted'].includes(availabilityStatus);
+    const brokerUnavailable = availability?.is_available === false || availabilityStatus !== 'available';
     if (brokerUnavailable && (manualRank !== null || Boolean(b.force_include))) {
       return res.status(400).json({ error: 'Unavailable or restricted brokers cannot be included or manually ranked in this country' });
     }
