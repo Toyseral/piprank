@@ -3,6 +3,7 @@ import {
   Landmark, MonitorSmartphone, Moon, Server, TrendingUp, Zap, type LucideIcon,
 } from 'lucide-react';
 import type { Broker } from './types';
+import { hasPlatform } from './types';
 import { allInCost } from './score';
 import { fmtMoney } from './format';
 
@@ -76,7 +77,7 @@ export function scoreBroker(b: Broker, a: BrokerMatchAnswers): { score:number; r
   const trustScore = Number.isFinite(Number(b.trust_score)) ? Number(b.trust_score) : 0;
   const spread = Number.isFinite(Number(b.spread_eurusd)) ? Number(b.spread_eurusd) : Number.POSITIVE_INFINITY;
   const executionMs = Number.isFinite(Number(b.execution_ms)) ? Number(b.execution_ms) : Number.POSITIVE_INFINITY;
-  const leverageValue = Number.isFinite(Number(leverageValue)) ? Number(leverageValue) : 0;
+  const leverageValue = Number.isFinite(Number(b.leverage_value)) ? Number(b.leverage_value) : 0;
   const minDeposit = Number.isFinite(Number(b.min_deposit)) ? Number(b.min_deposit) : Number.POSITIVE_INFINITY;
   const platforms = Array.isArray(b.platforms) ? b.platforms : [];
   const bestFor = Array.isArray(b.best_for) ? b.best_for : [];
@@ -86,7 +87,7 @@ export function scoreBroker(b: Broker, a: BrokerMatchAnswers): { score:number; r
   else if(a.style==='day'){if(spread<=0.3){s+=6;reasons.push(`Tight ${b.spread_eurusd}p spreads all session`);}else s+=1;}
   else if(a.style==='swing'){if(bestFor.includes('swing-trading')){s+=8;reasons.push('Strong multi-day conditions');}}
   else if(a.style==='copy'){if(b.copy_trading){s+=14;reasons.push('Native copy-trading platform');}else s-=12;}
-  if(a.platform!=='any'){if(platforms.includes(a.platform)){s+=9;reasons.push(`${a.platform} supported`);}else s-=8;}
+  if(a.platform!=='any'){if(hasPlatform(platforms, a.platform)){s+=9;reasons.push(`${a.platform} supported`);}else s-=8;}
   if(a.priority==='lowcost'){const cost=allInCost(b);s+=Math.max(0,13-cost*6);reasons.push(`${cost} pips all-in per EUR/USD lot`);}
   else if(a.priority==='platform'){s+=platforms.length*3;reasons.push(`${platforms.length} platforms incl. ${platforms[0]?.name ?? 'platform'}`);}
   else if(a.priority==='education'){if(bestFor.includes('beginners')){s+=10;reasons.push('Dedicated beginner education');}if(b.demo_account){s+=3;reasons.push('Free unlimited demo account');}}
