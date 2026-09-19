@@ -62,6 +62,7 @@ async function handleIntents(req,res){
     if(slug) query=query.eq('slug',slug).limit(1);
     const {data:intents,error}=await query;
     if(error) throw error;
+    const requestedCanonicalSlug = slug ? canonicalIntentSlug(slug) : null;
     if(requestedCanonicalSlug && !intents?.[0]) return res.status(404).json({error:'Category not found'});
 
     // Expose exactly one canonical intent per global Best-For owner. Legacy short
