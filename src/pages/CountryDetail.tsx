@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, BookOpen, CheckCircle2, ChevronRight, ExternalLink, Globe2, Scale, ShieldCheck } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 import type { ContentDocument, CountryBrokerRanking, CountryWhatMatters } from '../lib/types';
+import type { CanonicalRoute } from '../lib/canonicalHub/types';
 import { fetchCountryHubPageModel, type CountryHubPageModel } from '../lib/countryHubModel';
 import PageBlocksRenderer from '../components/PageBlocksRenderer';
 import BrokerCard from '../components/BrokerCard';
@@ -39,9 +40,9 @@ function BrokerRanking({ ranked, countrySlug }: { ranked: CountryBrokerRanking[]
   return <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">{ranked.slice(0, 9).map((row, index) => row.broker ? <BrokerCard key={row.broker.id} broker={row.broker} rank={index + 1} countrySlug={countrySlug} note={row.editorial_note || undefined} /> : null)}</div>;
 }
 
-export default function CountryDetail() {
+export default function CountryDetail({ route }: { route?: CanonicalRoute }) {
   const params = useParams<{ countrySlug?: string; slug?: string }>();
-  const slug = params.countrySlug || params.slug || '';
+  const slug = route?.country?.slug || params.countrySlug || params.slug || '';
   const [model, setModel] = useState<CountryHubPageModel | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -53,7 +54,7 @@ export default function CountryDetail() {
       return () => { active = false; };
     }
     setLoading(true);
-    fetchCountryHubPageModel(slug)
+    fetchCountryHubPageModel(slug, route?.country)
       .then((nextModel) => { if (active) setModel(nextModel); })
       .catch(() => { if (active) setModel(null); })
       .finally(() => { if (active) setLoading(false); });
@@ -124,7 +125,7 @@ export default function CountryDetail() {
   }, [document, country]);
 
   if (loading) return <div className="mx-auto max-w-7xl px-4 py-24 text-center text-sm text-slate-500">Loading country…</div>;
-  if (!country || !document) return <NotFound />;
+  if (!country) return <NotFound />;
 
   const comparisonPath = model?.comparisonPath ?? '/compare';
   const methodologyPath = model?.methodologyPath ?? '/methodology';
