@@ -65,7 +65,12 @@ export default function CountryDetail() {
 
   const comparisonPairs = useMemo(() => {
     const slugs = ranked.slice(0, 4).map((r) => r.broker?.slug).filter((v): v is string => Boolean(v));
-    return slugs.flatMap((a, i) => slugs.slice(i + 1).map((b) => ({ a, b }))).slice(0, 3);
+    return slugs
+      .flatMap((a, i) => slugs.slice(i + 1).map((b) => {
+        const [x, y] = [a, b].sort((m, n) => m.localeCompare(n));
+        return { a: x, b: y };
+      }))
+      .slice(0, 3);
   }, [ranked]);
 
   const whatMatters = useMemo(() => {
