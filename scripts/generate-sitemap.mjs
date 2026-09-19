@@ -105,11 +105,7 @@ async function main() {
     const previous = byLoc.get(entry.loc);
     if (!previous || (entry.lastmod || '') > (previous.lastmod || '')) byLoc.set(entry.loc, entry);
   }
-  const body = [...byLoc.values()].map((entry) => `  <url>
-    <loc>${escXml(siteUrl + entry.loc)}</loc>${entry.lastmod ? `
-    <lastmod>${entry.lastmod}</lastmod>` : ''}
-  </url>`).join('
-');
+  const body = [...byLoc.values()].map((entry) => `  <url>\n    <loc>${escXml(siteUrl + entry.loc)}</loc>${entry.lastmod ? `\n    <lastmod>${entry.lastmod}</lastmod>` : ''}\n  </url>`).join('\n');
   writeFileSync(join(DIST, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${body}
