@@ -1538,12 +1538,19 @@ function BrokerEditor({
     try {
       await onSave(out);
       savedSnapshot.current = JSON.stringify(form);
-     const categoryOptions = intents.map((i) => ({
-       value: i.slug,
-       storageValue: brokerIntentStorageSlug(i.slug),
-       label: i.label,
-     }));
-     const ratingPreview = parseFloat(String(form.rating)) || 0;
+      setErr('');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const categoryOptions = intents.map((i) => ({
+    value: i.slug,
+    storageValue: brokerIntentStorageSlug(i.slug),
+    label: i.label,
+  }));
+
+  const completed = EDITOR_TABS.filter((t) => t.done(form)).length;
   const completed = EDITOR_TABS.filter((t) => t.done(form)).length;
 
   return (
