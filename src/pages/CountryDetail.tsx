@@ -12,6 +12,27 @@ import { useSEO } from '../hooks/useSEO';
 import { buildBreadcrumbJsonLd, buildFAQPageJsonLd, buildItemListJsonLd, countrySeo } from '../lib/seo';
 import NotFound from './NotFound';
 
+const EMPTY_COUNTRY_DOCUMENT: ContentDocument = {
+  id: 0,
+  content_key: '',
+  content_type: 'country',
+  country_slug: null,
+  topic_slug: null,
+  slug: '',
+  title: '',
+  excerpt: '',
+  html: '',
+  blocks: [],
+  seo_title: '',
+  seo_description: '',
+  indexable: false,
+  published: false,
+  updated_by: null,
+  created_at: new Date(0).toISOString(),
+  updated_at: new Date(0).toISOString(),
+  settings: {},
+};
+
 function documentPath(doc: ContentDocument, countrySlug: string) {
   if (doc.content_type === 'country-guide') return `/${countrySlug}/guides/${doc.slug}`;
   if (doc.content_type === 'country-best-for') return `/${countrySlug}/${doc.slug}`;
@@ -62,7 +83,7 @@ export default function CountryDetail({ route }: { route?: CanonicalRoute }) {
   }, [slug]);
 
   const country = model?.country ?? null;
-  const document = model?.countryDocument ?? null;
+  const document: ContentDocument = model?.countryDocument ?? EMPTY_COUNTRY_DOCUMENT;
   const brokers = model?.availableBrokers ?? [];
   const ranked = model?.topBrokers ?? [];
   const faqs = model?.faqs ?? [];
