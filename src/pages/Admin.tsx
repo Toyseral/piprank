@@ -59,6 +59,7 @@ import AdminSidebar from './admin/components/AdminSidebar';
 import AffiliateLinksTab from './admin/AffiliateLinksTab';
 import UnifiedGuideEditor from '../components/admin/UnifiedGuideEditor';
 import RankingManager from '../components/admin/RankingManager';
+import { brokerIntentStorageSlug } from '../lib/intentTaxonomy';
 
 /* =============================== TYPES =============================== */
 
@@ -1537,29 +1538,12 @@ function BrokerEditor({
     try {
       await onSave(out);
       savedSnapshot.current = JSON.stringify(form);
-      setErr('');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const BROKER_INTENT_STORAGE_SLUGS: Record<string, string> = {
-    'forex-brokers-for-beginners': 'beginners',
-    'low-spread-forex-brokers': 'low-spread',
-    'mt4-forex-brokers': 'mt4',
-    'mt5-forex-brokers': 'mt5',
-    'gold-forex-brokers': 'gold',
-    'ecn-forex-brokers': 'ecn',
-    'copy-trading-forex-brokers': 'copy-trading',
-    'forex-brokers-for-scalping': 'scalping',
-    'forex-brokers-for-swing-trading': 'swing-trading',
-    'high-leverage-forex-brokers': 'high-leverage',
-    'islamic-forex-brokers': 'islamic',
-  };
-
-  const categoryOptions = intents.map((i) => ({
+     const categoryOptions = intents.map((i) => ({
     value: i.slug,
-    storageValue: BROKER_INTENT_STORAGE_SLUGS[i.slug] ?? i.slug,
+    storageValue: brokerIntentStorageSlug(i.slug),
+    label: i.label,
+  }));
+  const ratingPreviewslug] ?? i.slug,
     label: i.label,
   }));
   const ratingPreview = parseFloat(String(form.rating)) || 0;
