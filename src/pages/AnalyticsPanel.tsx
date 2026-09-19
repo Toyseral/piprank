@@ -59,7 +59,7 @@ export default function AnalyticsPanel({
 
   useEffect(() => {
     setLoading(true);
-    fetch(range === 'all' ? '/api/track?resource=events' : `/api/track?resource=events&days=${range}`, {
+    fetch(range === 'all' ? '/api/analytics?resource=events' : `/api/analytics?resource=events&days=${range}`, {
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     })
       .then((x) => (x.ok ? x.json() : Promise.reject(new Error('Unauthorized'))))
