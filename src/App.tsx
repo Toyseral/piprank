@@ -6,6 +6,7 @@ import Navbar from './components/Navbar';
 import ScrollToTop from './components/ScrollToTop';
 import Home from './pages/Home';
 import NotFound from './pages/NotFound';
+import CountryGuidesIndex from './pages/CountryGuidesIndex';
 import { GeoProvider } from './lib/GeoContext';
 
 const SmartCTA = lazy(() => import('./components/SmartCTA'));
@@ -53,6 +54,7 @@ export function Shell() {
           <Route path="/guides/:slug" element={<CanonicalHub />} />
           <Route path="/countries" element={<CanonicalHub />} />
           <Route path="/countries/:slug" element={<CanonicalHub />} />
+          <Route path="/:countrySlug/guides" element={<CountryGuidesIndex />} />
           <Route path="/:countrySlug/guides/:slug" element={<CanonicalHub />} />
           <Route path="/:countrySlug/:locale/guides/:slug" element={<CanonicalHub />} />
           <Route path="/:countrySlug/:locale/:topicSlug" element={<CanonicalHub />} />

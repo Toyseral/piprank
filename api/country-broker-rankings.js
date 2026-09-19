@@ -62,7 +62,7 @@ export default async function handler(req, res) {
         const availabilityResult = results[3];
         if (availabilityResult.error) throw availabilityResult.error;
         const ineligibleIds = new Set((availabilityResult.data || [])
-          .filter((row) => row.is_available === false || ['unavailable', 'restricted'].includes(String(row.status || '').toLowerCase()))
+          .filter((row) => row.is_available === false || String(row.status || 'available').toLowerCase() !== 'available')
           .map((row) => Number(row.broker_id)));
         const eligibleBrokers = brokers.filter((broker) => !ineligibleIds.has(Number(broker.id)));
         return res.status(200).json({ ranking_mode: rankingMode, rows: hydrated, eligible_brokers: eligibleBrokers });
@@ -109,7 +109,7 @@ export default async function handler(req, res) {
         .maybeSingle();
       if (availabilityError) throw availabilityError;
       const explicitlyIneligible = Boolean(availability && (
-        availability.is_available === false || ['unavailable', 'restricted'].includes(String(availability.status || '').toLowerCase())
+        availability.is_available === false || String(availability.status || 'available').toLowerCase() !== 'available'
       ));
       if (explicitlyIneligible && !Boolean(req.body?.force_exclude)) {
         return res.status(400).json({ error: 'This broker is explicitly ineligible for this country. Change country eligibility first or leave it excluded.' });

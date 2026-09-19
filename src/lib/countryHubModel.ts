@@ -9,6 +9,8 @@ export type CountryHubPageModel = {
   topBrokers: CountryBrokerRanking[];
   countryGuides: ContentDocument[];
   countryBestFor: ContentDocument[];
+  localizedGuides: ContentDocument[];
+  localizedBestFor: ContentDocument[];
   /** Canonical FAQ source is the country hub document. */
   faqs: FAQ[];
   /** Country comparison pages are dynamic /compare/:pair routes, not country-owned documents. */
@@ -21,13 +23,15 @@ export async function fetchCountryHubPageModel(slug: string): Promise<CountryHub
   const country = await fetchCountry(slug).catch(() => null);
   if (!country || country.publishing_state === 'closed' || country.publishing_state === 'draft') return null;
 
-  const [countryDocument, brokers, availability, topBrokers, countryGuides, countryBestFor] = await Promise.all([
+  const [countryDocument, brokers, availability, topBrokers, countryGuides, countryBestFor, localizedGuides, localizedBestFor] = await Promise.all([
     fetchPublishedContentDocument(`country:${country.slug}:hub`),
     fetchBrokers(),
     fetchCountryBrokerAvailability(country.slug),
     fetchCountryBrokerRankings(country.slug),
     fetchPublishedContentDocuments({ type: 'country-guide', country: country.slug }),
     fetchPublishedContentDocuments({ type: 'country-best-for', country: country.slug }),
+    fetchPublishedContentDocuments({ type: 'localized-guide', country: country.slug }),
+    fetchPublishedContentDocuments({ type: 'localized-best-for', country: country.slug }),
   ]);
 
   if (!countryDocument) return null;
@@ -35,20 +39,20 @@ export async function fetchCountryHubPageModel(slug: string): Promise<CountryHub
   const documentSettings = countryDocument.settings || {};
   const documentFaqs = Array.isArray(documentSettings.faqs) ? documentSettings.faqs : [];
 
+  const ineligibleIds = new Set(availability
+    .filter((row) => row.is_available === false || String(row.status || 'available').toLowerCase() !== 'available')
+    .map((row) => Number(row.broker_id)));
+  const eligibleBrokerIds = new Set(brokers.filter((broker) => !ineligibleIds.has(Number(broker.id))).map((broker) => Number(broker.id)));
+
   return {
     country,
     countryDocument,
-    availableBrokers: (() => {
-      // Eligibility is opt-out: brokers are eligible unless country data explicitly
-      // marks them unavailable/restricted or is_available=false.
-      const ineligibleIds = new Set(availability
-        .filter((row) => ['unavailable', 'restricted'].includes(String(row.status || '').toLowerCase()))
-        .map((row) => Number(row.broker_id)));
-      return brokers.filter((broker) => !ineligibleIds.has(Number(broker.id)));
-    })(),
-    topBrokers: topBrokers.filter((row) => row.broker && row.availability_status !== 'unavailable' && row.availability_status !== 'restricted'),
+    availableBrokers: brokers.filter((broker) => eligibleBrokerIds.has(Number(broker.id))),
+    topBrokers: topBrokers.filter((row) => row.broker && eligibleBrokerIds.has(Number(row.broker_id)) && row.availability_status === 'available'),
     countryGuides: countryGuides.filter((doc) => doc.content_type === 'country-guide'),
     countryBestFor: countryBestFor.filter((doc) => doc.content_type === 'country-best-for'),
+    localizedGuides: localizedGuides.filter((doc) => doc.content_type === 'localized-guide'),
+    localizedBestFor: localizedBestFor.filter((doc) => doc.content_type === 'localized-best-for'),
     faqs: documentFaqs.filter((faq): faq is FAQ => Boolean(faq && typeof faq.q === 'string' && typeof faq.a === 'string')),
     comparisonPath: '/compare',
     methodologyPath: '/methodology',

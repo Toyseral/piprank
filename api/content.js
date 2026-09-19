@@ -148,11 +148,146 @@ function cleanHtml(input=''){let html=String(input);html=html.replace(/<\s*(scri
 function cleanBlocks(blocks){if(!Array.isArray(blocks))return [];return blocks.map(b=>b&&typeof b==='object'&&typeof b.html==='string'?{...b,html:cleanHtml(b.html)}:b);}
 function normalizeContentDoc(body){const contentType=String(body.content_type||'page').slice(0,40);const countrySlug=body.country_slug?slugify(body.country_slug):null;const topicSlug=body.topic_slug?slugify(body.topic_slug):null;const slug=body.slug?slugify(body.slug):(topicSlug||slugify(body.title||body.content_key||'')||null);const contentKey=String(body.content_key||[contentType,countrySlug,topicSlug,slug].filter(Boolean).join(':')).slice(0,180);return{content_key:contentKey,content_type:contentType,country_slug:countrySlug,topic_slug:topicSlug,slug,title:String(body.title||'').slice(0,180),excerpt:String(body.excerpt||'').slice(0,600),html:cleanHtml(body.html||''),blocks:cleanBlocks(Array.isArray(body.blocks)?body.blocks:[]),settings:body.settings&&typeof body.settings==='object'&&!Array.isArray(body.settings)?body.settings:{},seo_title:body.seo_title?String(body.seo_title).slice(0,180):null,seo_description:body.seo_description?String(body.seo_description).slice(0,320):null,indexable:body.indexable===undefined?true:Boolean(body.indexable),published:body.published===undefined?true:Boolean(body.published)};}
 async function handleContentAssets(req,res){if(req.method!=='POST')return res.status(405).json({error:'Method not allowed'});const actor=await requireRole(req,res,CONTENT_WRITE);if(!actor)return;const {filename,contentType,dataBase64}=req.body||{};if(!filename||!dataBase64)return res.status(400).json({error:'filename and dataBase64 are required'});const safeName=String(filename).toLowerCase().replace(/[^a-z0-9._-]+/g,'-').slice(-120);const type=String(contentType||'image/jpeg');if(!/^image\/(jpeg|png|webp|gif|svg\+xml)$/.test(type))return res.status(400).json({error:'Only JPEG, PNG, WebP, GIF or SVG images are allowed'});const raw=String(dataBase64).replace(/^data:[^;]+;base64,/,'');const buffer=Buffer.from(raw,'base64');if(buffer.length>4*1024*1024)return res.status(413).json({error:'Image must be 4 MB or smaller'});const path=`content/${Date.now()}-${safeName}`;const {error}=await supabase.storage.from('content-media').upload(path,buffer,{contentType:type,upsert:false});if(error)throw error;const {data}=supabase.storage.from('content-media').getPublicUrl(path);return res.status(201).json({url:data.publicUrl,uploaded_by:actor.email});}
-const TOPICS={'eur-usd-forex-brokers':{key:'eur-usd',title:'EUR/USD Forex Brokers',short:'EUR/USD',criteria:'EUR/USD trading'},'gold-forex-brokers':{key:'gold',title:'Gold Forex Brokers',short:'Gold',criteria:'gold and commodity trading'},'mt5-forex-brokers':{key:'mt5',title:'MT5 Forex Brokers',short:'MT5',criteria:'MetaTrader 5 trading'},'low-spread-forex-brokers':{key:'low-spread',title:'Low Spread Forex Brokers',short:'Low Spread',criteria:'competitive EUR/USD spreads'},'forex-brokers-for-beginners':{key:'beginners',title:'Forex Brokers for Beginners',short:'Beginners',criteria:'beginner-friendly trading'},'forex-brokers-for-scalping':{key:'scalping',title:'Forex Brokers for Scalping',short:'Scalping',criteria:'scalping'},'islamic-forex-brokers':{key:'islamic',title:'Islamic Forex Brokers',short:'Islamic / Swap-Free',criteria:'Islamic or swap-free accounts'},'low-minimum-deposit-forex-brokers':{key:'low-deposit',title:'Low Minimum Deposit Forex Brokers',short:'Low Minimum Deposit',criteria:'low minimum deposits'},'copy-trading-forex-brokers':{key:'copy-trading',title:'Copy Trading Forex Brokers',short:'Copy Trading',criteria:'copy trading'},'forex-brokers-with-demo-accounts':{key:'demo',title:'Forex Brokers with Demo Accounts',short:'Demo Accounts',criteria:'demo account availability'},'forex-brokers-for-hedging':{key:'hedging',title:'Forex Brokers for Hedging',short:'Hedging',criteria:'hedging'},'raw-spread-forex-brokers':{key:'raw-spread',title:'Raw Spread Forex Brokers',short:'Raw Spread',criteria:'raw-spread accounts'},'ecn-forex-brokers':{key:'ecn',title:'ECN Forex Brokers',short:'ECN',criteria:'ECN-style accounts'},'standard-account-forex-brokers':{key:'standard',title:'Standard Account Forex Brokers',short:'Standard Accounts',criteria:'standard accounts'},'forex-brokers-for-swing-trading':{key:'swing-trading',title:'Forex Brokers for Swing Trading',short:'Swing Trading',criteria:'swing trading'},'high-leverage-forex-brokers':{key:'high-leverage',title:'High Leverage Forex Brokers',short:'High Leverage',criteria:'high-leverage trading'},'eur-usd-mt5-forex-brokers':{key:'eur-usd-mt5',title:'EUR/USD MT5 Forex Brokers',short:'EUR/USD MT5',criteria:'EUR/USD trading on MT5',requirements:['eur-usd','mt5']},'eur-usd-forex-brokers-for-scalping':{key:'eur-usd-scalping',title:'EUR/USD Forex Brokers for Scalping',short:'EUR/USD Scalping',criteria:'EUR/USD scalping',requirements:['eur-usd','scalping']},'mt5-gold-forex-brokers':{key:'gold-mt5',title:'MT5 Gold Forex Brokers',short:'MT5 Gold',criteria:'gold trading on MT5',requirements:['gold','mt5']},'gold-forex-brokers-for-scalping':{key:'gold-scalping',title:'Gold Forex Brokers for Scalping',short:'Gold Scalping',criteria:'gold scalping',requirements:['gold','scalping']},'mt5-forex-brokers-for-scalping':{key:'mt5-scalping',title:'MT5 Forex Brokers for Scalping',short:'MT5 Scalping',criteria:'MT5 scalping',requirements:['mt5','scalping']},'low-spread-mt5-forex-brokers':{key:'low-spread-mt5',title:'Low Spread MT5 Forex Brokers',short:'Low Spread MT5',criteria:'low-spread MT5 trading',requirements:['low-spread','mt5']},'low-spread-forex-brokers-for-scalping':{key:'low-spread-scalping',title:'Low Spread Forex Brokers for Scalping',short:'Low Spread Scalping',criteria:'low-spread scalping',requirements:['low-spread','scalping']},'islamic-mt5-forex-brokers':{key:'islamic-mt5',title:'Islamic MT5 Forex Brokers',short:'Islamic MT5',criteria:'Islamic trading on MT5',requirements:['islamic','mt5']},'mt5-forex-brokers-for-beginners':{key:'beginner-mt5',title:'MT5 Forex Brokers for Beginners',short:'MT5 for Beginners',criteria:'beginner-friendly MT5 trading',requirements:['beginners','mt5']},'low-spread-gold-forex-brokers':{key:'gold-low-spread',title:'Low Spread Gold Forex Brokers',short:'Low Spread Gold',criteria:'low-spread gold trading',requirements:['gold','low-spread']}};
-function matches(b,key){const checks={'eur-usd':()=>Number.isFinite(Number(b.spread_eurusd))&&Number(b.spread_eurusd)>=0,gold:()=>Number(b.assets?.commodities??0)>0,mt5:()=>Array.isArray(b.platforms)&&b.platforms.some(p=>String(p?.name??p).toLowerCase()==='mt5'),'low-spread':()=>Number.isFinite(Number(b.spread_eurusd)),beginners:()=>Boolean(b.demo_account)||Number(b.min_deposit??999999)<=100||(b.best_for??[]).includes('beginners'),scalping:()=>Boolean(b.scalping),islamic:()=>Boolean(b.islamic_account),'low-deposit':()=>Number(b.min_deposit??999999)<=100,'copy-trading':()=>Boolean(b.copy_trading),demo:()=>Boolean(b.demo_account),hedging:()=>Boolean(b.hedging),'raw-spread':()=>(b.account_types??[]).some(a=>/raw|raw spread/i.test(String(a))),ecn:()=>(b.account_types??[]).some(a=>/ecn/i.test(String(a))),standard:()=>(b.account_types??[]).some(a=>/standard/i.test(String(a))),'swing-trading':()=>(b.best_for??[]).includes('swing-trading'),'high-leverage':()=>(b.best_for??[]).includes('high-leverage')};return Boolean(checks[key]?.());}
+const TOPICS = {
+  'eur-usd-forex-brokers': { key: 'eur-usd', title: 'EUR/USD Forex Brokers', short: 'EUR/USD', criteria: 'EUR/USD trading' },
+  'gold-forex-brokers': { key: 'gold', title: 'Gold Forex Brokers', short: 'Gold', criteria: 'gold and commodity trading' },
+  'crypto-brokers': { key: 'crypto', title: 'Crypto Forex Brokers', short: 'Crypto', criteria: 'crypto trading' },
+  'mt4-forex-brokers': { key: 'mt4', title: 'MT4 Forex Brokers', short: 'MT4', criteria: 'MetaTrader 4 trading' },
+  'mt5-forex-brokers': { key: 'mt5', title: 'MT5 Forex Brokers', short: 'MT5', criteria: 'MetaTrader 5 trading' },
+  'low-spread-forex-brokers': { key: 'low-spread', title: 'Low Spread Forex Brokers', short: 'Low Spread', criteria: 'competitive EUR/USD spreads' },
+  'forex-brokers-for-beginners': { key: 'beginners', title: 'Forex Brokers for Beginners', short: 'Beginners', criteria: 'beginner-friendly trading' },
+  'forex-brokers-for-scalping': { key: 'scalping', title: 'Forex Brokers for Scalping', short: 'Scalping', criteria: 'scalping' },
+  'islamic-forex-brokers': { key: 'islamic', title: 'Islamic Forex Brokers', short: 'Islamic / Swap-Free', criteria: 'Islamic or swap-free accounts' },
+  'copy-trading-forex-brokers': { key: 'copy-trading', title: 'Copy Trading Forex Brokers', short: 'Copy Trading', criteria: 'copy trading' },
+  'ecn-forex-brokers': { key: 'ecn', title: 'ECN Forex Brokers', short: 'ECN', criteria: 'ECN-style accounts' },
+  'forex-brokers-for-swing-trading': { key: 'swing-trading', title: 'Forex Brokers for Swing Trading', short: 'Swing Trading', criteria: 'swing trading' },
+  'high-leverage-forex-brokers': { key: 'high-leverage', title: 'High Leverage Forex Brokers', short: 'High Leverage', criteria: 'high-leverage trading' },
+};
+
+function matches(b, key) {
+  const platforms = Array.isArray(b.platforms)
+    ? b.platforms.map((p) => String(p?.name ?? p).toLowerCase())
+    : [];
+  const checks = {
+    'eur-usd': () => Number.isFinite(Number(b.spread_eurusd)) && Number(b.spread_eurusd) >= 0,
+    gold: () => Number(b.assets?.commodities ?? 0) > 0,
+    crypto: () => Number(b.assets?.crypto ?? 0) > 0,
+    mt4: () => platforms.includes('mt4'),
+    mt5: () => platforms.includes('mt5'),
+    'low-spread': () => Number.isFinite(Number(b.spread_eurusd)),
+    beginners: () => Boolean(b.demo_account) || Number(b.min_deposit ?? 999999) <= 100 || (b.best_for ?? []).includes('beginners'),
+    scalping: () => Boolean(b.scalping),
+    islamic: () => Boolean(b.islamic_account),
+    'copy-trading': () => Boolean(b.copy_trading),
+    ecn: () => (b.account_types ?? []).some((a) => /ecn/i.test(String(a))),
+    'swing-trading': () => (b.best_for ?? []).includes('swing-trading'),
+    'high-leverage': () => (b.best_for ?? []).includes('high-leverage'),
+  };
+  return Boolean(checks[key]?.());
+}
+
 function makeBlocks(country,topic,qualifying){const brokerNames=qualifying.slice(0,5).map(b=>b.name).join(', ');const uid=()=>`b_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;const richtext=html=>({id:uid(),type:'richtext',html});const heading=title=>({id:uid(),type:'heading',title});const bullets=items=>`<ul>${items.map(i=>`<li>${i}</li>`).join('')}</ul>`;return[heading(`Best ${topic.title} in ${country.name}`),richtext(`<p>This PipRank page compares ${topic.title.toLowerCase()} available to traders in ${country.name}. The shortlist starts with brokers recommended for ${country.name}, then applies the ${topic.criteria} criteria for this page.</p>`),richtext(`<p>Broker availability, legal entities, spreads, leverage, payment methods and account conditions can differ by country. Always confirm the current terms that apply to residents of ${country.name} before opening an account.</p>`),heading(`What to look for when choosing a ${topic.short} broker in ${country.name}`),richtext(bullets(['Availability to residents of the country',`Competitive conditions for ${topic.criteria}`,'Relevant regulation and client protections','Platforms and account types that fit your trading style','Deposits, withdrawals and fees that work for your market'])),heading('PipRank broker shortlist'),richtext(`<p>${qualifying.length?`The current qualifying broker pool includes ${brokerNames}${qualifying.length>5?' and other eligible brokers.':'.'}`:'No broker currently meets the page eligibility threshold. Review the broker data before publishing this page.'}</p>`),heading('Is this page right for you?'),richtext(`<p>Use the comparison above if your priority is ${topic.criteria}. If your needs are different, explore the other broker categories for ${country.name} or use PipRank BrokerMatch to get a recommendation based on your preferences.</p>`)];}
 function makeFaqs(country,topic){return[{q:`What are the best ${topic.short} forex brokers in ${country.name}?`,a:`PipRank starts with brokers recommended for traders in ${country.name}, then filters them against the ${topic.criteria} criteria. The best choice can still depend on your trading style, costs, platform and account preferences.`},{q:`How does PipRank rank ${topic.short.toLowerCase()} brokers in ${country.name}?`,a:`We first establish the country-specific broker pool, then apply the page criteria and compare relevant broker data such as spreads, platforms, account features, minimum deposits and overall broker quality.`},{q:`Can forex broker conditions differ in ${country.name}?`,a:`Yes. The legal entity, regulator, leverage, payment methods, account types and available instruments can differ by country. Confirm the current terms for residents of ${country.name} before opening an account.`}];}
-async function handleSeoPageGenerator(req,res){if(req.method!=='POST')return res.status(405).json({error:'Method not allowed'});const actor=await requireRole(req,res,CONTENT_WRITE);if(!actor)return;const countrySlug=slugify(req.body?.country_slug||'');const topicSlug=slugify(req.body?.topic_slug||'');const topic=TOPICS[topicSlug];if(!countrySlug||!topic)return res.status(400).json({error:'Valid country_slug and supported topic_slug are required'});const [{data:country,error:ce},{data:brokers,error:be},{data:existing,error:xe}]=await Promise.all([supabase.from('countries').select('*').eq('slug',countrySlug).maybeSingle(),supabase.from('brokers').select('*'),supabase.from('content_documents').select('id,content_key').eq('content_key',`country-best-for:${countrySlug}:${topicSlug}`).maybeSingle()]);if(ce)throw ce;if(be)throw be;if(xe)throw xe;if(!country)return res.status(404).json({error:`Country not found: ${countrySlug}`});if(existing)return res.status(409).json({error:'This canonical country Best-For page already exists',document:existing});const {data:rankings,error:rankingError}=await supabase.from('country_broker_final_rankings').select('broker_id,availability_status').eq('country_id',Number(country.id));if(rankingError)throw rankingError;const eligibleBrokerIds=new Set((rankings??[]).filter((row)=>row.availability_status!=='unavailable'&&row.availability_status!=='restricted').map((row)=>Number(row.broker_id)).filter(Number.isInteger));const countryPool=(brokers||[]).filter(b=>eligibleBrokerIds.has(Number(b.id)));const qualifying=countryPool.filter(b=>(topic.requirements||[topic.key]).every(key=>matches(b,key)));const minBrokers=2;const eligible=qualifying.length>=minBrokers;const year=new Date().getFullYear();const title=`${topic.title} in ${country.name}`;const blocks=makeBlocks(country,topic,qualifying);const faqs=makeFaqs(country,topic);const payload={content_key:`country-best-for:${countrySlug}:${topicSlug}`,content_type:'country-best-for',country_slug:countrySlug,topic_slug:topicSlug,slug:topicSlug,title,excerpt:`Compare ${topic.title.toLowerCase()} available to traders in ${country.name}.`,html:'',blocks,seo_title:`Best ${topic.title} in ${country.name} ${year} | PipRank`,seo_description:`Compare ${topic.title.toLowerCase()} available to traders in ${country.name}, including country-specific broker recommendations, costs, platforms and key trading features.`,indexable:eligible,published:false,settings:{rankingMode:'auto',pinnedBrokerSlugs:[],excludedBrokerSlugs:[],faqs,internalLinks:[{label:`Best Forex Brokers in ${country.name}`,href:`/${countrySlug}`},{label:'Find My Best Broker',href:'/quiz'}],generator:{version:2,generatedAt:new Date().toISOString(),qualifyingBrokerCount:qualifying.length,minBrokers,eligibleForIndexing:eligible,actor:actor.email}},updated_by:actor.email};const {data,error}=await supabase.from('content_documents').insert(payload).select().single();if(error){if(error.code==='23505'){const {data:duplicate}=await supabase.from('content_documents').select('id,content_key').eq('content_key',payload.content_key).maybeSingle();return res.status(409).json({error:'This canonical country Best-For page already exists',document:duplicate||null});}throw error;}return res.status(201).json({document:data,qualifyingBrokerCount:qualifying.length,eligibleForIndexing:eligible});}
+async function handleSeoPageGenerator(req, res) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  const actor = await requireRole(req, res, CONTENT_WRITE);
+  if (!actor) return;
+
+  const countrySlug = slugify(req.body?.country_slug || '');
+  const topicSlug = slugify(req.body?.topic_slug || '');
+  const topic = TOPICS[topicSlug];
+  if (!countrySlug || !topic) {
+    return res.status(400).json({ error: 'Valid country_slug and canonical topic_slug are required' });
+  }
+
+  // Country Best-For pages must map to one of the 13 canonical global intents.
+  // Combination/legacy topics are not independent content owners.
+  const canonicalTopicSlugs = new Set(Object.values(CANONICAL_INTENT_SLUGS));
+  if (!canonicalTopicSlugs.has(topicSlug)) {
+    return res.status(400).json({ error: 'Only canonical global Best-For intents can generate country Best-For pages' });
+  }
+
+  const [{ data: country, error: ce }, { data: brokers, error: be }, { data: existing, error: xe }] = await Promise.all([
+    supabase.from('countries').select('*').eq('slug', countrySlug).maybeSingle(),
+    supabase.from('brokers').select('*'),
+    supabase.from('content_documents').select('id,content_key').eq('content_key', `country-best-for:${countrySlug}:${topicSlug}`).maybeSingle(),
+  ]);
+  if (ce) throw ce;
+  if (be) throw be;
+  if (xe) throw xe;
+  if (!country) return res.status(404).json({ error: `Country not found: ${countrySlug}` });
+  if (existing) return res.status(409).json({ error: 'This canonical country Best-For page already exists', document: existing });
+
+  const { data: intent, error: intentError } = await supabase.from('intents')
+    .select('id,slug')
+    .eq('slug', topicSlug)
+    .maybeSingle();
+  if (intentError) throw intentError;
+  if (!intent) return res.status(400).json({ error: 'Canonical intent is not configured' });
+
+  const { data: rankings, error: rankingError } = await supabase.from('country_intent_broker_final_rankings')
+    .select('broker_id,final_rank,eligibility_status')
+    .eq('country_id', Number(country.id))
+    .eq('intent_id', Number(intent.id));
+  if (rankingError) throw rankingError;
+
+  const qualifyingIds = new Set(
+    (rankings ?? [])
+      .filter((row) => String(row.eligibility_status ?? '').toLowerCase() === 'eligible')
+      .map((row) => Number(row.broker_id))
+      .filter(Number.isInteger)
+  );
+  const qualifying = (brokers || []).filter((b) => qualifyingIds.has(Number(b.id)));
+  const minBrokers = 2;
+  const eligible = qualifying.length >= minBrokers;
+  const year = new Date().getFullYear();
+  const title = `${topic.title} in ${country.name}`;
+  const blocks = makeBlocks(country, topic, qualifying);
+  const faqs = makeFaqs(country, topic);
+  const payload = {
+    content_key: `country-best-for:${countrySlug}:${topicSlug}`,
+    content_type: 'country-best-for',
+    country_slug: countrySlug,
+    topic_slug: topicSlug,
+    slug: topicSlug,
+    title,
+    excerpt: `Compare ${topic.title.toLowerCase()} available to traders in ${country.name}.`,
+    html: '',
+    blocks,
+    seo_title: `Best ${topic.title} in ${country.name} ${year} | PipRank`,
+    seo_description: `Compare ${topic.title.toLowerCase()} available to traders in ${country.name}, including country-specific broker recommendations, costs, platforms and key trading features.`,
+    indexable: eligible,
+    published: false,
+    settings: {
+      rankingMode: 'auto',
+      pinnedBrokerSlugs: [],
+      excludedBrokerSlugs: [],
+      faqs,
+      internalLinks: [
+        { label: `Best Forex Brokers in ${country.name}`, href: `/${countrySlug}` },
+        { label: 'Find My Best Broker', href: '/quiz' },
+      ],
+      generator: {
+        version: 3,
+        generatedAt: new Date().toISOString(),
+        qualifyingBrokerCount: qualifying.length,
+        minBrokers,
+        eligibleForIndexing: eligible,
+        actor: actor.email,
+      },
+    },
+    updated_by: actor.email,
+  };
+  const { data, error } = await supabase.from('content_documents').insert(payload).select().single();
+  if (error) {
+    if (error.code === '23505') {
+      const { data: duplicate } = await supabase.from('content_documents').select('id,content_key').eq('content_key', payload.content_key).maybeSingle();
+      return res.status(409).json({ error: 'This canonical country Best-For page already exists', document: duplicate || null });
+    }
+    throw error;
+  }
+  return res.status(201).json({ document: data, qualifyingBrokerCount: qualifying.length, eligibleForIndexing: eligible });
+}
 const LOCALIZATION_TOPICS=[{key:'all',defaultSlug:'best-forex-brokers',defaultTitle:'Best Forex Brokers'},{key:'beginners',defaultSlug:'best-forex-brokers-for-beginners',defaultTitle:'Best Forex Brokers for Beginners'},{key:'mt4',defaultSlug:'best-mt4-brokers',defaultTitle:'Best MT4 Forex Brokers'},{key:'mt5',defaultSlug:'best-mt5-brokers',defaultTitle:'Best MT5 Forex Brokers'},{key:'gold',defaultSlug:'best-gold-brokers',defaultTitle:'Best Gold Forex Brokers'},{key:'low-spread',defaultSlug:'low-spread-forex-brokers',defaultTitle:'Low Spread Forex Brokers'}];
 const MIN_LOCALIZED_CONTENT_LENGTH=40;
 const LANGUAGE_TOPIC_TEMPLATES={vi:{all:{slug:'broker-forex-tot-nhat',title:'Broker Forex Tốt Nhất'},beginners:{slug:'broker-forex-tot-nhat-cho-nguoi-moi',title:'Broker Forex Tốt Nhất Cho Người Mới'},mt4:{slug:'broker-mt4-tot-nhat',title:'Broker MT4 Tốt Nhất'},mt5:{slug:'broker-mt5-tot-nhat',title:'Broker MT5 Tốt Nhất'},gold:{slug:'broker-giao-dich-vang-tot-nhat',title:'Broker Forex Tốt Nhất Để Giao Dịch Vàng'},'low-spread':{slug:'broker-forex-spread-thap',title:'Broker Forex Có Spread Thấp'}},ms:{all:{slug:'broker-forex-terbaik',title:'Broker Forex Terbaik'},beginners:{slug:'broker-forex-untuk-pemula',title:'Broker Forex untuk Pemula'},mt4:{slug:'broker-mt4-terbaik',title:'Broker MT4 Terbaik'},mt5:{slug:'broker-mt5-terbaik',title:'Broker MT5 Terbaik'},gold:{slug:'broker-emas-terbaik',title:'Broker Emas Terbaik'},'low-spread':{slug:'broker-spread-rendah',title:'Broker Forex Spread Rendah'}}};
@@ -190,7 +325,7 @@ async function handleCountryIntentRankings(req, res) {
 
     const [{ data: brokers, error: brokerError }, { data: availability, error: availabilityError }, { data: overrides, error: overrideError }, { data: baseRows, error: rankingError }] = await Promise.all([
       supabase.from('brokers').select('id,name,slug,rating,trust_score,brand_color,logo_url').order('rating', { ascending: false }),
-      supabase.from('broker_country_availability').select('broker_id,status,note,priority').eq('country_id', Number(countryRow.id)),
+      supabase.from('broker_country_availability').select('broker_id,status,is_available,note,priority').eq('country_id', Number(countryRow.id)),
       supabase.from('country_intent_broker_overrides').select('*').eq('country_id', Number(countryRow.id)).eq('intent_id', Number(intentRow.id)),
       supabase.from('country_intent_broker_final_rankings').select('broker_id,final_rank,final_score,eligibility_status,score_breakdown,featured').eq('country_id', Number(countryRow.id)).eq('intent_id', Number(intentRow.id)).order('final_rank', { ascending: true }),
     ]);
@@ -216,8 +351,9 @@ async function handleCountryIntentRankings(req, res) {
       const a = availabilityMap.get(id);
       const o = overrideMap.get(id);
       const base = baseMap.get(id);
-      const status = a?.status ?? 'available';
-      const available = status === 'available';
+      const status = String(a?.status ?? 'available').toLowerCase();
+      const explicitlyUnavailable = a?.is_available === false || ['unavailable', 'restricted'].includes(status);
+      const available = !explicitlyUnavailable && status === 'available';
       const score = Number(base?.final_score ?? broker.trust_score ?? broker.rating ?? 0);
       return {
         country_id: Number(countryRow.id),
@@ -292,10 +428,12 @@ async function handleCountryIntentRankings(req, res) {
     }
 
     const { data: availability, error: availabilityError } = await supabase.from('broker_country_availability')
-      .select('status').eq('country_id', Number(countryRow.id)).eq('broker_id', brokerId).maybeSingle();
+      .select('status,is_available').eq('country_id', Number(countryRow.id)).eq('broker_id', brokerId).maybeSingle();
     if (availabilityError) throw availabilityError;
-    if (manualRank !== null && availability?.status && availability.status !== 'available') {
-      return res.status(400).json({ error: 'Only brokers available in this country can be ranked' });
+    const availabilityStatus = String(availability?.status ?? 'available').toLowerCase();
+    const brokerUnavailable = availability?.is_available === false || availabilityStatus !== 'available';
+    if (brokerUnavailable && (manualRank !== null || Boolean(b.force_include))) {
+      return res.status(400).json({ error: 'Unavailable or restricted brokers cannot be included or manually ranked in this country' });
     }
 
     if (manualRank !== null) {
