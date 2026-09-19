@@ -105,9 +105,9 @@ export default async function handler(req, res) {
       for (const [k, timestamp] of recentHelpfulVotes) if (now - timestamp > 10 * 60_000) recentHelpfulVotes.delete(k);
 
       const { data: rpcResult, error: rpcError } = await supabase.rpc('increment_review_helpful', {
-        review_id: Number(id),
-        voter_key: voterKey,
-        ip_hash: fingerprint,
+        p_review_id: Number(id),
+        p_voter_key: voterKey,
+        p_ip_hash: fingerprint,
       });
       if (rpcError) {
         console.error('review helpful RPC error:', rpcError);
