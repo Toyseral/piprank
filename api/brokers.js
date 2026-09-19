@@ -6,9 +6,18 @@ const BROKER_WRITE = ['super_admin', 'admin', 'brokers_admin'];
 const SITE_ORIGIN = 'https://piprank.com';
 const PUBLIC_BROKER_FIELDS = 'id,name,slug,tagline,brand_color,logo_url,rating,trust_score,founded,headquarters,website,min_deposit,spread_eurusd,commission,commission_value,max_leverage,leverage_value,execution_ms,withdrawal_hours,deposit_time,uptime,withdrawal_fee,inactivity_fee,bonus,demo_account,islamic_account,copy_trading,scalping,hedging,nbp,segregated,support_channels,support_score,regulations,platforms,payments,account_types,assets,best_for,pros,cons,review,testing,faqs,health,featured';
 const BROKER_MUTABLE_FIELDS = PUBLIC_BROKER_FIELDS.split(',').filter((field) => !['id', 'logo_url'].includes(field));
-const BROKER_DEFAULTS = { tagline: 'New broker under review', brand_color: '#35a371', rating: 4.0, trust_score: 75, founded: new Date().getFullYear(), headquarters: '—', website: 'https://example.com', min_deposit: 100, spread_eurusd: 0.8, commission: 'None (spread-only)', commission_value: 0, max_leverage: '1:500', leverage_value: 500, execution_ms: 50, withdrawal_hours: 24, deposit_time: 'Instant', uptime: 99.9, withdrawal_fee: 0, inactivity_fee: 'None', bonus: null, demo_account: true, islamic_account: false, copy_trading: false, scalping: true, hedging: true, nbp: true, segregated: true, support_channels: ['Live chat', 'Email'], support_score: 80, regulations: [], platforms: ['MT4', 'MT5'], payments: ['Bank transfer', 'Visa', 'Mastercard'], account_types: ['Standard', 'Demo'], assets: { forex: 50, indices: 12, commodities: 10, crypto: 10, stocks: 500 }, best_for: [], pros: [], cons: [], review: ['Editorial review is being written.'], testing: [], faqs: [], health: { regulation: 80, longevity: 75, withdrawals: 80, execution: 78, support: 80, sentiment: 78 }, featured: false };
+const BROKER_DEFAULTS = { tagline: 'New broker under review', brand_color: '#35a371', rating: 4.0, trust_score: 75, founded: new Date().getFullYear(), headquarters: '—', website: null, min_deposit: 100, spread_eurusd: 0.8, commission: 'None (spread-only)', commission_value: 0, max_leverage: '1:500', leverage_value: 500, execution_ms: 50, withdrawal_hours: 24, deposit_time: 'Instant', uptime: 99.9, withdrawal_fee: 0, inactivity_fee: 'None', bonus: null, demo_account: true, islamic_account: false, copy_trading: false, scalping: true, hedging: true, nbp: true, segregated: true, support_channels: ['Live chat', 'Email'], support_score: 80, regulations: [], platforms: ['MT4', 'MT5'], payments: ['Bank transfer', 'Visa', 'Mastercard'], account_types: ['Standard', 'Demo'], assets: { forex: 50, indices: 12, commodities: 10, crypto: 10, stocks: 500 }, best_for: [], pros: [], cons: [], review: ['Editorial review is being written.'], testing: [], faqs: [], health: { regulation: 80, longevity: 75, withdrawals: 80, execution: 78, support: 80, sentiment: 78 }, featured: false };
 function pickBrokerFields(input) { const output = {}; for (const field of BROKER_MUTABLE_FIELDS) if (Object.prototype.hasOwnProperty.call(input, field)) output[field] = input[field]; if (Object.prototype.hasOwnProperty.call(output, 'best_for')) output.best_for = normalizeBrokerIntentStorage(output.best_for); return output; }
 function slugify(name) { return String(name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''); }
+function normalizeWebsite(value) {
+  if (value == null || String(value).trim() === '') return null;
+  const raw = String(value).trim();
+  try {
+    const url = new URL(raw);
+    if (url.protocol !== 'https:') return null;
+    return url.toString();
+  } catch { return null; }
+}
 function normalizePlatforms(value) {
   if (!Array.isArray(value)) return [];
   return value.map((platform) => {
@@ -41,7 +50,12 @@ export default async function handler(req, res) {
       return res.status(200).json((data ?? []).map((broker) => normalizeBroker({ ...broker, logo_url: logoMap.get(Number(broker.id)) ?? broker.logo_url ?? null })));
     }
     if (!(await requireRole(req, res, BROKER_WRITE))) return;
-    if (req.method === 'POST') { const body = req.body ?? {}; if (!body.name || String(body.name).trim().length < 2) return res.status(400).json({ error: 'Broker name is required' }); const payload = { ...BROKER_DEFAULTS, ...pickBrokerFields(body), name: String(body.name).trim(), slug: body.slug ? slugify(body.slug) : slugify(body.name), platforms: normalizePlatforms(body.platforms ?? BROKER_DEFAULTS.platforms) }; const { data, error } = await supabase.from('brokers').insert(payload).select().single(); if (error) throw error; return res.status(201).json(normalizeBroker(data)); }
+    if (req.method === 'POST') { const body = req.body ?? {}; if (!body.name || String(body.name).trim().length < 2) return res.status(400).json({ error: 'Broker name is required' }); const payload = { ...BROKER_DEFAULTS, ...pickBrokerFields(body), name: String(body.name).trim(), slug: body.slug ? slugify(body.slug) : slugify(body.name), platforms: normalizePlatforms(body.platforms ?? BROKER_DEFAULTS.platforms) };
+      if (body.website !== undefined) {
+        const website = normalizeWebsite(body.website);
+        if (body.website && !website) return res.status(400).json({ error: 'website must be a valid HTTPS URL' });
+        payload.website = website;
+      } const { data, error } = await supabase.from('brokers').insert(payload).select().single(); if (error) throw error; return res.status(201).json(normalizeBroker(data)); }
     if (req.method === 'PUT') {
       const { id, ...input } = req.body ?? {};
       if (!id) return res.status(400).json({ error: 'id is required' });
@@ -51,6 +65,11 @@ export default async function handler(req, res) {
       if (Object.prototype.hasOwnProperty.call(input, 'slug')) fields.slug = slugify(input.slug);
       if (Object.prototype.hasOwnProperty.call(input, 'name')) fields.name = String(input.name).trim();
       if (Object.prototype.hasOwnProperty.call(input, 'platforms')) fields.platforms = normalizePlatforms(input.platforms);
+      if (Object.prototype.hasOwnProperty.call(input, 'website')) {
+        const website = normalizeWebsite(input.website);
+        if (input.website && !website) return res.status(400).json({ error: 'website must be a valid HTTPS URL' });
+        fields.website = website;
+      }
       if (Object.prototype.hasOwnProperty.call(fields, 'bonus') && !fields.bonus) fields.bonus = null;
       if (!Object.keys(fields).length) return res.status(400).json({ error: 'No valid broker fields supplied' });
 
