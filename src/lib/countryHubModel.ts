@@ -39,18 +39,16 @@ export async function fetchCountryHubPageModel(slug: string): Promise<CountryHub
   const documentSettings = countryDocument.settings || {};
   const documentFaqs = Array.isArray(documentSettings.faqs) ? documentSettings.faqs : [];
 
+  const ineligibleIds = new Set(availability
+    .filter((row) => row.is_available === false || ['unavailable', 'restricted'].includes(String(row.status || '').toLowerCase()))
+    .map((row) => Number(row.broker_id)));
+  const eligibleBrokerIds = new Set(brokers.filter((broker) => !ineligibleIds.has(Number(broker.id))).map((broker) => Number(broker.id)));
+
   return {
     country,
     countryDocument,
-    availableBrokers: (() => {
-      // Eligibility is opt-out: brokers are eligible unless country data explicitly
-      // marks them unavailable/restricted or is_available=false.
-      const ineligibleIds = new Set(availability
-        .filter((row) => row.is_available === false || ['unavailable', 'restricted'].includes(String(row.status || '').toLowerCase()))
-        .map((row) => Number(row.broker_id)));
-      return brokers.filter((broker) => !ineligibleIds.has(Number(broker.id)));
-    })(),
-    topBrokers: topBrokers.filter((row) => row.broker && row.availability_status !== 'unavailable' && row.availability_status !== 'restricted'),
+    availableBrokers: brokers.filter((broker) => eligibleBrokerIds.has(Number(broker.id))),
+    topBrokers: topBrokers.filter((row) => row.broker && eligibleBrokerIds.has(Number(row.broker_id)) && row.availability_status !== 'unavailable' && row.availability_status !== 'restricted'),
     countryGuides: countryGuides.filter((doc) => doc.content_type === 'country-guide'),
     countryBestFor: countryBestFor.filter((doc) => doc.content_type === 'country-best-for'),
     localizedGuides: localizedGuides.filter((doc) => doc.content_type === 'localized-guide'),
