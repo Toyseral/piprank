@@ -8,9 +8,11 @@ function slugify(value) { return String(value ?? '').toLowerCase().replace(/[^a-
 const CANONICAL_INTENT_SLUGS = {
   beginners: 'forex-brokers-for-beginners',
   'low-spread': 'low-spread-forex-brokers',
+  gold: 'gold-forex-brokers',
+  crypto: 'crypto-brokers',
+  'eur-usd': 'eur-usd-forex-brokers',
   mt4: 'mt4-forex-brokers',
   mt5: 'mt5-forex-brokers',
-  gold: 'gold-forex-brokers',
   ecn: 'ecn-forex-brokers',
   'copy-trading': 'copy-trading-forex-brokers',
   scalping: 'forex-brokers-for-scalping',
@@ -60,11 +62,10 @@ async function handleIntents(req,res){
     if(slug) query=query.eq('slug',slug).limit(1);
     const {data:intents,error}=await query;
     if(error) throw error;
-    if(slug && !intents?.[0]) return res.status(404).json({error:'Category not found'});
+    if(requestedCanonicalSlug && !intents?.[0]) return res.status(404).json({error:'Category not found'});
 
-    // Expose one canonical intent per Best-For owner. Legacy short intent rows
-    // remain in the database for backward compatibility but are not separate
-    // editorial/ranking choices in the admin UI.
+    // Expose exactly one canonical intent per global Best-For owner. Legacy short
+    // intent aliases are accepted only at the API boundary and are not stored.
     const canonicalRows = new Map();
     for (const intent of (intents ?? [])) {
       const canonicalSlug = canonicalIntentSlug(intent.slug);
@@ -83,7 +84,7 @@ async function handleIntents(req,res){
     if(docError) throw docError;
     const bySlug=new Map((docs??[]).map((d)=>[d.slug,d]));
     const result=rows.map((intent)=>canonicalIntentResponse(intent,bySlug.get(canonicalIntentSlug(intent.slug))));
-    return slug ? res.status(200).json(result[0]) : res.status(200).json(result);
+    return requestedCanonicalSlug ? res.status(200).json(result[0]) : res.status(200).json(result);
   }
 
   if(!(await requireRole(req,res,CONTENT_WRITE)))return;
@@ -167,8 +168,8 @@ async function handleCountryIntentRankings(req, res) {
   const { country, intent } = req.query || {};
   if (!country || !intent) return res.status(400).json({ error: 'country and intent are required' });
 
-  const requestedIntent = String(intent);
-  const dbIntentSlug = Object.entries(CANONICAL_INTENT_SLUGS).find(([, canonical]) => canonical === requestedIntent)?.[0] || requestedIntent;
+  const requestedIntent = String(intent).trim().toLowerCase();
+  const dbIntentSlug = canonicalIntentSlug(requestedIntent);
   const [{ data: countryRow, error: countryError }, { data: intentRow, error: intentError }] = await Promise.all([
     supabase.from('countries').select('id,slug,name').eq('slug', String(country)).maybeSingle(),
     supabase.from('intents').select('id,slug,label').eq('slug', dbIntentSlug).maybeSingle(),
