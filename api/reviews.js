@@ -92,7 +92,10 @@ export default async function handler(req, res) {
         return res.status(200).json(data);
       }
 
-      const voterKey = String(body.voter_key || '').trim() || voterFingerprint(req);
+      // Do not trust a client-supplied voter key for abuse prevention: an attacker
+      // could generate a new key for every request and bypass the per-voter constraint.
+      // Bind the vote to a server-derived fingerprint instead.
+      const voterKey = voterFingerprint(req);
       const fingerprint = ipHash(req);
       const rateKey = `${fingerprint}:${voterKey}`;
       const now = Date.now();
