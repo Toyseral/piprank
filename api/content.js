@@ -135,9 +135,6 @@ async function handleIntents(req,res){
 
   return res.status(405).json({error:'Method not allowed'});
 }
-function isMissingPublishingStateColumn(error){return error&&(error.code==='PGRST204'||/publishing_state/i.test(String(error.message||error.details||'')));}
-async function insertCountryWithPublishingFallback(payload){const result=await supabase.from('countries').insert(payload).select().single();if(!result.error||!isMissingPublishingStateColumn(result.error))return result;const {publishing_state,...safePayload}=payload;return supabase.from('countries').insert(safePayload).select().single();}
-async function updateCountryWithPublishingFallback(id,fields){const result=await supabase.from('countries').update(fields).eq('id',Number(id)).select().single();if(!result.error||!isMissingPublishingStateColumn(result.error))return result;const {publishing_state,...safeFields}=fields;return supabase.from('countries').update(safeFields).eq('id',Number(id)).select().single();}
 async function handleCountries(req,res){
   if(req.method==='GET'){
     const {slug}=req.query;
@@ -149,8 +146,8 @@ async function handleCountries(req,res){
     return res.status(200).json(countries ?? []);
   }
   if(!(await requireRole(req,res,CONTENT_WRITE)))return;
-  if(req.method==='POST'){const body=req.body??{};if(!body.name||String(body.name).trim().length<2)return res.status(400).json({error:'Country name is required'});const payload={name:String(body.name).trim().slice(0,60),slug:body.slug?slugify(body.slug):slugify(body.name),flag:String(body.flag??'🌍').slice(0,8),publishing_state:['draft','published','closed'].includes(body.publishing_state)?body.publishing_state:'draft'};const {data,error}=await insertCountryWithPublishingFallback(payload);if(error)throw error;return res.status(201).json(data);}
-  if(req.method==='PUT'){const body=req.body??{};const id=Number(body.id);if(!id)return res.status(400).json({error:'id is required'});const fields={};if(body.name!==undefined)fields.name=String(body.name).trim().slice(0,60);if(body.slug!==undefined)fields.slug=slugify(body.slug);else if(fields.name)fields.slug=slugify(fields.name);if(body.flag!==undefined)fields.flag=String(body.flag).slice(0,8);if(body.publishing_state!==undefined&&['draft','published','closed'].includes(body.publishing_state))fields.publishing_state=body.publishing_state;const {data,error}=await updateCountryWithPublishingFallback(id,fields);if(error)throw error;return res.status(200).json(data);}
+  if(req.method==='POST'){const body=req.body??{};if(!body.name||String(body.name).trim().length<2)return res.status(400).json({error:'Country name is required'});const payload={name:String(body.name).trim().slice(0,60),slug:body.slug?slugify(body.slug):slugify(body.name),flag:String(body.flag??'🌍').slice(0,8),publishing_state:['draft','published','closed'].includes(body.publishing_state)?body.publishing_state:'draft'};const {data,error}=await supabase.from('countries').insert(payload).select().single();if(error)throw error;return res.status(201).json(data);}
+  if(req.method==='PUT'){const body=req.body??{};const id=Number(body.id);if(!id)return res.status(400).json({error:'id is required'});const fields={};if(body.name!==undefined)fields.name=String(body.name).trim().slice(0,60);if(body.slug!==undefined)fields.slug=slugify(body.slug);else if(fields.name)fields.slug=slugify(fields.name);if(body.flag!==undefined)fields.flag=String(body.flag).slice(0,8);if(body.publishing_state!==undefined&&['draft','published','closed'].includes(body.publishing_state))fields.publishing_state=body.publishing_state;const {data,error}=await supabase.from('countries').update(fields).eq('id',Number(id)).select().single();if(error)throw error;return res.status(200).json(data);}
   if(req.method==='DELETE'){const {id}=req.body??{};if(!id)return res.status(400).json({error:'id is required'});const {error}=await supabase.from('countries').delete().eq('id',Number(id));if(error)throw error;return res.status(200).json({ok:true});}
   return res.status(405).json({error:'Method not allowed'});
 }
