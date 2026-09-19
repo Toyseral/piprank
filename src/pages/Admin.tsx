@@ -707,7 +707,6 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
                   <GlobalHub
                     guides={contentDocs.filter((d) => d.content_type === 'guide' && d.country_slug === null)}
                     brokers={brokers}
-                    intents={intents}
                     onNewGuide={() => setEditingContentDoc({ id: 0, content_key: '', content_type: 'guide', country_slug: null, topic_slug: null, slug: '', title: '', excerpt: '', html: '', blocks: [], seo_title: null, seo_description: null, indexable: true, published: false, updated_by: null, created_at: '', updated_at: '', settings: {} } as ContentDocument)}
                     onEditGuide={(g) => setEditingContentDoc(g)}
                   />
