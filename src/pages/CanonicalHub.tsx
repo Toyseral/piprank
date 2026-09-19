@@ -37,53 +37,60 @@ export default function CanonicalHub() {
   const { pathname } = useLocation();
   const [state, setState] = useState<'loading' | 'resolved' | 'missing'>('loading');
   const [route, setRoute] = useState<CanonicalRoute | null>(null);
+
   useEffect(() => {
     let active = true;
-    let retryTimer: ReturnType<typeof setTimeout> | undefined;
-    setState('loading'); setRoute(null);
-    const resolve = async () => {
-      const first = await resolveCanonicalPath(pathname).catch(() => null);
-      if (first) return first;
-      await new Promise<void>((resolveDelay) => { retryTimer = setTimeout(resolveDelay, 350); });
-      const second = await resolveCanonicalPath(pathname).catch(() => null);
-      if (second) return second;
-      const match = pathname.match(/^\/([^/]+)\/?$/);
-      if (!match) return null;
-      const slug = decodeURIComponent(match[1]).trim().toLowerCase();
-      if (!slug || ['guides', 'brokers', 'compare', 'countries'].includes(slug)) return null;
-      const country = await fetchCountry(slug).catch(() => null);
-      if (!country || country.publishing_state !== 'published') return null;
-      return {
-        type: 'country',
-        path: pathname,
-        canonicalPath: `/${encodeURIComponent(country.slug)}`,
-        slug: country.slug,
-        indexable: true,
-        published: true,
-      } as CanonicalRoute;
-    };
-    resolve().then((resolved) => {
+    setState('loading');
+    setRoute(null);
+    resolveCanonicalPath(pathname).then((resolved) => {
       if (!active) return;
-      if (!resolved) { setState('missing'); return; }
-      setRoute(resolved); setState('resolved');
+      if (!resolved) {
+        setState('missing');
+        return;
+      }
+      setRoute(resolved);
+      setState('resolved');
+    }).catch((error) => {
+      console.error('Canonical route resolution failure', { pathname, error });
+      if (active) setState('missing');
     });
     return () => { active = false; };
   }, [pathname]);
-  useSEO(state === 'missing' ? { title: 'Page not found | PipRank', description: 'The requested PipRank page does not exist.', path: pathname, type: 'website', noindex: true } : null);
+
+  useSEO(
+    state === 'missing'
+      ? { title: 'Page not found | PipRank', description: 'The requested PipRank page does not exist.', path: pathname, type: 'website', noindex: true }
+      : null
+  );
+
   if (state === 'loading') return <Loading />;
   if (state === 'missing' || !route) return <NotFound />;
-  if (route.type === 'country' && route.path.startsWith('/countries/')) return <Navigate to={`/${route.slug}`} replace />;
-  return <CanonicalErrorBoundary><>{  switch (route.type) {
-    case 'global-best-for': return <CanonicalGlobalBestFor route={route} />;
-    case 'guide':
-    case 'country-guide':
-    case 'country-best-for':
-    case 'localized-guide':
-    case 'localized-best-for':
-      return <ContentRenderer route={route} />;
-    case 'broker': return route.path === '/brokers' ? <Brokers /> : <BrokerDetailNew />;
-    case 'country': return route.path === '/countries' ? <Countries /> : <CountryDetail route={route} />;
-    case 'compare': return route.path === '/compare' ? <Compare /> : <ComparePair />;
-    default: return <NotFound />;
-  }</>}</CanonicalErrorBoundary>;
+  if (route.type === 'country' && route.path.startsWith('/countries/')) {
+    return <Navigate to={`/${route.slug}`} replace />;
+  }
+
+  return (
+    <CanonicalErrorBoundary>
+      {(() => {
+        switch (route.type) {
+          case 'global-best-for':
+            return <CanonicalGlobalBestFor route={route} />;
+          case 'guide':
+          case 'country-guide':
+          case 'country-best-for':
+          case 'localized-guide':
+          case 'localized-best-for':
+            return <ContentRenderer route={route} />;
+          case 'broker':
+            return route.path === '/brokers' ? <Brokers /> : <BrokerDetailNew />;
+          case 'country':
+            return route.path === '/countries' ? <Countries /> : <CountryDetail route={route} />;
+          case 'compare':
+            return route.path === '/compare' ? <Compare /> : <ComparePair />;
+          default:
+            return <NotFound />;
+        }
+      })()}
+    </CanonicalErrorBoundary>
+  );
 }
