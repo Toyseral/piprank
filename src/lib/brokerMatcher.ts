@@ -88,14 +88,14 @@ export function scoreBroker(b: Broker, a: BrokerMatchAnswers): { score:number; r
   else if(a.style==='swing'){if(bestFor.includes('swing-trading')){s+=8;reasons.push('Strong multi-day conditions');}}
   else if(a.style==='copy'){if(b.copy_trading){s+=14;reasons.push('Native copy-trading platform');}else s-=12;}
   if(a.platform!=='any'){if(hasPlatform(platforms, a.platform)){s+=9;reasons.push(`${a.platform} supported`);}else s-=8;}
-  if(a.priority==='lowcost'){const cost=allInCost(b);s+=Math.max(0,13-cost*6);reasons.push(`${cost} pips all-in per EUR/USD lot`);}
+  if(a.priority==='lowcost'){const cost=allInCost(b);if(Number.isFinite(cost)){s+=Math.max(0,13-cost*6);reasons.push(`${cost} pips all-in per EUR/USD lot`);}else{s-=8;reasons.push('Cost data needs verification');}}
   else if(a.priority==='platform'){s+=platforms.length*3;reasons.push(`${platforms.length} platforms incl. ${platforms[0]?.name ?? 'platform'}`);}
   else if(a.priority==='education'){if(bestFor.includes('beginners')){s+=10;reasons.push('Dedicated beginner education');}if(b.demo_account){s+=3;reasons.push('Free unlimited demo account');}}
   else if(a.priority==='leverage'){s+=leverageValue>=1000?12:leverageValue>=500?10:leverageValue>=400?6:2;reasons.push(`Leverage up to ${b.max_leverage}`);}
   const prefs=a.prefs??[];
-  if(prefs.includes('islamic')){if(b.islamic_account){s+=10;reasons.push('Certified swap-free account');}else s-=8;}
+  if(prefs.includes('islamic')){if(b.islamic_account){s+=10;reasons.push('Swap-free account available');}else s-=8;}
   if(prefs.includes('copy')&&a.style!=='copy'){if(b.copy_trading){s+=10;reasons.push('Built-in copy trading');}else s-=6;}
-  if(prefs.includes('lowdeposit')){if(minDeposit<=50){s+=8;reasons.push(`Start with ${fmtMoney(Math.max(b.min_deposit,1))||'$0'}`);}else if(minDeposit>250)s-=6;}
+  if(prefs.includes('lowdeposit')){if(minDeposit<=50){s+=8;reasons.push(`Start with ${fmtMoney(Math.max(minDeposit,1))||'$0'}`);}else if(minDeposit>250)s-=6;}
   if(prefs.includes('highleverage')&&a.priority!=='leverage'){if(leverageValue>=500){s+=8;reasons.push(`Leverage up to ${b.max_leverage}`);}}
   if(prefs.includes('vps')&&VPS_HOSTS.has(b.slug)){s+=8;reasons.push('Free VPS for 24/7 EAs');}
   if(a.experience==='beginner'){if(bestFor.includes('beginners')){s+=7;reasons.unshift('Beginner-friendly onboarding');}if(b.demo_account)s+=2;}
