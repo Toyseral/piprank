@@ -61,15 +61,15 @@ export default function AdminContentPreview() {
         indexable: false,
       };
 
-      const previewPath = `/${previewDocument.country_slug}/${previewDocument.slug}`;
+      const previewPath = `/${previewDocument.country_slug!}/${previewDocument.slug!}`;
       const previewRoute: CanonicalRoute = {
         type: 'country-best-for',
         path: previewPath,
         canonicalPath: previewPath,
         contentKey: previewDocument.content_key,
-        countrySlug: previewDocument.country_slug,
+        countrySlug: previewDocument.country_slug || undefined,
         topicSlug: previewDocument.topic_slug || undefined,
-        slug: previewDocument.slug ?? undefined,
+        slug: previewDocument.slug || undefined,
         indexable: false,
         published: true,
         document: previewDocument,
