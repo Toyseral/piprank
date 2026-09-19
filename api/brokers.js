@@ -75,14 +75,6 @@ export default async function handler(req, res) {
       const { data, error } = await supabase.from('brokers').update(fields).eq('id', brokerId).select().single();
       if (error) throw error;
 
-      if (existingBroker.slug !== data.slug) {
-        const { error: syncError } = await supabase.rpc('rename_broker_content_documents', {
-          p_old_slug: existingBroker.slug,
-          p_new_slug: data.slug,
-        });
-        if (syncError) throw syncError;
-      }
-
       return res.status(200).json(normalizeBroker(data));
     }
     if (req.method === 'DELETE') {
