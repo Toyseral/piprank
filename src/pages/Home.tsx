@@ -111,11 +111,6 @@ export default function Home() {
   });
 
 
-  useEffect(() => {
-    if (!localizedCountry) { setLocalizedRankings([]); return; }
-    fetchCountryBrokerRankings(localizedCountry.slug).then(setLocalizedRankings).catch(() => setLocalizedRankings([]));
-  }, [localizedCountry]);
-
   const localizedCountry = useMemo(
     () => activeGeo ? countries.find((c) => c.slug === activeGeo.slug) ?? null : null,
     [activeGeo, countries]
