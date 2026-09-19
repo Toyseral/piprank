@@ -5,6 +5,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { requireSiteUrlForProduction } from './seo-config.mjs';
 import { sanitizeBlocks, sanitizeHtml, sanitizePublicSettings } from '../api/_lib/content-sanitizer.js';
+import { buildCountryHubModel } from '../src/lib/countryHubModel.shared.mjs';
 
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -165,22 +166,25 @@ async function main() {
 
   const shell = readFileSync(join(DIST, 'index.html'), 'utf8');
   const supabase = createClient(url, key);
-  const [brokersRes, countriesRes, rankingsRes, docsRes, authorsRes] = await Promise.all([
+  const [brokersRes, countriesRes, rankingsRes, docsRes, authorsRes, availabilityRes] = await Promise.all([
     supabase.from('brokers').select('id,name,slug,tagline,rating,trust_score,min_deposit,spread_eurusd,max_leverage,platforms,regulations,commission,website'),
     supabase.from('countries').select('id,slug,name,flag,publishing_state,updated_at').eq('publishing_state', 'published'),
     supabase.from('country_broker_final_rankings').select('country_id,broker_id,final_rank,final_score,availability_status,editorial_note').order('final_rank', { ascending: true, nullsFirst: false }).order('final_score', { ascending: false }),
+    supabase.from('broker_country_availability').select('broker_id,country_id,is_available,status'),
     supabase.from('content_documents').select('id,content_key,content_type,country_slug,topic_slug,slug,title,excerpt,html,blocks,settings,seo_title,seo_description,indexable,published,updated_at').in('content_type', ['guide', 'global-best-for', 'country-guide', 'country-best-for', 'localized-guide', 'localized-best-for', 'broker', 'country']).eq('published', true).eq('indexable', true),
     supabase.from('content_documents').select('id,content_key,content_type,slug,title,excerpt,settings').eq('content_type', 'author').eq('published', true),
   ]);
   if (brokersRes.error) throw brokersRes.error;
   if (countriesRes.error) throw countriesRes.error;
   if (rankingsRes.error) throw rankingsRes.error;
+  if (availabilityRes.error) throw availabilityRes.error;
   if (docsRes.error) throw docsRes.error;
   if (authorsRes.error) throw authorsRes.error;
 
   const brokers = brokersRes.data || [];
   const countries = countriesRes.data || [];
   const rankings = rankingsRes.data || [];
+  const availability = availabilityRes.data || [];
   const docs = docsRes.data || [];
   const authorsByKey = new Map((authorsRes.data || []).map((author) => [author.content_key, normalizePublicDocument(author)]));
   const brokersById = new Map(brokers.map((broker) => [Number(broker.id), broker]));
@@ -193,7 +197,7 @@ async function main() {
   const globalBestFors = publicDocs.filter((doc) => doc.content_type === 'global-best-for' && doc.slug);
   const countryGuides = publicDocs.filter((doc) => doc.content_type === 'country-guide' && doc.country_slug && doc.slug);
   const countryBestFors = publicDocs.filter((doc) => doc.content_type === 'country-best-for' && doc.country_slug && doc.slug);
-  const localizedGuides = publicDocs.filter((doc) => doc.content_type === 'localized-guide' && doc.country_slug && doc.slug && ((doc.settings || {}).locale || (doc.settings || {}).languageCode));
+  const localizedGuides = publicDocs.filter((doc) => doc.content_type === 'localized-guide' && doc.country_slug && doc.slug && localeOf(doc));
   const localizedBestFors = publicDocs.filter((doc) => doc.content_type === 'localized-best-for' && doc.country_slug && doc.slug && ((doc.settings || {}).locale || (doc.settings || {}).languageCode));
 
   const sortedBrokers = [...brokers].filter((broker) => broker.slug).sort((a, b) => Number(b.rating || 0) - Number(a.rating || 0));
@@ -214,23 +218,17 @@ async function main() {
   const countryDocuments = new Map(publicDocs.filter((doc) => doc.content_type === 'country' && doc.country_slug && doc.slug).map((doc) => [doc.country_slug, doc]));
   for (const country of countries.filter((item) => item.slug)) {
     const doc = countryDocuments.get(country.slug);
-    if (!doc) {
-      warn(`Skipping country ${country.slug}: canonical hub document is missing.`);
-      continue;
-    }
+    const model = buildCountryHubModel({ country, countryDocument: doc, brokers, availability: availability.filter((row) => Number(row.country_id) === Number(country.id)), topBrokers: rankings.filter((row) => Number(row.country_id) === Number(country.id)).map((row) => ({ ...row, broker: brokersById.get(Number(row.broker_id)) })).filter((row) => row.broker), countryGuides: countryGuides.filter((item) => item.country_slug === country.slug), countryBestFor: countryBestFors.filter((item) => item.country_slug === country.slug), localizedGuides: localizedGuides.filter((item) => item.country_slug === country.slug), localizedBestFor: localizedBestFors.filter((item) => item.country_slug === country.slug) });
+    const effectiveDoc = model.countryDocument;
     const path = `/${country.slug}`;
-    const title = doc.seo_title || doc.title || `Best Forex Brokers in ${country.name} | ${SITE_NAME}`;
-    const description = doc.seo_description || doc.excerpt || `Compare forex brokers available to traders in ${country.name}, including regulation, costs, platforms and account features.`;
-    const faqs = Array.isArray(doc.settings?.faqs) ? doc.settings.faqs.filter((faq) => faq?.q && faq?.a) : [];
-    const countryRows = rankings
-      .filter((row) => Number(row.country_id) === Number(country.id) && row.availability_status !== 'unavailable' && row.availability_status !== 'restricted')
-      .map((row) => ({ ...row, broker: brokersById.get(Number(row.broker_id)) }))
-      .filter((row) => row.broker)
-      .slice(0, 9);
-    const countryGuideDocs = countryGuides.filter((item) => item.country_slug === country.slug).slice(0, 9);
-    const countryBestForDocs = countryBestFors.filter((item) => item.country_slug === country.slug).slice(0, 9);
-    const editorialBlocks = Array.isArray(doc.blocks)
-      ? doc.blocks.filter((block) => !['broker_card', 'broker_grid', 'comparison_table'].includes(block?.type))
+    const title = effectiveDoc.seo_title || effectiveDoc.title || `Best Forex Brokers in ${country.name} | ${SITE_NAME}`;
+    const description = effectiveDoc.seo_description || effectiveDoc.excerpt || `Compare forex brokers available to traders in ${country.name}, including regulation, costs, platforms and account features.`;
+    const faqs = model.faqs;
+    const countryRows = model.topBrokers.slice(0, 9);
+    const countryGuideDocs = model.countryGuides.slice(0, 9);
+    const countryBestForDocs = model.countryBestFor.slice(0, 9);
+    const editorialBlocks = Array.isArray(effectiveDoc.blocks)
+      ? effectiveDoc.blocks.filter((block) => !['broker_card', 'broker_grid', 'comparison_table'].includes(block?.type))
       : [];
     const rankingHtml = countryRows.length
       ? `<section><h2>Forex brokers available in ${esc(country.name)}</h2><ol>${countryRows.map((row) => `<li><a href="/brokers/${esc(row.broker.slug)}">${esc(row.broker.name)}</a>${row.editorial_note ? ` — ${esc(row.editorial_note)}` : ''}</li>`).join('')}</ol><p><a href="/quiz">Get matched with a broker</a> · <a href="/compare">Compare brokers</a></p></section>`
@@ -244,7 +242,7 @@ async function main() {
     const compareHtml = `<section><h2>Compare brokers available in ${esc(country.name)}</h2><p>Review pricing, platforms, trust signals and other broker data side by side.</p><p><a href="/compare">Open broker comparison</a> · <a href="/methodology">Read PipRank methodology</a></p></section>`;
     const quickStartHtml = `<section><h2>Find a broker that fits your needs</h2><p>Tell PipRank where you trade from and what matters to you. We’ll narrow the available brokers before you compare them.</p><p><a href="/quiz">Find My Broker</a></p></section>`;
     const finalCtaHtml = `<section><h2>Find the broker that fits you</h2><p>Tell us where you trade from, what you trade and which features matter most. PipRank will narrow the available options for you.</p><p><a href="/quiz">Match Me With a Broker</a></p></section>`;
-    const content = `<main><nav><a href="/">Home</a> › <a href="/countries">Countries</a> › <span>${esc(country.name)}</span></nav><section><p>${esc(country.flag || '')} ${esc(country.name)} forex brokers</p><h1>Find the best forex broker in ${esc(country.name)} for you</h1>${doc.excerpt ? `<p>${esc(doc.excerpt)}</p>` : ''}<p><a href="/quiz">Get Matched with a Broker</a> · <a href="/compare">Compare Brokers</a></p><p>Country eligibility is opt-out · Live broker data</p></section>${quickStartHtml}${editorialBlocks.map((block) => renderBlock(block, brokersById)).join('')} ${rankingHtml}${bestForHtml}${guidesHtml}${faqs.length ? `<section><h2>Frequently Asked Questions</h2>${faqs.map((faq) => `<details><summary>${esc(faq.q)}</summary><p>${esc(faq.a)}</p></details>`).join('')}</section>` : ''}${compareHtml}${finalCtaHtml}<p><a href="/methodology">How PipRank evaluates brokers</a></p></main>`;
+    const content = `<main><nav><a href="/">Home</a> › <a href="/countries">Countries</a> › <span>${esc(country.name)}</span></nav><section><p>${esc(country.flag || '')} ${esc(country.name)} forex brokers</p><h1>Find the best forex broker in ${esc(country.name)} for you</h1>${effectiveDoc.excerpt ? `<p>${esc(effectiveDoc.excerpt)}</p>` : ''}<p><a href="/quiz">Get Matched with a Broker</a> · <a href="/compare">Compare Brokers</a></p><p>Country eligibility is opt-out · Live broker data</p></section>${quickStartHtml}${editorialBlocks.map((block) => renderBlock(block, brokersById)).join('')} ${rankingHtml}${bestForHtml}${guidesHtml}${faqs.length ? `<section><h2>Frequently Asked Questions</h2>${faqs.map((faq) => `<details><summary>${esc(faq.q)}</summary><p>${esc(faq.a)}</p></details>`).join('')}</section>` : ''}${compareHtml}${finalCtaHtml}<p><a href="/methodology">How PipRank evaluates brokers</a></p></main>`;
     const ld = [
       pageJsonLd(title, description, path),
       breadcrumbJsonLd([{ name: 'Home', path: '/' }, { name: 'Countries', path: '/countries' }, { name: country.name, path }]),

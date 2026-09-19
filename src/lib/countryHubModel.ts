@@ -1,6 +1,7 @@
 import type { Broker, ContentDocument, CountryPage, CountryBrokerRanking, FAQ } from './types';
 import { fetchBrokers, fetchCountry, fetchCountryBrokerAvailability, fetchCountryBrokerRankings } from './api';
 import { fetchPublishedContentDocument, fetchPublishedContentDocuments } from './canonicalContent';
+import { buildCountryHubModel } from './countryHubModel.shared.mjs';
 
 export type CountryHubPageModel = {
   country: CountryPage;
@@ -17,75 +18,47 @@ export type CountryHubPageModel = {
   comparisonPath: '/compare';
   /** Methodology is global and linked from country hubs; it is not duplicated per country. */
   methodologyPath: '/methodology';
+  /** Supporting-source failures are explicit; an empty array means a successful empty query. */
+  errors: Partial<Record<'brokers' | 'availability' | 'rankings' | 'countryGuides' | 'countryBestFor' | 'localizedGuides' | 'localizedBestFor' | 'countryDocument', string>>;
 };
 
 export async function fetchCountryHubPageModel(slug: string, resolvedCountry?: CountryPage | null): Promise<CountryHubPageModel | null> {
-  const country = resolvedCountry ?? await fetchCountry(slug).catch(() => null);
+  const country = resolvedCountry ?? await fetchCountry(slug);
   if (!country || country.publishing_state === 'closed' || country.publishing_state === 'draft') return null;
 
-  // The country record and its canonical hub document are required. Everything
-  // else is supporting content and must not make an otherwise valid country
-  // page disappear when one public endpoint is temporarily unavailable.
-  const [
-    countryDocument,
-    brokers,
-    availability,
-    topBrokers,
-    countryGuides,
-    countryBestFor,
-    localizedGuides,
-    localizedBestFor,
-  ] = await Promise.all([
-    fetchPublishedContentDocument(`country:${country.slug}:hub`).catch(() => null),
-    fetchBrokers().catch(() => []),
-    fetchCountryBrokerAvailability(country.slug).catch(() => []),
-    fetchCountryBrokerRankings(country.slug).catch(() => []),
-    fetchPublishedContentDocuments({ type: 'country-guide', country: country.slug }).catch(() => []),
-    fetchPublishedContentDocuments({ type: 'country-best-for', country: country.slug }).catch(() => []),
-    fetchPublishedContentDocuments({ type: 'localized-guide', country: country.slug }).catch(() => []),
-    fetchPublishedContentDocuments({ type: 'localized-best-for', country: country.slug }).catch(() => []),
+  const sources = await Promise.all([
+    fetchPublishedContentDocument(`country:${country.slug}:hub`).then((data) => ({ data, error: null })).catch((error) => ({ data: null, error })),
+    fetchBrokers().then((data) => ({ data, error: null })).catch((error) => ({ data: [], error })),
+    fetchCountryBrokerAvailability(country.slug).then((data) => ({ data, error: null })).catch((error) => ({ data: [], error })),
+    fetchCountryBrokerRankings(country.slug).then((data) => ({ data, error: null })).catch((error) => ({ data: [], error })),
+    fetchPublishedContentDocuments({ type: 'country-guide', country: country.slug }).then((data) => ({ data, error: null })).catch((error) => ({ data: [], error })),
+    fetchPublishedContentDocuments({ type: 'country-best-for', country: country.slug }).then((data) => ({ data, error: null })).catch((error) => ({ data: [], error })),
+    fetchPublishedContentDocuments({ type: 'localized-guide', country: country.slug }).then((data) => ({ data, error: null })).catch((error) => ({ data: [], error })),
+    fetchPublishedContentDocuments({ type: 'localized-best-for', country: country.slug }).then((data) => ({ data, error: null })).catch((error) => ({ data: [], error })),
   ]);
-
-  const effectiveCountryDocument: ContentDocument = countryDocument ?? {
-    id: 0,
-    content_key: `country:${country.slug}:hub`,
-    content_type: 'country',
-    country_slug: country.slug,
-    topic_slug: null,
-    slug: country.slug,
-    title: `Forex brokers in ${country.name}`,
-    excerpt: '',
-    html: '',
-    blocks: [],
-    seo_title: `Forex Brokers in ${country.name} | PipRank`,
-    seo_description: `Compare forex brokers available to traders in ${country.name}.`,
-    indexable: true,
-    published: true,
-    updated_by: null,
-    created_at: new Date(0).toISOString(),
-    updated_at: new Date(0).toISOString(),
-    settings: {},
-  };
-
-  const documentSettings = effectiveCountryDocument.settings || {};
-  const documentFaqs = Array.isArray(documentSettings.faqs) ? documentSettings.faqs : [];
-
-  const ineligibleIds = new Set(availability
-    .filter((row) => row.is_available === false || String(row.status || 'available').toLowerCase() !== 'available')
-    .map((row) => Number(row.broker_id)));
-  const eligibleBrokerIds = new Set(brokers.filter((broker) => !ineligibleIds.has(Number(broker.id))).map((broker) => Number(broker.id)));
-
-  return {
+  const [documentSource, brokersSource, availabilitySource, rankingsSource, guidesSource, bestForSource, localizedGuidesSource, localizedBestForSource] = sources;
+  const model = buildCountryHubModel({
     country,
-    countryDocument: effectiveCountryDocument,
-    availableBrokers: brokers.filter((broker) => eligibleBrokerIds.has(Number(broker.id))),
-    topBrokers: topBrokers.filter((row) => row.broker && eligibleBrokerIds.has(Number(row.broker_id)) && row.availability_status === 'available'),
-    countryGuides: countryGuides.filter((doc) => doc.content_type === 'country-guide'),
-    countryBestFor: countryBestFor.filter((doc) => doc.content_type === 'country-best-for'),
-    localizedGuides: localizedGuides.filter((doc) => doc.content_type === 'localized-guide'),
-    localizedBestFor: localizedBestFor.filter((doc) => doc.content_type === 'localized-best-for'),
-    faqs: documentFaqs.filter((faq): faq is FAQ => Boolean(faq && typeof faq.q === 'string' && typeof faq.a === 'string')),
-    comparisonPath: '/compare',
-    methodologyPath: '/methodology',
+    countryDocument: documentSource.data,
+    brokers: brokersSource.data,
+    availability: availabilitySource.data,
+    topBrokers: rankingsSource.data,
+    countryGuides: guidesSource.data,
+    countryBestFor: bestForSource.data,
+    localizedGuides: localizedGuidesSource.data,
+    localizedBestFor: localizedBestForSource.data,
+  });
+  return {
+    ...model,
+    errors: {
+      ...(documentSource.error ? { countryDocument: String(documentSource.error?.message || documentSource.error) } : {}),
+      ...(brokersSource.error ? { brokers: String(brokersSource.error?.message || brokersSource.error) } : {}),
+      ...(availabilitySource.error ? { availability: String(availabilitySource.error?.message || availabilitySource.error) } : {}),
+      ...(rankingsSource.error ? { rankings: String(rankingsSource.error?.message || rankingsSource.error) } : {}),
+      ...(guidesSource.error ? { countryGuides: String(guidesSource.error?.message || guidesSource.error) } : {}),
+      ...(bestForSource.error ? { countryBestFor: String(bestForSource.error?.message || bestForSource.error) } : {}),
+      ...(localizedGuidesSource.error ? { localizedGuides: String(localizedGuidesSource.error?.message || localizedGuidesSource.error) } : {}),
+      ...(localizedBestForSource.error ? { localizedBestFor: String(localizedBestForSource.error?.message || localizedBestForSource.error) } : {}),
+    },
   };
 }
