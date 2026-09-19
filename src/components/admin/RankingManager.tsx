@@ -30,7 +30,7 @@ export default function RankingManager({ countries, intents, brokers, token }: {
     setMsg('');
     try {
       const response = await fetch(
-        `/api/country-intent-rankings?country=${encodeURIComponent(country)}&intent=${encodeURIComponent(intent)}&admin=true`,
+        `/api/content?resource=country-intent-rankings?country=${encodeURIComponent(country)}&intent=${encodeURIComponent(intent)}&admin=true`,
         { headers: { Authorization: `Bearer ${token}` } },
       );
       if (!response.ok) throw new Error('load failed');
@@ -70,7 +70,7 @@ export default function RankingManager({ countries, intents, brokers, token }: {
   };
 
   const saveMode = async (nextMode: RankingMode) => {
-    const response = await fetch(`/api/country-intent-rankings?country=${encodeURIComponent(country)}&intent=${encodeURIComponent(intent)}`, {
+    const response = await fetch(`/api/content?resource=country-intent-rankings?country=${encodeURIComponent(country)}&intent=${encodeURIComponent(intent)}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ country, intent, ranking_mode: nextMode }),
@@ -121,7 +121,7 @@ export default function RankingManager({ countries, intents, brokers, token }: {
         const brokerId = Number(row.broker_id);
         if (!row.manual_rank || selectedSet.has(brokerId)) continue;
         const response = await fetch(
-          `/api/country-intent-rankings?country=${encodeURIComponent(country)}&intent=${encodeURIComponent(intent)}`,
+          `/api/content?resource=country-intent-rankings?country=${encodeURIComponent(country)}&intent=${encodeURIComponent(intent)}`,
           {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -144,7 +144,7 @@ export default function RankingManager({ countries, intents, brokers, token }: {
       for (let index = 0; index < SLOT_COUNT; index += 1) {
         const brokerId = rankedIds[index];
         const row = current.get(brokerId);
-        const response = await fetch(`/api/country-intent-rankings?country=${encodeURIComponent(country)}&intent=${encodeURIComponent(intent)}`, {
+        const response = await fetch(`/api/content?resource=country-intent-rankings?country=${encodeURIComponent(country)}&intent=${encodeURIComponent(intent)}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({
