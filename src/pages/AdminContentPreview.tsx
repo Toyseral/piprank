@@ -42,7 +42,7 @@ export default function AdminContentPreview() {
 
       if (!res.ok || !payload) {
         setState('error');
-        setMessage(data?.error || 'The draft could not be loaded.');
+        setMessage(payload?.error || 'The draft could not be loaded.');
         return;
       }
 
