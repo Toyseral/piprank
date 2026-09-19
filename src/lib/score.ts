@@ -1,21 +1,33 @@
 import type { Broker } from './types';
 
 /** Broker Health Score — weighted composite of six measured factors. */
+function finiteNumber(value: unknown, fallback = 0): number {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function boundedScore(value: unknown, fallback = 0): number {
+  return Math.max(0, Math.min(100, finiteNumber(value, fallback)));
+}
+
 export function healthScore(b: Broker): number {
-  const h = b.health;
+  const h = b.health ?? {};
   return Math.round(
-    h.regulation * 0.3 +
-    h.withdrawals * 0.2 +
-    h.execution * 0.15 +
-    h.longevity * 0.15 +
-    h.support * 0.1 +
-    h.sentiment * 0.1
+    boundedScore(h.regulation) * 0.3 +
+    boundedScore(h.withdrawals) * 0.2 +
+    boundedScore(h.execution) * 0.15 +
+    boundedScore(h.longevity) * 0.15 +
+    boundedScore(h.support) * 0.1 +
+    boundedScore(h.sentiment) * 0.1
   );
 }
 
 /** Best (lowest) regulatory tier a broker holds, 1 = strongest. */
 export function tierBest(b: Broker): number {
-  return Math.min(...b.regulations.map((r) => r.tier));
+  const tiers = Array.isArray(b.regulations)
+    ? b.regulations.map((r) => finiteNumber(r?.tier, 3)).filter((tier) => tier > 0)
+    : [];
+  return tiers.length ? Math.min(...tiers) : 3;
 }
 
 export function tierLabel(t: number): string {
@@ -33,11 +45,11 @@ export function allInCost(b: Broker): number {
 /** Cross-broker winner score used by the comparison engine and pair pages. */
 export function composite(b: Broker): number {
   return (
-    b.rating * 12 +
-    b.trust_score * 0.6 +
+    finiteNumber(b.rating) * 12 +
+    finiteNumber(b.trust_score) * 0.6 +
     healthScore(b) * 0.6 -
     allInCost(b) * 5 -
-    Math.min(b.min_deposit / 100, 3) +
+    Math.min(Math.max(0, finiteNumber(b.min_deposit, 0)) / 100, 3) +
     (tierBest(b) === 1 ? 6 : 0)
   );
 }
@@ -60,20 +72,20 @@ export interface ScoreTone {
  */
 export function pipRankScore(b: Broker): number {
   const cost = Math.max(0, 100 - allInCost(b) * 12);
-  const deposit = Math.max(0, 100 - Math.min(b.min_deposit, 500) / 5);
-  const trust = b.trust_score;
+  const deposit = Math.max(0, 100 - Math.min(Math.max(0, finiteNumber(b.min_deposit, 0)), 500) / 5);
+  const trust = boundedScore(b.trust_score);
   const health = healthScore(b);
-  const rating = Math.min(100, b.rating * 20);
+  const rating = Math.min(100, Math.max(0, finiteNumber(b.rating) * 20));
   return Math.max(1, Math.min(99, Math.round(trust * 0.28 + health * 0.28 + cost * 0.18 + deposit * 0.08 + rating * 0.18)));
 }
 
 export function pipRankBreakdown(b: Broker) {
   return {
-    Trust: b.trust_score,
+    Trust: boundedScore(b.trust_score),
     Health: healthScore(b),
     Costs: Math.max(0, Math.min(100, Math.round(100 - allInCost(b) * 12))),
-    Accessibility: Math.max(0, Math.min(100, Math.round(100 - Math.min(b.min_deposit, 500) / 5))),
-    Reputation: Math.min(100, Math.round(b.rating * 20)),
+    Accessibility: Math.max(0, Math.min(100, Math.round(100 - Math.min(Math.max(0, finiteNumber(b.min_deposit, 0)), 500) / 5))),
+    Reputation: Math.min(100, Math.max(0, Math.round(finiteNumber(b.rating) * 20))),
   };
 }
 
