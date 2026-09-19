@@ -197,7 +197,7 @@ async function main() {
   const globalBestFors = publicDocs.filter((doc) => doc.content_type === 'global-best-for' && doc.slug);
   const countryGuides = publicDocs.filter((doc) => doc.content_type === 'country-guide' && doc.country_slug && doc.slug);
   const countryBestFors = publicDocs.filter((doc) => doc.content_type === 'country-best-for' && doc.country_slug && doc.slug);
-  const localizedGuides = publicDocs.filter((doc) => doc.content_type === 'localized-guide' && doc.country_slug && doc.slug && ((doc.settings || {}).locale || (doc.settings || {}).languageCode));
+  const localizedGuides = publicDocs.filter((doc) => doc.content_type === 'localized-guide' && doc.country_slug && doc.slug && localeOf(doc));
   const localizedBestFors = publicDocs.filter((doc) => doc.content_type === 'localized-best-for' && doc.country_slug && doc.slug && ((doc.settings || {}).locale || (doc.settings || {}).languageCode));
 
   const sortedBrokers = [...brokers].filter((broker) => broker.slug).sort((a, b) => Number(b.rating || 0) - Number(a.rating || 0));
