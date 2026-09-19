@@ -30,7 +30,7 @@ export default function CanonicalHub() {
       await new Promise<void>((resolveDelay) => { retryTimer = setTimeout(resolveDelay, 350); });
       const second = await resolveCanonicalPath(pathname).catch(() => null);
       if (second) return second;
-      const match = pathname.match(/^\\/([^/]+)\\/?$/);
+      const match = pathname.match(/^\/([^/]+)\/?$/);
       if (!match) return null;
       const slug = decodeURIComponent(match[1]).trim().toLowerCase();
       if (!slug || ['guides', 'brokers', 'compare', 'countries'].includes(slug)) return null;
