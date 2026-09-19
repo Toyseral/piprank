@@ -62,7 +62,17 @@ async function handleIntents(req,res){
     if(error) throw error;
     if(slug && !intents?.[0]) return res.status(404).json({error:'Category not found'});
 
-    const rows=intents??[];
+    // Expose one canonical intent per Best-For owner. Legacy short intent rows
+    // remain in the database for backward compatibility but are not separate
+    // editorial/ranking choices in the admin UI.
+    const canonicalRows = new Map();
+    for (const intent of (intents ?? [])) {
+      const canonicalSlug = canonicalIntentSlug(intent.slug);
+      if (!canonicalSlug) continue;
+      const existing = canonicalRows.get(canonicalSlug);
+      if (!existing || intent.slug === canonicalSlug) canonicalRows.set(canonicalSlug, intent);
+    }
+    const rows = [...canonicalRows.values()].sort((a,b)=>(a.sort_order??0)-(b.sort_order??0)||Number(a.id)-Number(b.id));
     const slugs=rows.map((i)=>canonicalIntentSlug(i.slug)).filter(Boolean);
     const {data:docs,error:docError}=slugs.length
       ? await supabase.from('content_documents')
