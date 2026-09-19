@@ -251,6 +251,12 @@ function CountryHubEditor({ country, document, brokers, token, onClose, onSaved,
             <p className="mt-2 text-[10px] text-slate-500">The primary CTA is fixed as “Match Me with a Broker” to keep the country funnel consistent.</p>
           </div>
           <div className="rounded-2xl border border-line bg-paper p-4">
+            <p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Matcher</p>
+            <label className="mt-3 block"><span className="mb-1 block text-[10px] font-bold uppercase text-slate-400">Heading</span><input value={String(settings.matcher_title ?? '')} onChange={e=>setSetting('matcher_title',e.target.value)} className={input} placeholder="Find a forex broker that fits your needs"/></label>
+            <label className="mt-3 block"><span className="mb-1 block text-[10px] font-bold uppercase text-slate-400">Intro</span><textarea value={String(settings.matcher_copy ?? '')} onChange={e=>setSetting('matcher_copy',e.target.value)} rows={4} className={text}/></label>
+            <p className="mt-2 text-[10px] text-slate-500">Matcher logic remains system-controlled; this editor controls the presentation copy.</p>
+          </div>
+          <div className="rounded-2xl border border-line bg-paper p-4">
             <p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Broker list</p>
             <label className="mt-3 block"><span className="mb-1 block text-[10px] font-bold uppercase text-slate-400">Section heading</span><input value={String(settings.brokers_title ?? '')} onChange={e=>setSetting('brokers_title',e.target.value)} className={input} placeholder={`Top forex brokers available in ${country.name}`}/></label>
             <label className="mt-3 block"><span className="mb-1 block text-[10px] font-bold uppercase text-slate-400">Section intro</span><textarea value={String(settings.brokers_intro ?? '')} onChange={e=>setSetting('brokers_intro',e.target.value)} rows={4} className={text}/></label>
@@ -267,6 +273,11 @@ function CountryHubEditor({ country, document, brokers, token, onClose, onSaved,
             <label className="mt-3 block"><span className="mb-1 block text-[10px] font-bold uppercase text-slate-400">Intro</span><textarea value={String(settings.best_for_intro ?? '')} onChange={e=>setSetting('best_for_intro',e.target.value)} rows={4} className={text}/></label>
           </div>
           <div className="rounded-2xl border border-line bg-paper p-4">
+            <p className="text-xs font-bold uppercase tracking-widest text-emerald-700">What Matters content</p>
+            <div className="mt-3 space-y-3">{(Array.isArray(settings.what_matters) ? settings.what_matters : []).map((item:any,i:number)=><div key={i} className="rounded-xl border border-line bg-white p-3"><div className="flex gap-2"><input value={item.title||''} onChange={e=>setSetting('what_matters',(settings.what_matters||[]).map((x:any,n:number)=>n===i?{...x,title:e.target.value}:x))} className={input} placeholder="Factor title"/><button type="button" onClick={()=>setSetting('what_matters',(settings.what_matters||[]).filter((_:any,n:number)=>n!==i))} className="rounded-lg px-2 text-rose-500">×</button></div><textarea value={item.description||''} onChange={e=>setSetting('what_matters',(settings.what_matters||[]).map((x:any,n:number)=>n===i?{...x,description:e.target.value}:x))} rows={3} className={text} placeholder="Explain why this matters"/></div>)}<button type="button" onClick={()=>setSetting('what_matters',[...(Array.isArray(settings.what_matters)?settings.what_matters:[]),{title:'',description:''}])} className="rounded-lg border border-dashed border-line px-3 py-2 text-xs font-bold">Add factor</button></div>
+            <p className="mt-2 text-[10px] text-slate-500">Leave empty to use the country's data-driven defaults.</p>
+          </div>
+          <div className="rounded-2xl border border-line bg-paper p-4">
             <p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Guides & comparison</p>
             <label className="mt-3 block"><span className="mb-1 block text-[10px] font-bold uppercase text-slate-400">Guides heading</span><input value={String(settings.guides_title ?? '')} onChange={e=>setSetting('guides_title',e.target.value)} className={input}/></label>
             <label className="mt-3 block"><span className="mb-1 block text-[10px] font-bold uppercase text-slate-400">Guides intro</span><textarea value={String(settings.guides_intro ?? '')} onChange={e=>setSetting('guides_intro',e.target.value)} rows={3} className={text}/></label>
@@ -280,6 +291,11 @@ function CountryHubEditor({ country, document, brokers, token, onClose, onSaved,
             <label className="mt-4 block"><span className="mb-1 block text-[10px] font-bold uppercase text-slate-400">Final CTA heading</span><input value={String(settings.final_cta_title ?? '')} onChange={e=>setSetting('final_cta_title',e.target.value)} className={input}/></label>
             <label className="mt-3 block"><span className="mb-1 block text-[10px] font-bold uppercase text-slate-400">Final CTA copy</span><textarea value={String(settings.final_cta_copy ?? '')} onChange={e=>setSetting('final_cta_copy',e.target.value)} rows={3} className={text}/></label>
           </div>
+        </div>
+        <div className="mt-5 rounded-2xl border border-line bg-paper p-4">
+          <p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Methodology presentation</p>
+          <label className="mt-3 block"><span className="mb-1 block text-[10px] font-bold uppercase text-slate-400">Heading</span><input value={String(settings.methodology_title ?? '')} onChange={e=>setSetting('methodology_title',e.target.value)} className={input}/></label>
+          <label className="mt-3 block"><span className="mb-1 block text-[10px] font-bold uppercase text-slate-400">Copy</span><textarea value={String(settings.methodology_copy ?? '')} onChange={e=>setSetting('methodology_copy',e.target.value)} rows={3} className={text}/></label>
         </div>
         <div className="mt-5 rounded-2xl border border-line bg-white p-4">
           <p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Editorial content</p>
