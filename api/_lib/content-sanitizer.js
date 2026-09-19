@@ -11,7 +11,9 @@ function cleanText(value, max = 500) { return String(value ?? '').trim().slice(0
 function safeUrl(value, { image = false } = {}) {
   const raw = String(value ?? '').trim();
   if (!raw) return null;
-  if (/^(https:\/\/|\/|#)/i.test(raw)) return raw;
+  if (/^https:\/\//i.test(raw)) return raw;
+  if (/^\/\//.test(raw)) return null;
+  if (/^\/(?!\/)|^#/i.test(raw)) return raw;
   if (image && /^data:image\/(png|jpe?g|gif|webp);base64,/i.test(raw)) return raw;
   return null;
 }
