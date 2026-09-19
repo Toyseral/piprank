@@ -1,6 +1,10 @@
 import type { Broker, BrokerAssets, BrokerCountryAvailability, BrokerCountryVerification, CountryPage, FAQ, HealthFactors, Intent, Review, ContentDocument, CountryLanguage, CountryIntentBrokerRanking, BrokerPlatform, BrokerPlatforms, CountryBrokerRanking, Regulation, TestResult } from './types';
 
-export class ApiError extends Error {\n  constructor(message: string, public readonly status: number) { super(message); this.name = 'ApiError'; }\n}\n\nasync function get<T>(url: string, token?: string): Promise<T> {
+export class ApiError extends Error {
+  constructor(message: string, public readonly status: number) { super(message); this.name = 'ApiError'; }
+}
+
+async function get<T>(url: string, token?: string): Promise<T> {
   const res = await fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : undefined });
   const data = await res.json().catch(() => null);
   if (!res.ok) throw new ApiError((data && (data as { error?: string }).error) || `Request failed (${res.status})`, res.status);
