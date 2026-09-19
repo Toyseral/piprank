@@ -31,7 +31,7 @@ export default function Promotions() {
   useEffect(() => {
     document.title = 'Forex Broker Promotions & Bonuses — Live Offers | PipRank';
     Promise.all([
-      fetch('/api/promotions').then((x) => x.json()),
+      fetch('/api/site?resource=promotions').then((x) => x.json()),
       fetchBrokers(),
     ])
       .then(([p, b]) => {
