@@ -73,7 +73,7 @@ export function LocalizationManager({ countries, languages, contentDocs, mutate 
       'gold-forex-brokers': 'gold',
       'low-spread-forex-brokers': 'low-spread',
     };
-    const templateKey = templateKeyBySlug[ownerSlug] ?? ownerSlug;
+    const templateKey = templateKeyBySlug[canonicalOwnerSlug] ?? canonicalOwnerSlug;
     const template = getLanguageTopicTemplate(selectedLang.code, templateKey, country.name);
     const slug = template.slug;
     const contentKey = `localized-best-for:${country.slug}:${selectedLang.code}:${slug}`;
