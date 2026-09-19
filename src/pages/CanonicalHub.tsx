@@ -1,8 +1,7 @@
-import { useEffect, useState } from 'react';
+import { Component, useEffect, useState, type ErrorInfo, type ReactNode } from 'react';
 import { useLocation, Navigate } from 'react-router-dom';
 import type { CanonicalRoute } from '../lib/canonicalHub/types';
 import { resolveCanonicalPath } from '../lib/canonicalHub/resolver';
-import { fetchCountry } from '../lib/api';
 import { useSEO } from '../hooks/useSEO';
 import ContentRenderer from '../components/ContentRenderer';
 import CanonicalGlobalBestFor from '../components/CanonicalGlobalBestFor';
@@ -15,6 +14,24 @@ import CountryDetail from './CountryDetail';
 import NotFound from './NotFound';
 
 function Loading() { return <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6"><div className="h-48 animate-pulse rounded-3xl border border-line bg-white" /></div>; }
+class CanonicalErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
+  state = { hasError: false };
+  static getDerivedStateFromError(): { hasError: boolean } { return { hasError: true }; }
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error('Canonical route render failure', error, info);
+  }
+  render() {
+    if (!this.state.hasError) return this.props.children;
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-24 text-center sm:px-6">
+        <h1 className="font-display text-3xl font-bold text-ink-950">This page could not be loaded</h1>
+        <p className="mt-3 text-sm leading-6 text-slate-500">The page encountered an unexpected rendering error. Refresh the page to try again.</p>
+        <button type="button" onClick={() => window.location.reload()} className="mt-7 inline-flex rounded-xl bg-ink-950 px-5 py-3 text-sm font-bold text-white">Refresh page</button>
+      </div>
+    );
+  }
+}
+
 
 export default function CanonicalHub() {
   const { pathname } = useLocation();
@@ -50,13 +67,13 @@ export default function CanonicalHub() {
       if (!resolved) { setState('missing'); return; }
       setRoute(resolved); setState('resolved');
     });
-    return () => { active = false; if (retryTimer) clearTimeout(retryTimer); };
+    return () => { active = false; };
   }, [pathname]);
   useSEO(state === 'missing' ? { title: 'Page not found | PipRank', description: 'The requested PipRank page does not exist.', path: pathname, type: 'website', noindex: true } : null);
   if (state === 'loading') return <Loading />;
   if (state === 'missing' || !route) return <NotFound />;
   if (route.type === 'country' && route.path.startsWith('/countries/')) return <Navigate to={`/${route.slug}`} replace />;
-  switch (route.type) {
+  return <CanonicalErrorBoundary><>{  switch (route.type) {
     case 'global-best-for': return <CanonicalGlobalBestFor route={route} />;
     case 'guide':
     case 'country-guide':
@@ -65,8 +82,8 @@ export default function CanonicalHub() {
     case 'localized-best-for':
       return <ContentRenderer route={route} />;
     case 'broker': return route.path === '/brokers' ? <Brokers /> : <BrokerDetailNew />;
-    case 'country': return route.path === '/countries' ? <Countries /> : <CountryDetail />;
+    case 'country': return route.path === '/countries' ? <Countries /> : <CountryDetail route={route} />;
     case 'compare': return route.path === '/compare' ? <Compare /> : <ComparePair />;
     default: return <NotFound />;
-  }
+  }</>}</CanonicalErrorBoundary>;
 }
