@@ -10,7 +10,7 @@ import Monogram from './Monogram';
 type Props = { countrySlug: string; countryName: string; countryFlag?: string };
 
 export default function CountryBrokerMatcher({ countrySlug, countryName, countryFlag = '' }: Props) {
-  const questions = useMemo<BrokerMatchQuestion[]>(() => BROKER_MATCH_QUESTIONS.filter((q) => q.key !== 'country').slice(0, 5), []);
+  const questions = useMemo<BrokerMatchQuestion[]>(() => BROKER_MATCH_QUESTIONS.filter((q) => q.key !== 'country'), []);
   const [brokers, setBrokers] = useState<Broker[]>([]);
   const [rankings, setRankings] = useState<CountryBrokerRanking[]>([]);
   const [step, setStep] = useState(0);
