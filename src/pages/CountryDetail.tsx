@@ -78,15 +78,35 @@ export default function CountryDetail() {
 
   const whatMatters = useMemo(() => {
     const configured = (document?.settings as Record<string, unknown> | undefined)?.what_matters;
-    if (Array.isArray(configured)) return configured.filter((x: any) => x && typeof x.title === 'string').slice(0, 8);
+    if (Array.isArray(configured)) {
+      return configured
+        .filter((x: any): x is CountryWhatMatters => x && typeof x.title === 'string' && typeof x.description === 'string')
+        .slice(0, 8);
+    }
+
+    const facts = Array.isArray(country?.facts) ? country.facts.filter((fact) => fact?.label && fact?.value) : [];
+    const factByLabel = new Map(facts.map((fact) => [fact.label.toLowerCase(), fact.value]));
+    const regulation = factByLabel.get('regulation') || factByLabel.get('regulator');
+    const payment = factByLabel.get('payment methods') || factByLabel.get('payments');
+    const leverage = factByLabel.get('maximum leverage') || factByLabel.get('leverage');
+    const availability = factByLabel.get('broker availability') || factByLabel.get('availability');
+
     return [
-      { title: 'Regulation', description: `Check which legal entity and regulatory protections apply to residents of ${country?.name ?? 'this country'}.` },
-      { title: 'Deposits & withdrawals', description: 'Funding rails, processing times and available payment methods can affect the practical cost of trading.' },
-      { title: 'Trading costs', description: 'Compare spreads, commissions and other account fees rather than looking at a headline spread alone.' },
-      { title: 'Platforms', description: 'Make sure the broker supports the platform, automation and tools you actually use.' },
-      { title: 'Leverage', description: 'Maximum leverage and account protections can differ by country and legal entity.' },
-      { title: 'Local availability', description: 'A broker can be available globally while offering different products or conditions to local residents.' },
-    ];
+      regulation
+        ? { title: 'Regulation', description: `For traders in ${country?.name ?? 'this country'}, check whether the broker serves you through the legal entity and regulatory framework shown in the country data: ${regulation}.` }
+        : { title: 'Regulation', description: `Check which legal entity and regulatory protections apply to residents of ${country?.name ?? 'this country'}.` },
+      payment
+        ? { title: 'Deposits & withdrawals', description: `Payment options listed for ${country?.name ?? 'this country'} include ${payment}. Confirm current processing times and fees before funding an account.` }
+        : { title: 'Deposits & withdrawals', description: `Check which funding and withdrawal methods are practical for traders in ${country?.name ?? 'this country'}.` },
+      { title: 'Trading costs', description: `Compare spreads, commissions and account fees for the broker entity available to ${country?.name ?? 'this country'} residents rather than relying on a headline spread alone.` },
+      { title: 'Platforms', description: `Confirm that the broker available in ${country?.name ?? 'this country'} supports the platform, automation and trading tools you actually use.` },
+      leverage
+        ? { title: 'Leverage', description: `Country data lists maximum leverage as ${leverage}; verify the leverage available to your account entity and account type before trading.` }
+        : { title: 'Leverage', description: `Maximum leverage and account protections can differ by country and legal entity.` },
+      availability
+        ? { title: 'Local availability', description: `PipRank country data currently describes broker availability as: ${availability}. Availability can change, so verify the broker's current country eligibility before signing up.` }
+        : { title: 'Local availability', description: `A broker can be available globally while offering different products or conditions to local residents.` },
+    ].slice(0, 8) as CountryWhatMatters[];
   }, [document, country]);
 
   if (loading) return <div className="mx-auto max-w-7xl px-4 py-24 text-center text-sm text-slate-500">Loading country…</div>;
