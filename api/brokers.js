@@ -75,7 +75,14 @@ export default async function handler(req, res) {
     if (req.method === 'DELETE') {
       const brokerId = Number(req.body?.id); if (!Number.isInteger(brokerId) || brokerId <= 0) return res.status(400).json({ error: 'A valid id is required' });
       const { data: broker, error: brokerLookupError } = await supabase.from('brokers').select('id,slug').eq('id', brokerId).maybeSingle(); if (brokerLookupError) throw brokerLookupError; if (!broker) return res.status(404).json({ error: 'Broker not found' });
-      const cleanup = [supabase.from('reviews').delete().eq('broker_id', brokerId), supabase.from('broker_media').delete().eq('broker_id', brokerId), supabase.from('broker_country_availability').delete().eq('broker_id', brokerId), supabase.from('broker_country_verification').delete().eq('broker_id', brokerId), supabase.from('affiliate_links').delete().eq('broker_id', brokerId), supabase.from('content_documents').delete().eq('content_type', 'broker').eq('slug', broker.slug)];
+      const cleanup = [
+        supabase.from('reviews').delete().eq('broker_id', brokerId),
+        supabase.from('broker_media').delete().eq('broker_id', brokerId),
+        supabase.from('broker_country_availability').delete().eq('broker_id', brokerId),
+        supabase.from('broker_country_verification').delete().eq('broker_id', brokerId),
+        supabase.from('affiliate_links').delete().eq('broker_id', brokerId),
+        supabase.from('content_documents').delete().eq('content_type', 'broker').or(`slug.eq.${broker.slug},content_key.like.broker:${broker.slug}:%`),
+      ];
       const results = await Promise.all(cleanup); const cleanupError = results.find((result) => result.error)?.error; if (cleanupError) throw cleanupError;
       const { error } = await supabase.from('brokers').delete().eq('id', brokerId); if (error) throw error; return res.status(200).json({ ok: true });
     }
