@@ -94,24 +94,25 @@ export default function CountryGuidesIndex() {
   const [guides, setGuides] = useState<ContentDocument[]>([]);
   const [bestFor, setBestFor] = useState<ContentDocument[]>([]);
   const [localizedGuides, setLocalizedGuides] = useState<ContentDocument[]>([]);
+  const [localizedBestFor, setLocalizedBestFor] = useState<ContentDocument[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     Promise.all([
       fetchCountry(countrySlug),
-      fetchPublishedContentDocuments({ type: 'country-guide', country: countrySlug }),
-      fetchPublishedContentDocuments({ type: 'country-best-for', country: countrySlug }),
-      fetchPublishedContentDocuments({ type: 'localized-guide', country: countrySlug }),
-    ]).then(([c, countryGuideDocs, bestForDocs, localizedGuideDocs]) => {
+      fetchPublishedContentDocuments({ country: countrySlug }),
+    ]).then(([c, countryDocs]) => {
       setCountry(c);
-      setGuides(countryGuideDocs.filter((doc) => doc.content_type === 'country-guide'));
-      setBestFor(bestForDocs.filter((doc) => doc.content_type === 'country-best-for'));
-      setLocalizedGuides(localizedGuideDocs.filter((doc) => doc.content_type === 'localized-guide'));
+      setGuides(countryDocs.filter((doc) => doc.content_type === 'country-guide'));
+      setBestFor(countryDocs.filter((doc) => doc.content_type === 'country-best-for'));
+      setLocalizedGuides(countryDocs.filter((doc) => doc.content_type === 'localized-guide'));
+      setLocalizedBestFor(countryDocs.filter((doc) => doc.content_type === 'localized-best-for'));
     }).catch(() => {
       setCountry(null);
       setGuides([]);
       setBestFor([]);
       setLocalizedGuides([]);
+      setLocalizedBestFor([]);
     }).finally(() => setLoading(false));
   }, [countrySlug]);
 
@@ -127,7 +128,7 @@ export default function CountryGuidesIndex() {
     return [...groups.entries()].sort(([a], [b]) => a.localeCompare(b));
   }, [localizedGuides]);
 
-  const hasContent = guides.length > 0 || bestFor.length > 0 || localizedGuides.length > 0;
+  const hasContent = guides.length > 0 || bestFor.length > 0 || localizedGuides.length > 0 || localizedBestFor.length > 0;
 
   useSEO(country ? {
     title: `${country.name} Forex Guides, Best Brokers & Trading Resources | PipRank`,
@@ -161,7 +162,7 @@ export default function CountryGuidesIndex() {
           <div className="mb-10 flex flex-wrap gap-2 text-xs font-bold text-slate-500">
             {guides.length > 0 && <a href="#guides" className="rounded-full border border-line bg-white px-3 py-2 hover:border-emerald-300 hover:text-emerald-700">Guides</a>}
             {bestFor.length > 0 && <a href="#best-for" className="rounded-full border border-line bg-white px-3 py-2 hover:border-emerald-300 hover:text-emerald-700">Best For</a>}
-            {localizedGuides.length > 0 && <a href="#localized-guides" className="rounded-full border border-line bg-white px-3 py-2 hover:border-emerald-300 hover:text-emerald-700">Localized Guides</a>}
+            {(localizedGuides.length > 0 || localizedBestFor.length > 0) && <a href="#localized-guides" className="rounded-full border border-line bg-white px-3 py-2 hover:border-emerald-300 hover:text-emerald-700">Localized Guides</a>}
           </div>
 
           {guides.length > 0 && (
@@ -190,21 +191,43 @@ export default function CountryGuidesIndex() {
             </section>
           )}
 
-          {localizedGuides.length > 0 && (
+          {(localizedGuides.length > 0 || localizedBestFor.length > 0) && (
             <section id="localized-guides" className="mt-16 scroll-mt-20 border-t border-line pt-14">
               <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-700">Localized content</p>
-              <h2 className="mt-2 font-display text-3xl font-bold tracking-tight text-ink-950">Forex guides in local languages</h2>
-              <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">When localized guides exist, they are surfaced here while the individual localized pages remain the canonical content owners.</p>
-              <div className="mt-8 space-y-10">
-                {localizedGroups.map(([locale, docs]) => (
-                  <div key={locale}>
+              <h2 className="mt-2 font-display text-3xl font-bold tracking-tight text-ink-950">Forex resources in local languages</h2>
+              <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">Localized guides and Best-For pages are surfaced here for discovery. Each individual localized page remains the canonical content owner.</p>
+
+              {localizedGroups.map(([locale, docs]) => {
+                const bestForDocs = localizedBestFor.filter((doc) => localeOf(doc) === locale);
+                return (
+                  <div key={locale} className="mt-10">
                     <h3 className="font-display text-xl font-bold text-ink-950">{localeLabel(locale)}</h3>
-                    <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                      {docs.map((doc) => <LocalizedGuideCard key={doc.content_key} doc={doc} countrySlug={country.slug} />)}
-                    </div>
+                    {docs.length > 0 && (
+                      <>
+                        <p className="mt-2 text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Guides</p>
+                        <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                          {docs.map((doc) => <LocalizedGuideCard key={doc.content_key} doc={doc} countrySlug={country.slug} />)}
+                        </div>
+                      </>
+                    )}
+                    {bestForDocs.length > 0 && (
+                      <>
+                        <p className="mt-7 text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Best For</p>
+                        <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                          {bestForDocs.map((doc) => (
+                            <Link key={doc.content_key} to={localizedPath(doc, country.slug)} className="group rounded-2xl border border-line bg-paper p-5 transition hover:-translate-y-0.5 hover:border-emerald-300 hover:bg-white hover:shadow-soft">
+                              <div className="flex items-center gap-2 text-emerald-700"><Target size={17} /><span className="text-[10px] font-bold uppercase tracking-[0.16em]">{localeLabel(locale)}</span></div>
+                              <h4 className="mt-3 font-display text-lg font-bold text-ink-950 group-hover:text-emerald-700">{doc.title}</h4>
+                              {doc.excerpt && <p className="mt-2 line-clamp-3 text-sm leading-6 text-slate-500">{doc.excerpt}</p>}
+                              <span className="mt-4 inline-flex items-center gap-1 text-xs font-bold text-emerald-700">Explore broker picks <ArrowRight size={13} /></span>
+                            </Link>
+                          ))}
+                        </div>
+                      </>
+                    )}
                   </div>
-                ))}
-              </div>
+                );
+              })}
             </section>
           )}
 
