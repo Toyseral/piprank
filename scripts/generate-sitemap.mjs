@@ -59,7 +59,7 @@ async function main() {
     if (!document?.published || !document?.indexable) continue;
     urls.push({ loc: `/${country.slug}`, lastmod: cleanDate(document.updated_at || country.updated_at) });
   }
-
+  // Country guide hubs are discovery indexes, not content owners. Only include them when at least one published country guide exists.\n  for (const country of countries) {\n    if (!country.slug || country.publishing_state !== 'published') continue;\n    const hasGuides = documents.some((doc) => doc.content_type === 'country-guide' && doc.country_slug === country.slug);\n    if (hasGuides) urls.push({ loc: `/${country.slug}/guides` });\n  }\n
   for (const document of documents) {
     const path = canonicalPathForDocument(document);
     if (path) urls.push({ loc: path, lastmod: cleanDate(document.updated_at) });
