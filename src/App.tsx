@@ -11,6 +11,7 @@ import { GeoProvider } from './lib/GeoContext';
 const SmartCTA = lazy(() => import('./components/SmartCTA'));
 const About = lazy(() => import('./pages/About'));
 const Admin = lazy(() => import('./pages/Admin'));
+const AdminContentPreview = lazy(() => import('./pages/AdminContentPreview'));
 const Authors = lazy(() => import('./pages/Authors'));
 const CanonicalHub = lazy(() => import('./pages/CanonicalHub'));
 const Methodology = lazy(() => import('./pages/Methodology'));
@@ -40,6 +41,7 @@ export function Shell() {
           <Route path="/about" element={<About />} />
           <Route path="/authors" element={<Authors />} />
           <Route path="/promotions" element={<Promotions />} />
+          <Route path="/archypage/preview/:id" element={<AdminContentPreview />} />
           <Route path="/archypage" element={<Admin />} />
           <Route path="/archypage/rankings" element={<Navigate to="/archypage#tab=countries" replace />} />
           <Route path="/brokers" element={<CanonicalHub />} />
