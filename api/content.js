@@ -190,7 +190,7 @@ async function handleCountryIntentRankings(req, res) {
 
     const [{ data: brokers, error: brokerError }, { data: availability, error: availabilityError }, { data: overrides, error: overrideError }, { data: baseRows, error: rankingError }] = await Promise.all([
       supabase.from('brokers').select('id,name,slug,rating,trust_score,brand_color,logo_url').order('rating', { ascending: false }),
-      supabase.from('broker_country_availability').select('broker_id,status,note,priority').eq('country_id', Number(countryRow.id)),
+      supabase.from('broker_country_availability').select('broker_id,status,is_available,note,priority').eq('country_id', Number(countryRow.id)),
       supabase.from('country_intent_broker_overrides').select('*').eq('country_id', Number(countryRow.id)).eq('intent_id', Number(intentRow.id)),
       supabase.from('country_intent_broker_final_rankings').select('broker_id,final_rank,final_score,eligibility_status,score_breakdown,featured').eq('country_id', Number(countryRow.id)).eq('intent_id', Number(intentRow.id)).order('final_rank', { ascending: true }),
     ]);
@@ -216,8 +216,9 @@ async function handleCountryIntentRankings(req, res) {
       const a = availabilityMap.get(id);
       const o = overrideMap.get(id);
       const base = baseMap.get(id);
-      const status = a?.status ?? 'available';
-      const available = status === 'available';
+      const status = String(a?.status ?? 'available').toLowerCase();
+      const explicitlyUnavailable = a?.is_available === false || ['unavailable', 'restricted'].includes(status);
+      const available = !explicitlyUnavailable && status === 'available';
       const score = Number(base?.final_score ?? broker.trust_score ?? broker.rating ?? 0);
       return {
         country_id: Number(countryRow.id),
@@ -292,9 +293,9 @@ async function handleCountryIntentRankings(req, res) {
     }
 
     const { data: availability, error: availabilityError } = await supabase.from('broker_country_availability')
-      .select('status').eq('country_id', Number(countryRow.id)).eq('broker_id', brokerId).maybeSingle();
+      .select('status,is_available').eq('country_id', Number(countryRow.id)).eq('broker_id', brokerId).maybeSingle();
     if (availabilityError) throw availabilityError;
-    if (manualRank !== null && availability?.status && availability.status !== 'available') {
+    if (manualRank !== null && (availability?.is_available === false || (availability?.status && !['available'].includes(String(availability.status).toLowerCase())))) {
       return res.status(400).json({ error: 'Only brokers available in this country can be ranked' });
     }
 
