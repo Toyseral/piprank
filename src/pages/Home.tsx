@@ -116,6 +116,11 @@ export default function Home() {
     [activeGeo, countries]
   );
 
+  useEffect(() => {
+    if (!localizedCountry) { setLocalizedRankings([]); return; }
+    fetchCountryBrokerRankings(localizedCountry.slug).then(setLocalizedRankings).catch(() => setLocalizedRankings([]));
+  }, [localizedCountry]);
+
   const localizedBrokers = useMemo(() => {
     if (!localizedCountry || !localizedRankings.length) return brokers;
     const order = new Map(localizedRankings.map((row, i) => [row.broker?.slug ?? '', row.final_rank ?? i + 1]));
