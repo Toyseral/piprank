@@ -1,4 +1,4 @@
-import type { ContentDocument } from '../types';
+import type { ContentDocument, CountryPage } from '../types';
 
 export type CanonicalContentType =
   | 'global-best-for'
@@ -23,6 +23,8 @@ export interface CanonicalRoute {
   indexable: boolean;
   published: boolean;
   document?: ContentDocument | null;
+  /** Resolved country entity, reused by the country renderer to avoid a second country lookup. */
+  country?: CountryPage | null;
 }
 
 export type CanonicalResolution =

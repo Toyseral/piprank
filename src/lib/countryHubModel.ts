@@ -19,8 +19,8 @@ export type CountryHubPageModel = {
   methodologyPath: '/methodology';
 };
 
-export async function fetchCountryHubPageModel(slug: string): Promise<CountryHubPageModel | null> {
-  const country = await fetchCountry(slug).catch(() => null);
+export async function fetchCountryHubPageModel(slug: string, resolvedCountry?: CountryPage | null): Promise<CountryHubPageModel | null> {
+  const country = resolvedCountry ?? await fetchCountry(slug).catch(() => null);
   if (!country || country.publishing_state === 'closed' || country.publishing_state === 'draft') return null;
 
   // The country record and its canonical hub document are required. Everything
@@ -46,9 +46,28 @@ export async function fetchCountryHubPageModel(slug: string): Promise<CountryHub
     fetchPublishedContentDocuments({ type: 'localized-best-for', country: country.slug }).catch(() => []),
   ]);
 
-  if (!countryDocument) return null;
+  const effectiveCountryDocument: ContentDocument = countryDocument ?? {
+    id: 0,
+    content_key: `country:${country.slug}:hub`,
+    content_type: 'country',
+    country_slug: country.slug,
+    topic_slug: null,
+    slug: country.slug,
+    title: `Forex brokers in ${country.name}`,
+    excerpt: '',
+    html: '',
+    blocks: [],
+    seo_title: `Forex Brokers in ${country.name} | PipRank`,
+    seo_description: `Compare forex brokers available to traders in ${country.name}.`,
+    indexable: true,
+    published: true,
+    updated_by: null,
+    created_at: new Date(0).toISOString(),
+    updated_at: new Date(0).toISOString(),
+    settings: {},
+  };
 
-  const documentSettings = countryDocument.settings || {};
+  const documentSettings = effectiveCountryDocument.settings || {};
   const documentFaqs = Array.isArray(documentSettings.faqs) ? documentSettings.faqs : [];
 
   const ineligibleIds = new Set(availability
@@ -58,7 +77,7 @@ export async function fetchCountryHubPageModel(slug: string): Promise<CountryHub
 
   return {
     country,
-    countryDocument,
+    countryDocument: effectiveCountryDocument,
     availableBrokers: brokers.filter((broker) => eligibleBrokerIds.has(Number(broker.id))),
     topBrokers: topBrokers.filter((row) => row.broker && eligibleBrokerIds.has(Number(row.broker_id)) && row.availability_status === 'available'),
     countryGuides: countryGuides.filter((doc) => doc.content_type === 'country-guide'),
