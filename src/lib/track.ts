@@ -17,7 +17,7 @@ export function getSessionId(): string {
 
 export function track(type: string, meta: Record<string, unknown> = {}): void {
   try {
-    void fetch('/api/track?resource=events', {
+    void fetch('/api/analytics?resource=events', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type, meta, session: getSessionId() }),

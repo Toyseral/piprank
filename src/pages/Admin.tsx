@@ -269,7 +269,7 @@ export default function Admin() {
   useEffect(() => {
     if (!session) return;
     setRole('checking');
-    fetch('/api/admin-users?self=1', {
+    fetch('/api/site?resource=admin-users?self=1', {
       headers: { Authorization: `Bearer ${session.access_token}` },
     })
       .then((r) => (r.ok ? r.json() : { role: null }))
@@ -430,12 +430,12 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
       const [b, r, i, co, s, c, cd, cl] = await Promise.all([
         safeJson(fetch('/api/brokers'), []),
         safeJson(fetch('/api/reviews', { headers: headers() }), []),
-        safeJson(fetch('/api/intents'), []),
-        safeJson(fetch('/api/countries'), []),
-        safeJson(fetch('/api/newsletter', { headers: headers() }), []),
-        safeJson<ClicksAgg>(fetch('/api/track?resource=clicks', { headers: headers() }), { total: 0, byBroker: {}, byPage: {}, byDay: {}, recent: [] }),
+        safeJson(fetch('/api/content?resource=intents'), []),
+        safeJson(fetch('/api/content?resource=countries'), []),
+        safeJson(fetch('/api/site?resource=newsletter', { headers: headers() }), []),
+        safeJson<ClicksAgg>(fetch('/api/analytics?resource=clicks', { headers: headers() }), { total: 0, byBroker: {}, byPage: {}, byDay: {}, recent: [] }),
         safeJson(fetch('/api/content-documents?admin=true', { headers: headers() }), []),
-        safeJson(fetch('/api/country-languages?admin=true', { headers: headers() }), []),
+        safeJson(fetch('/api/canonical-country-languages?admin=true', { headers: headers() }), []),
       ]);
       if (Array.isArray(b)) setBrokers(b);
       if (Array.isArray(r)) setReviews(r);
@@ -815,7 +815,7 @@ function BrokerContentEditor({ broker, token, onClose, onSave }: { broker: Broke
       const [docs, av, countryRows] = await Promise.all([
         fetch(`/api/content-documents?type=broker&slug=${encodeURIComponent(broker.slug)}`).then((r) => r.json()),
         fetch(`/api/broker-assets?resource=availability&broker_id=${broker.id}`).then((r) => r.json()).catch(() => []),
-        fetch('/api/countries').then((r) => r.json()).catch(() => []),
+        fetch('/api/content?resource=countries').then((r) => r.json()).catch(() => []),
       ]);
       const list = Array.isArray(docs) ? docs : [];
       const main = list.find((d: ContentDocument) => d.content_key === `broker:${broker.slug}:main`) || list.find((d: ContentDocument) => d.slug === broker.slug || d.slug === 'main') || null;
@@ -833,7 +833,7 @@ function BrokerContentEditor({ broker, token, onClose, onSave }: { broker: Broke
   const uploadImage = async (file: File) => {
     const reader = new FileReader();
     const data = await new Promise<string>((resolve, reject) => { reader.onload = () => resolve(String(reader.result)); reader.onerror = reject; reader.readAsDataURL(file); });
-    const res = await fetch('/api/content-assets', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ filename: file.name, contentType: file.type, dataBase64: data }) });
+    const res = await fetch('/api/content?resource=content-assets', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ filename: file.name, contentType: file.type, dataBase64: data }) });
     const out = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(out.error || 'Image upload failed');
     return out.url;
@@ -920,7 +920,7 @@ function BrokerRichDocEditor({ broker, token, document, seedBlocks, seedTitle, o
   const [form,setForm]=useState<any>(()=>document ? {...document} : {content_key:`broker:${broker.slug}:main`,content_type:'broker',slug:'main',title:seedTitle||`${broker.name} Review`,excerpt:'',html:'',blocks:seedBlocks&&seedBlocks.length?seedBlocks:[],seo_title:`${broker.name} Review 2026 | PipRank`,seo_description:`Read the PipRank ${broker.name} review, including costs, platforms, regulation and who it may suit.`,indexable:true,published:true});
   const [busy,setBusy]=useState(false); const [err,setErr]=useState('');
   const [builderBlocks,setBuilderBlocks]=useState<any[]>(()=>Array.isArray(form.blocks)&&form.blocks.length?form.blocks:(form.html?[{id:'legacy',type:'richtext',html:form.html}]:[]));
-  const uploadImage=async(file:File)=>{const reader=new FileReader(); const data=await new Promise<string>((resolve,reject)=>{reader.onload=()=>resolve(String(reader.result));reader.onerror=reject;reader.readAsDataURL(file)}); const res=await fetch('/api/content-assets',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({filename:file.name,contentType:file.type,dataBase64:data})}); const out=await res.json().catch(()=>({})); if(!res.ok) throw new Error(out.error||'Image upload failed'); return out.url;};
+  const uploadImage=async(file:File)=>{const reader=new FileReader(); const data=await new Promise<string>((resolve,reject)=>{reader.onload=()=>resolve(String(reader.result));reader.onerror=reject;reader.readAsDataURL(file)}); const res=await fetch('/api/content?resource=content-assets',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({filename:file.name,contentType:file.type,dataBase64:data})}); const out=await res.json().catch(()=>({})); if(!res.ok) throw new Error(out.error||'Image upload failed'); return out.url;};
   const submit=async()=>{try{setBusy(true);setErr('');await onSave({...form,content_key:form.content_key||`broker:${broker.slug}:${form.slug||'main'}`},!document)}catch(e){setErr(e instanceof Error?e.message:'Could not save')}finally{setBusy(false)}};
   return <div className="fixed inset-0 z-[110] flex items-center justify-center bg-ink-950/60 p-3 backdrop-blur-sm"><div className="flex max-h-[96vh] w-full max-w-5xl flex-col overflow-hidden rounded-3xl bg-white shadow-soft-lg"><div className="flex items-center gap-3 bg-ink-950 px-5 py-4 text-white"><Monogram name={broker.name} logoUrl={broker.logo_url} color={broker.brand_color} size={34} className="rounded-lg"/><div className="flex-1"><p className="font-display font-bold">{document?'Edit':'Create'} broker rich content</p><p className="text-xs text-slate-400">{broker.name} · content CMS</p></div><button onClick={onClose} className="rounded-lg p-2 text-slate-400 hover:bg-white/10"><X size={18}/></button></div><div className="flex-1 overflow-y-auto p-5 sm:p-7">{err&&<p className="mb-4 rounded-xl bg-rose-50 px-4 py-2.5 text-sm text-rose-600">{err}</p>}<div className="grid gap-4 sm:grid-cols-2"><label><FieldLabel>Section title</FieldLabel><input value={form.title||''} onChange={e=>setForm({...form,title:e.target.value})} className="mt-1.5 w-full rounded-xl border border-line px-3 py-2.5 text-sm outline-none focus:border-emerald-500"/></label><label><FieldLabel>Slug</FieldLabel><input value={form.slug||''} onChange={e=>setForm({...form,slug:e.target.value})} className="mt-1.5 w-full rounded-xl border border-line px-3 py-2.5 text-sm outline-none focus:border-emerald-500"/></label></div><label className="mt-4 block"><FieldLabel>Excerpt</FieldLabel><textarea value={form.excerpt||''} onChange={e=>setForm({...form,excerpt:e.target.value})} rows={2} className="mt-1.5 w-full rounded-xl border border-line px-3 py-2.5 text-sm outline-none focus:border-emerald-500"/></label><div className="mt-5"><FieldLabel hint="Build the complete broker editorial page with reorderable sections">Visual page builder</FieldLabel><div className="mt-1.5"><BrokerEditorialPageBuilder value={builderBlocks} onChange={blocks=>{setBuilderBlocks(blocks);setForm((f:any)=>({...f,blocks,html:blocksToHtml(blocks)}))}} onUploadImage={uploadImage}/></div></div><div className="mt-5 grid gap-4 sm:grid-cols-2"><label><FieldLabel>SEO title</FieldLabel><input value={form.seo_title||''} onChange={e=>setForm({...form,seo_title:e.target.value})} className="mt-1.5 w-full rounded-xl border border-line px-3 py-2.5 text-sm outline-none focus:border-emerald-500"/></label><label><FieldLabel>SEO description</FieldLabel><textarea value={form.seo_description||''} onChange={e=>setForm({...form,seo_description:e.target.value})} rows={2} className="mt-1.5 w-full rounded-xl border border-line px-3 py-2.5 text-sm outline-none focus:border-emerald-500"/></label></div><div className="mt-4 grid gap-3 sm:grid-cols-2"><label className="flex items-center justify-between rounded-xl border border-line bg-paper p-4"><span><span className="block text-sm font-bold">Publish</span><span className="text-xs text-slate-400">Show this section publicly.</span></span><Toggle on={!!form.published} onToggle={()=>setForm({...form,published:!form.published})}/></label><label className="flex items-center justify-between rounded-xl border border-line bg-paper p-4"><span><span className="block text-sm font-bold">Index</span><span className="text-xs text-slate-400">Allow this document to contribute to search.</span></span><Toggle on={!!form.indexable} onToggle={()=>setForm({...form,indexable:!form.indexable})}/></label></div></div><div className="flex justify-end gap-2 border-t border-line bg-white px-5 py-4"><button onClick={onClose} className="rounded-xl border border-line px-4 py-2 text-xs font-bold text-slate-600">Cancel</button><button onClick={submit} disabled={busy} className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2 text-xs font-bold text-white disabled:opacity-60">{busy&&<Loader2 size={14} className="animate-spin"/>}{document?'Save changes':'Publish section'}</button></div></div></div>;
 }
@@ -1028,7 +1028,7 @@ function Overview({
 
   useEffect(() => {
     setRangeLoading(true);
-    fetch(range === 'all' ? '/api/track?resource=clicks' : `/api/track?resource=clicks&days=${range}`)
+    fetch(range === 'all' ? '/api/analytics?resource=clicks' : `/api/analytics?resource=clicks&days=${range}`)
       .then((x) => x.json())
       .then((d) => setRangeData(d))
       .catch(() => setRangeData(null))
@@ -1468,7 +1468,7 @@ function BrokerEditor({
     reader.onload = async () => {
       try {
         const base64 = String(reader.result ?? '').split(',')[1] ?? '';
-        const res = await fetch('/api/logo-upload', {
+        const res = await fetch('/api/site?resource=logo-upload', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({ brokerId: broker.id, fileName: file.name, fileBase64: base64, contentType: file.type }),
@@ -2306,7 +2306,7 @@ function ContentDocumentEditor({ document, countries, token, defaultCountrySlug,
       <label><FieldLabel>Section title</FieldLabel><input value={form.title} onChange={e=>setForm({...form,title:e.target.value})} className={input} placeholder="Why gold brokers differ for traders in Ghana" /></label>
       <label><FieldLabel>Short intro</FieldLabel><textarea value={form.excerpt} onChange={e=>setForm({...form,excerpt:e.target.value})} rows={3} className="w-full rounded-xl border border-line bg-paper px-3 py-2.5 text-sm outline-none focus:border-emerald-500" /></label>
       {form.content_type === 'author' && <AuthorProfileFields form={form as ContentDocument} setForm={(next) => setForm(next as any)} input={input} />}
-      <div><FieldLabel hint="Build the complete country SEO editorial page visually">Visual page builder</FieldLabel><div className="mt-1.5"><PageBuilder value={Array.isArray(form.blocks)&&form.blocks.length?form.blocks:(form.html?[{id:'legacy',type:'richtext',html:form.html}]:[])} onChange={blocks=>setForm({...form,blocks,html:blocksToHtml(blocks)})} onUploadImage={async (file) => { const reader = new FileReader(); const data = await new Promise<string>((resolve, reject) => { reader.onload=()=>resolve(String(reader.result)); reader.onerror=reject; reader.readAsDataURL(file); }); const res = await fetch('/api/content-assets', { method:'POST', headers:{'Content-Type':'application/json', Authorization:`Bearer ${token}`}, body:JSON.stringify({ filename:file.name, contentType:file.type, dataBase64:data }) }); const out=await res.json().catch(()=>({})); if(!res.ok) throw new Error(out.error || 'Image upload failed'); return out.url; }} /></div></div>
+      <div><FieldLabel hint="Build the complete country SEO editorial page visually">Visual page builder</FieldLabel><div className="mt-1.5"><PageBuilder value={Array.isArray(form.blocks)&&form.blocks.length?form.blocks:(form.html?[{id:'legacy',type:'richtext',html:form.html}]:[])} onChange={blocks=>setForm({...form,blocks,html:blocksToHtml(blocks)})} onUploadImage={async (file) => { const reader = new FileReader(); const data = await new Promise<string>((resolve, reject) => { reader.onload=()=>resolve(String(reader.result)); reader.onerror=reject; reader.readAsDataURL(file); }); const res = await fetch('/api/content?resource=content-assets', { method:'POST', headers:{'Content-Type':'application/json', Authorization:`Bearer ${token}`}, body:JSON.stringify({ filename:file.name, contentType:file.type, dataBase64:data }) }); const out=await res.json().catch(()=>({})); if(!res.ok) throw new Error(out.error || 'Image upload failed'); return out.url; }} /></div></div>
       <div className="grid gap-3 sm:grid-cols-2"><label><FieldLabel>SEO title (optional)</FieldLabel><input value={form.seo_title || ''} onChange={e=>setForm({...form,seo_title:e.target.value})} className={input}/></label><label><FieldLabel>SEO description (optional)</FieldLabel><textarea value={form.seo_description || ''} onChange={e=>setForm({...form,seo_description:e.target.value})} rows={2} className="w-full rounded-xl border border-line bg-paper px-3 py-2.5 text-sm outline-none focus:border-emerald-500"/></label></div>
       <div className="grid gap-3 sm:grid-cols-2"><label className="flex items-center justify-between rounded-xl border border-line bg-paper p-4"><span><span className="block text-sm font-bold">Publish</span><span className="text-xs text-slate-400">Show this content on the site.</span></span><Toggle on={!!form.published} onToggle={()=>setForm({...form,published:!form.published})}/></label><label className="flex items-center justify-between rounded-xl border border-line bg-paper p-4"><span><span className="block text-sm font-bold">Index page</span><span className="text-xs text-slate-400">Keep the page eligible for search indexing.</span></span><Toggle on={!!form.indexable} onToggle={()=>setForm({...form,indexable:!form.indexable})}/></label></div>
       <button onClick={submit} disabled={busy} className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-ink-950 text-sm font-bold text-white disabled:opacity-60">{busy&&<Loader2 size={15} className="animate-spin"/>}{document?'Save rich content':'Publish rich content'}</button>

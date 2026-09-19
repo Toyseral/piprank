@@ -1,6 +1,6 @@
 import type { Broker, ContentDocument, CountryPage, CountryBrokerRanking, FAQ } from './types';
 import { fetchBrokers, fetchCountry, fetchCountryBrokerAvailability, fetchCountryBrokerRankings } from './api';
-import { fetchPublishedContentDocument, fetchPublishedContentDocuments } from './canonicalContent';
+import { fetchPublishedContentDocuments } from './canonicalContent';
 import { buildCountryHubModel } from './countryHubModel.shared.mjs';
 
 export type CountryHubPageModel = {
@@ -27,38 +27,40 @@ export async function fetchCountryHubPageModel(slug: string, resolvedCountry?: C
   if (!country || country.publishing_state === 'closed' || country.publishing_state === 'draft') return null;
 
   const sources = await Promise.all([
-    fetchPublishedContentDocument(`country:${country.slug}:hub`).then((data) => ({ data, error: null })).catch((error) => ({ data: null, error })),
+    fetchPublishedContentDocuments({ country: country.slug }).then((data) => ({ data, error: null })).catch((error) => ({ data: [], error })),
     fetchBrokers().then((data) => ({ data, error: null })).catch((error) => ({ data: [], error })),
     fetchCountryBrokerAvailability(country.slug).then((data) => ({ data, error: null })).catch((error) => ({ data: [], error })),
     fetchCountryBrokerRankings(country.slug).then((data) => ({ data, error: null })).catch((error) => ({ data: [], error })),
-    fetchPublishedContentDocuments({ type: 'country-guide', country: country.slug }).then((data) => ({ data, error: null })).catch((error) => ({ data: [], error })),
-    fetchPublishedContentDocuments({ type: 'country-best-for', country: country.slug }).then((data) => ({ data, error: null })).catch((error) => ({ data: [], error })),
-    fetchPublishedContentDocuments({ type: 'localized-guide', country: country.slug }).then((data) => ({ data, error: null })).catch((error) => ({ data: [], error })),
-    fetchPublishedContentDocuments({ type: 'localized-best-for', country: country.slug }).then((data) => ({ data, error: null })).catch((error) => ({ data: [], error })),
   ]);
-  const [documentSource, brokersSource, availabilitySource, rankingsSource, guidesSource, bestForSource, localizedGuidesSource, localizedBestForSource] = sources;
+  const [contentSource, brokersSource, availabilitySource, rankingsSource] = sources;
+  const countryContent = contentSource.data;
+  const documentSource = countryContent.find((document) => document.content_key === `country:${country.slug}:hub`) ?? null;
+  const guidesSource = countryContent.filter((document) => document.content_type === 'country-guide');
+  const bestForSource = countryContent.filter((document) => document.content_type === 'country-best-for');
+  const localizedGuidesSource = countryContent.filter((document) => document.content_type === 'localized-guide');
+  const localizedBestForSource = countryContent.filter((document) => document.content_type === 'localized-best-for');
   const model = buildCountryHubModel({
     country,
-    countryDocument: documentSource.data,
+    countryDocument: documentSource,
     brokers: brokersSource.data,
     availability: availabilitySource.data,
     topBrokers: rankingsSource.data,
-    countryGuides: guidesSource.data,
-    countryBestFor: bestForSource.data,
-    localizedGuides: localizedGuidesSource.data,
-    localizedBestFor: localizedBestForSource.data,
+    countryGuides: guidesSource,
+    countryBestFor: bestForSource,
+    localizedGuides: localizedGuidesSource,
+    localizedBestFor: localizedBestForSource,
   });
   return {
     ...model,
     errors: {
-      ...(documentSource.error ? { countryDocument: String(documentSource.error?.message || documentSource.error) } : {}),
+      ...(contentSource.error ? { countryDocument: String(contentSource.error?.message || contentSource.error) } : {}),
       ...(brokersSource.error ? { brokers: String(brokersSource.error?.message || brokersSource.error) } : {}),
       ...(availabilitySource.error ? { availability: String(availabilitySource.error?.message || availabilitySource.error) } : {}),
       ...(rankingsSource.error ? { rankings: String(rankingsSource.error?.message || rankingsSource.error) } : {}),
-      ...(guidesSource.error ? { countryGuides: String(guidesSource.error?.message || guidesSource.error) } : {}),
-      ...(bestForSource.error ? { countryBestFor: String(bestForSource.error?.message || bestForSource.error) } : {}),
-      ...(localizedGuidesSource.error ? { localizedGuides: String(localizedGuidesSource.error?.message || localizedGuidesSource.error) } : {}),
-      ...(localizedBestForSource.error ? { localizedBestFor: String(localizedBestForSource.error?.message || localizedBestForSource.error) } : {}),
+      ...(contentSource.error ? { countryGuides: String(contentSource.error?.message || contentSource.error) } : {}),
+      ...(contentSource.error ? { countryBestFor: String(contentSource.error?.message || contentSource.error) } : {}),
+      ...(contentSource.error ? { localizedGuides: String(contentSource.error?.message || contentSource.error) } : {}),
+      ...(contentSource.error ? { localizedBestFor: String(contentSource.error?.message || contentSource.error) } : {}),
     },
   };
 }
