@@ -82,7 +82,7 @@ async function affiliateLinks(req, res) {
     if ('tracking_params' in fields) fields.tracking_params = cleanTrackingParams(fields.tracking_params); if ('network' in fields) fields.network = fields.network ? String(fields.network).trim().slice(0, 120) : null; if ('cpa_notes' in fields) fields.cpa_notes = fields.cpa_notes ? String(fields.cpa_notes).slice(0, 4000) : null; if ('active' in fields) fields.active = !!fields.active;
     const { data, error } = await supabase.from('affiliate_links').update(fields).eq('id', linkId).select().single(); if (error) throw error; return res.status(200).json(data);
   }
-  if (req.method === 'DELETE') { const { id } = req.body ?? {}; if (!id) return res.status(400).json({ error: 'id is required' }); const { error } = await supabase.from('affiliate_links').delete().eq('id', linkId); if (error) throw error; return res.status(200).json({ ok: true }); }
+  if (req.method === 'DELETE') { const { id } = req.body ?? {}; const linkId = positiveInt(id); if (!linkId) return res.status(400).json({ error: 'id must be a positive integer' }); const { error } = await supabase.from('affiliate_links').delete().eq('id', linkId); if (error) throw error; return res.status(200).json({ ok: true }); }
   return res.status(405).json({ error: 'Method not allowed' });
 }
 
