@@ -22,7 +22,7 @@ function localeLabel(locale: string) {
   const labels: Record<string, string> = {
     vi: 'Tiếng Việt',
     pt: 'Português',
-    pt-br: 'Português (Brasil)',
+    'pt-br': 'Português (Brasil)',
     id: 'Bahasa Indonesia',
     th: 'ภาษาไทย',
     es: 'Español',
