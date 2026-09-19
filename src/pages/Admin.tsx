@@ -1551,7 +1551,6 @@ function BrokerEditor({
   }));
 
   const completed = EDITOR_TABS.filter((t) => t.done(form)).length;
-  const completed = EDITOR_TABS.filter((t) => t.done(form)).length;
 
   return (
     <div className="fixed inset-0 z-[80]">
