@@ -49,7 +49,11 @@ export function cleanSlug(value) {
 
 export function localeOf(document) {
   const settings = document?.settings || {};
-  return String(settings.locale || settings.languageCode || '').trim().toLowerCase();
+  const explicit = String(settings.locale || settings.languageCode || '').trim();
+  if (explicit) return explicit.toLowerCase();
+  const key = String(document?.content_key || '').trim().toLowerCase();
+  const match = key.match(/^localized-(?:guide|best-for):[^:]+:([^:]+):/);
+  return match ? match[1] : '';
 }
 
 export function encodeSegment(value) {
