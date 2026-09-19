@@ -164,7 +164,7 @@ export default function CountryGuidesIndex() {
           <div className="mb-10 flex flex-wrap gap-2 text-xs font-bold text-slate-500">
             {guides.length > 0 && <a href="#guides" className="rounded-full border border-line bg-white px-3 py-2 hover:border-emerald-300 hover:text-emerald-700">Guides</a>}
             {bestFor.length > 0 && <a href="#best-for" className="rounded-full border border-line bg-white px-3 py-2 hover:border-emerald-300 hover:text-emerald-700">Best For</a>}
-            {(localizedGuides.length > 0 || localizedBestFor.length > 0) && <a href="#localized-guides" className="rounded-full border border-line bg-white px-3 py-2 hover:border-emerald-300 hover:text-emerald-700">Localized Guides</a>}
+            {(localizedGuides.length > 0 || localizedBestFor.length > 0) && <a href="#localized-guides" className="rounded-full border border-line bg-white px-3 py-2 hover:border-emerald-300 hover:text-emerald-700">Localized Resources</a>}
           </div>
 
           {guides.length > 0 && (
@@ -195,7 +195,7 @@ export default function CountryGuidesIndex() {
 
           {(localizedGuides.length > 0 || localizedBestFor.length > 0) && (
             <section id="localized-guides" className="mt-16 scroll-mt-20 border-t border-line pt-14">
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-700">Localized content</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-700">Localized resources</p>
               <h2 className="mt-2 font-display text-3xl font-bold tracking-tight text-ink-950">Forex resources in local languages</h2>
               <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">Localized guides and Best-For pages are surfaced here for discovery. Each individual localized page remains the canonical content owner.</p>
 
