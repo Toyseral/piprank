@@ -46,14 +46,14 @@ export default function AdminContentPreview() {
         return;
       }
 
-      if (data.content_type !== 'country-best-for' || !data.country_slug || !data.slug) {
+      if (payload.content_type !== 'country-best-for' || !payload.country_slug || !payload.slug) {
         setState('error');
         setMessage('Only canonical country Best-For documents can be previewed here.');
         return;
       }
 
       const previewDocument: ContentDocument = {
-        ...data,
+        ...payload,
         // ContentRenderer intentionally hides unpublished documents. The route
         // itself is protected by the authenticated admin API above, so this
         // temporary flag only enables the normal public renderer for preview.
@@ -69,7 +69,7 @@ export default function AdminContentPreview() {
         contentKey: previewDocument.content_key,
         countrySlug: previewDocument.country_slug,
         topicSlug: previewDocument.topic_slug || undefined,
-        slug: previewDocument.slug,
+        slug: previewDocument.slug ?? undefined,
         indexable: false,
         published: true,
         document: previewDocument,
