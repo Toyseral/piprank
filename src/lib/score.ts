@@ -24,7 +24,10 @@ export function tierLabel(t: number): string {
 
 /** All-in EURUSD cost per lot in pips: spread + commission converted to pips ($10/pip per lot). */
 export function allInCost(b: Broker): number {
-  return Math.round((b.spread_eurusd + b.commission_value / 10) * 100) / 100;
+  const spread = Number(b.spread_eurusd);
+  const commission = Number(b.commission_value);
+  if (!Number.isFinite(spread) || !Number.isFinite(commission) || spread < 0 || commission < 0) return Number.POSITIVE_INFINITY;
+  return Math.round((spread + commission / 10) * 100) / 100;
 }
 
 /** Cross-broker winner score used by the comparison engine and pair pages. */
