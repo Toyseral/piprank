@@ -46,7 +46,7 @@ export async function fetchCountryHubPageModel(slug: string): Promise<CountryHub
       // Eligibility is opt-out: brokers are eligible unless country data explicitly
       // marks them unavailable/restricted or is_available=false.
       const ineligibleIds = new Set(availability
-        .filter((row) => ['unavailable', 'restricted'].includes(String(row.status || '').toLowerCase()))
+        .filter((row) => row.is_available === false || ['unavailable', 'restricted'].includes(String(row.status || '').toLowerCase()))
         .map((row) => Number(row.broker_id)));
       return brokers.filter((broker) => !ineligibleIds.has(Number(broker.id)));
     })(),
