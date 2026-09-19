@@ -56,8 +56,10 @@ async function adminUsers(req, res) {
     const { data: existing } = await supabase.from('admin_users').select('id').eq('email', clean).limit(1); if (existing?.length) return res.status(400).json({ error: 'That email already has admin access' });
     const { error: createErr } = await supabase.auth.admin.createUser({ email: clean, password: pwd, email_confirm: true });
     if (createErr) {
-      if (/already|exists|registered|duplicate/i.test(String(createErr.message ?? ''))) { const uid = await findAuthUserId(clean); if (!uid) return res.status(500).json({ error: 'Auth account exists but could not be resolved' }); const { error: upErr } = await supabase.auth.admin.updateUserById(uid, { password: pwd }); if (upErr) return res.status(500).json({ error: 'Could not update login' }); }
-      else return res.status(500).json({ error: 'Could not create login' });
+      if (/already|exists|registered|duplicate/i.test(String(createErr.message ?? ''))) {
+        return res.status(409).json({ error: 'An authentication account already exists for this email. Use that account instead of resetting its password.' });
+      }
+      return res.status(500).json({ error: 'Could not create login' });
     }
     const { data, error } = await supabase.from('admin_users').insert({ email: clean, role, active: true }).select().single(); if (error) throw error; return res.status(201).json(data);
   }
