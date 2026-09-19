@@ -227,8 +227,8 @@ async function main() {
     const countryRows = model.topBrokers.slice(0, 9);
     const countryGuideDocs = model.countryGuides.slice(0, 9);
     const countryBestForDocs = model.countryBestFor.slice(0, 9);
-    const editorialBlocks = Array.isArray(doc.blocks)
-      ? doc.blocks.filter((block) => !['broker_card', 'broker_grid', 'comparison_table'].includes(block?.type))
+    const editorialBlocks = Array.isArray(effectiveDoc.blocks)
+      ? effectiveDoc.blocks.filter((block) => !['broker_card', 'broker_grid', 'comparison_table'].includes(block?.type))
       : [];
     const rankingHtml = countryRows.length
       ? `<section><h2>Forex brokers available in ${esc(country.name)}</h2><ol>${countryRows.map((row) => `<li><a href="/brokers/${esc(row.broker.slug)}">${esc(row.broker.name)}</a>${row.editorial_note ? ` — ${esc(row.editorial_note)}` : ''}</li>`).join('')}</ol><p><a href="/quiz">Get matched with a broker</a> · <a href="/compare">Compare brokers</a></p></section>`
@@ -242,7 +242,7 @@ async function main() {
     const compareHtml = `<section><h2>Compare brokers available in ${esc(country.name)}</h2><p>Review pricing, platforms, trust signals and other broker data side by side.</p><p><a href="/compare">Open broker comparison</a> · <a href="/methodology">Read PipRank methodology</a></p></section>`;
     const quickStartHtml = `<section><h2>Find a broker that fits your needs</h2><p>Tell PipRank where you trade from and what matters to you. We’ll narrow the available brokers before you compare them.</p><p><a href="/quiz">Find My Broker</a></p></section>`;
     const finalCtaHtml = `<section><h2>Find the broker that fits you</h2><p>Tell us where you trade from, what you trade and which features matter most. PipRank will narrow the available options for you.</p><p><a href="/quiz">Match Me With a Broker</a></p></section>`;
-    const content = `<main><nav><a href="/">Home</a> › <a href="/countries">Countries</a> › <span>${esc(country.name)}</span></nav><section><p>${esc(country.flag || '')} ${esc(country.name)} forex brokers</p><h1>Find the best forex broker in ${esc(country.name)} for you</h1>${doc.excerpt ? `<p>${esc(doc.excerpt)}</p>` : ''}<p><a href="/quiz">Get Matched with a Broker</a> · <a href="/compare">Compare Brokers</a></p><p>Country eligibility is opt-out · Live broker data</p></section>${quickStartHtml}${editorialBlocks.map((block) => renderBlock(block, brokersById)).join('')} ${rankingHtml}${bestForHtml}${guidesHtml}${faqs.length ? `<section><h2>Frequently Asked Questions</h2>${faqs.map((faq) => `<details><summary>${esc(faq.q)}</summary><p>${esc(faq.a)}</p></details>`).join('')}</section>` : ''}${compareHtml}${finalCtaHtml}<p><a href="/methodology">How PipRank evaluates brokers</a></p></main>`;
+    const content = `<main><nav><a href="/">Home</a> › <a href="/countries">Countries</a> › <span>${esc(country.name)}</span></nav><section><p>${esc(country.flag || '')} ${esc(country.name)} forex brokers</p><h1>Find the best forex broker in ${esc(country.name)} for you</h1>${effectiveDoc.excerpt ? `<p>${esc(effectiveDoc.excerpt)}</p>` : ''}<p><a href="/quiz">Get Matched with a Broker</a> · <a href="/compare">Compare Brokers</a></p><p>Country eligibility is opt-out · Live broker data</p></section>${quickStartHtml}${editorialBlocks.map((block) => renderBlock(block, brokersById)).join('')} ${rankingHtml}${bestForHtml}${guidesHtml}${faqs.length ? `<section><h2>Frequently Asked Questions</h2>${faqs.map((faq) => `<details><summary>${esc(faq.q)}</summary><p>${esc(faq.a)}</p></details>`).join('')}</section>` : ''}${compareHtml}${finalCtaHtml}<p><a href="/methodology">How PipRank evaluates brokers</a></p></main>`;
     const ld = [
       pageJsonLd(title, description, path),
       breadcrumbJsonLd([{ name: 'Home', path: '/' }, { name: 'Countries', path: '/countries' }, { name: country.name, path }]),
