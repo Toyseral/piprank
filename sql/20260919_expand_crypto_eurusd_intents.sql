@@ -55,13 +55,13 @@ BEGIN
   END IF;
 
   IF NOT EXISTS (SELECT 1 FROM public.intents WHERE slug = 'crypto-brokers') THEN
-    INSERT INTO public.intents (slug, label, title, meta_title, meta_description, sort_order, indexable, blocks)
-    VALUES ('crypto-brokers', 'Crypto brokers', 'Best Crypto Brokers', 'Best Crypto Brokers (2026)', 'Compare forex brokers that offer crypto trading.', 100, false, '[]'::jsonb);
+    INSERT INTO public.intents (slug, label, title, icon, meta_title, meta_description, sort_order, indexable, blocks)
+    VALUES ('crypto-brokers', 'Crypto brokers', 'Best Crypto Brokers', '', 'Best Crypto Brokers (2026)', 'Compare forex brokers that offer crypto trading.', 100, false, '[]'::jsonb);
   END IF;
 
   IF NOT EXISTS (SELECT 1 FROM public.intents WHERE slug = 'eur-usd-forex-brokers') THEN
     INSERT INTO public.intents (slug, label, title, meta_title, meta_description, sort_order, indexable, blocks)
-    VALUES ('eur-usd-forex-brokers', 'EUR/USD brokers', 'Best EUR/USD Forex Brokers', 'Best EUR/USD Forex Brokers (2026)', 'Compare forex brokers for EUR/USD trading.', 101, false, '[]'::jsonb);
+    VALUES ('eur-usd-forex-brokers', 'EUR/USD brokers', 'Best EUR/USD Forex Brokers', '', 'Best EUR/USD Forex Brokers (2026)', 'Compare forex brokers for EUR/USD trading.', 101, false, '[]'::jsonb);
   END IF;
 END $$;
 
