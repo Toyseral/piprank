@@ -40,11 +40,25 @@ function BrokerRanking({ ranked, countrySlug }: { ranked: CountryBrokerRanking[]
 }
 
 export default function CountryDetail() {
-  const { slug = '' } = useParams<{ slug: string }>();
+  const { countrySlug = '' } = useParams<{ countrySlug: string }>();
+  const slug = countrySlug;
   const [model, setModel] = useState<CountryHubPageModel | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => { if (!slug) return; setLoading(true); fetchCountryHubPageModel(slug).then(setModel).catch(() => setModel(null)).finally(() => setLoading(false)); }, [slug]);
+  useEffect(() => {
+    let active = true;
+    if (!slug) {
+      setModel(null);
+      setLoading(false);
+      return () => { active = false; };
+    }
+    setLoading(true);
+    fetchCountryHubPageModel(slug)
+      .then((nextModel) => { if (active) setModel(nextModel); })
+      .catch(() => { if (active) setModel(null); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [slug]);
 
   const country = model?.country ?? null;
   const document = model?.countryDocument ?? null;
