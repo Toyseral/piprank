@@ -59,7 +59,13 @@ async function main() {
     if (!document?.published || !document?.indexable) continue;
     urls.push({ loc: `/${country.slug}`, lastmod: cleanDate(document.updated_at || country.updated_at) });
   }
-  // Country guide hubs are discovery indexes, not content owners. Only include them when at least one published country guide exists.\n  for (const country of countries) {\n    if (!country.slug || country.publishing_state !== 'published') continue;\n    const hasGuides = documents.some((doc) => doc.content_type === 'country-guide' && doc.country_slug === country.slug);\n    if (hasGuides) urls.push({ loc: `/${country.slug}/guides` });\n  }\n
+  // Country guide hubs are discovery indexes, not content owners. Only include them when at least one published country guide exists.
+  for (const country of countries) {
+    if (!country.slug || country.publishing_state !== 'published') continue;
+    const hasGuides = documents.some((doc) => doc.content_type === 'country-guide' && doc.country_slug === country.slug);
+    if (hasGuides) urls.push({ loc: `/${country.slug}/guides` });
+  }
+
   for (const document of documents) {
     const path = canonicalPathForDocument(document);
     if (path) urls.push({ loc: path, lastmod: cleanDate(document.updated_at) });
@@ -78,8 +84,16 @@ async function main() {
     const previous = byLoc.get(entry.loc);
     if (!previous || (entry.lastmod || '') > (previous.lastmod || '')) byLoc.set(entry.loc, entry);
   }
-  const body = [...byLoc.values()].map((entry) => `  <url>\n    <loc>${escXml(siteUrl + entry.loc)}</loc>${entry.lastmod ? `\n    <lastmod>${entry.lastmod}</lastmod>` : ''}\n  </url>`).join('\n');
-  writeFileSync(join(DIST, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${body}\n</urlset>\n`, 'utf-8');
+  const body = [...byLoc.values()].map((entry) => `  <url>
+    <loc>${escXml(siteUrl + entry.loc)}</loc>${entry.lastmod ? `
+    <lastmod>${entry.lastmod}</lastmod>` : ''}
+  </url>`).join('
+');
+  writeFileSync(join(DIST, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${body}
+</urlset>
+`, 'utf-8');
   console.log(`[generate-sitemap] Wrote ${byLoc.size} production URLs.`);
 }
 
