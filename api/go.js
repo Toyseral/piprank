@@ -10,6 +10,18 @@ import { isoToSlug, slugToIso2, parseCookieCountry } from './_lib/geo-map.js';
 //   broker slug → country-specific affiliate URL → global affiliate URL
 //   → broker website fallback → redirect.
 const FALLBACK_PATH = '/brokers';
+const ALLOWED_REDIRECT_PROTOCOLS = new Set(['https:', 'http:']);
+
+function safeExternalUrl(value) {
+  const raw = String(value ?? '').trim();
+  if (!raw || raw.startsWith('//')) return null;
+  try {
+    const url = new URL(raw);
+    return ALLOWED_REDIRECT_PROTOCOLS.has(url.protocol) && url.hostname ? url : null;
+  } catch {
+    return null;
+  }
+}
 
 function deviceTypeFromUA(ua) {
   const s = String(ua || '');
@@ -19,17 +31,15 @@ function deviceTypeFromUA(ua) {
 }
 
 function applyTrackingParams(url, params, clickId) {
-  try {
-    const u = new URL(url);
-    for (const [key, rawValue] of Object.entries(params || {})) {
-      if (!key) continue;
-      const value = String(rawValue ?? '').replace('{click_id}', clickId);
-      u.searchParams.set(key, value);
-    }
-    return u.toString();
-  } catch {
-    return url;
+  const u = safeExternalUrl(url);
+  if (!u) return null;
+  for (const [key, rawValue] of Object.entries(params || {})) {
+    const cleanKey = String(key || '').trim();
+    if (!cleanKey || cleanKey.length > 100) continue;
+    const value = String(rawValue ?? '').replace('{click_id}', clickId).slice(0, 500);
+    u.searchParams.set(cleanKey, value);
   }
+  return u.toString();
 }
 
 export default async function handler(req, res) {
@@ -42,7 +52,7 @@ export default async function handler(req, res) {
 
   try {
     const brokerSlug = String(req.query?.broker ?? '').trim().toLowerCase();
-    if (!brokerSlug) return redirectTo(FALLBACK_PATH);
+    if (!brokerSlug || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(brokerSlug)) return redirectTo(FALLBACK_PATH);
 
     const { data: broker, error: brokerErr } = await supabase
       .from('brokers')
@@ -90,6 +100,7 @@ export default async function handler(req, res) {
 
     const clickId = crypto.randomUUID();
     const finalUrl = applyTrackingParams(targetUrl, trackingParams, clickId);
+    if (!finalUrl) return redirectTo(FALLBACK_PATH);
 
     try {
       await supabase.from('redirect_clicks').insert({
