@@ -40,8 +40,8 @@ function BrokerRanking({ ranked, countrySlug }: { ranked: CountryBrokerRanking[]
 }
 
 export default function CountryDetail() {
-  const { countrySlug = '' } = useParams<{ countrySlug: string }>();
-  const slug = countrySlug;
+  const params = useParams<{ countrySlug?: string; slug?: string }>();
+  const slug = params.countrySlug || params.slug || '';
   const [model, setModel] = useState<CountryHubPageModel | null>(null);
   const [loading, setLoading] = useState(true);
 
