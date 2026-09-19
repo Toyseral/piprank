@@ -21,7 +21,7 @@ export default function AdminContentPreview() {
       const { data: sessionData } = await supabase.auth.getSession();
       if (!active) return;
 
-      const currentSession = data.session;
+      const currentSession = sessionData.session;
       if (!currentSession) {
         setState('error');
         setMessage('Your admin session has expired. Sign in again to preview this draft.');
