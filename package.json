@@ -12,10 +12,7 @@
     "check:function-count": "node scripts/check-function-count.mjs",
     "check:retired-content": "node scripts/validate-retired-content-references.mjs",
     "check:prerender-content-safety": "node scripts/validate-prerender-content-safety.mjs",
-    "migrate:bestfor-sections": "node scripts/migrate-bestfor-sections-to-blocks.mjs",
-    "migrate:intents-canonical": "node scripts/migrate-intents-to-canonical-bestfor.mjs",
     "check:intent-canonical": "node scripts/validate-intent-canonical-ownership.mjs",
-    "migrate:country-hubs": "node scripts/migrate-country-hubs-to-canonical.mjs",
     "check:country-hub-canonical": "node scripts/validate-country-hub-canonical.mjs",
     "check:route-ownership": "node scripts/validate-route-ownership.mjs",
     "test:canonical-routes": "node scripts/test-canonical-routes.mjs"
