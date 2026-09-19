@@ -621,12 +621,12 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
               </h1>
               <p className="mt-1 text-sm text-slate-500">{active.desc}</p>
             </div>
-            {(activeTab === 'brokers' || activeTab === 'countries' || activeTab === 'authors') && (
+            {(activeTab === 'brokers' || activeTab === 'authors') && (
               <button
-                onClick={() => activeTab === 'brokers' ? setEditingBroker('new') : activeTab === 'countries' ? setEditingCountry('new') : setEditingContentDoc({ id: 0, content_key: 'author:new-author', content_type: 'author', country_slug: null, topic_slug: null, slug: 'new-author', title: '', excerpt: '', html: '', blocks: [], seo_title: null, seo_description: null, indexable: false, published: false, updated_by: null, created_at: '', updated_at: '', settings: { role: '', short_bio: '', expertise: [], credentials: [], links: [], display_order: 0, photo_url: '' } } as ContentDocument)}
+                onClick={() => activeTab === 'brokers' ? setEditingBroker('new') : setEditingContentDoc({ id: 0, content_key: 'author:new-author', content_type: 'author', country_slug: null, topic_slug: null, slug: 'new-author', title: '', excerpt: '', html: '', blocks: [], seo_title: null, seo_description: null, indexable: false, published: false, updated_by: null, created_at: '', updated_at: '', settings: { role: '', short_bio: '', expertise: [], credentials: [], links: [], display_order: 0, photo_url: '' } } as ContentDocument)}
                 className="inline-flex items-center gap-1.5 rounded-xl bg-ink-950 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-ink-800"
               >
-                <Plus size={14} className="text-emerald-400" /> {activeTab === 'brokers' ? 'New broker' : activeTab === 'countries' ? 'New country' : 'New author'}
+                <Plus size={14} className="text-emerald-400" /> {activeTab === 'brokers' ? 'New broker' : 'New author'}
               </button>
             )}
           </div>
@@ -1550,6 +1550,7 @@ function BrokerEditor({
     label: i.label,
   }));
 
+  const ratingPreview = parseFloat(String(form.rating)) || 0;
   const ratingPreview = parseFloat(String(form.rating)) || 0;
   const completed = EDITOR_TABS.filter((t) => t.done(form)).length;
 
