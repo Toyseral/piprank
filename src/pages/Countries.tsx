@@ -96,7 +96,7 @@ export default function Countries() {
         <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {countries.map((c, i) => {
             const recs = (rankingsByCountry[c.slug] ?? [])
-              .map((row) => row.broker ?? bySlug.get(row.broker?.slug ?? ''))
+              .map((row) => row.broker)
               .filter((b): b is Broker => !!b)
               .slice(0, 3);
             return (
