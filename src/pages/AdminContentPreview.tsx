@@ -18,7 +18,7 @@ export default function AdminContentPreview() {
     let active = true;
 
     const load = async () => {
-      const { data } = await supabase.auth.getSession();
+      const { data: sessionData } = await supabase.auth.getSession();
       if (!active) return;
 
       const currentSession = data.session;
