@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, BookOpen, CheckCircle2, ChevronRight, ExternalLink, Globe2, Scale, ShieldCheck } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
-import type { ContentDocument, CountryBrokerRanking } from '../lib/types';
+import type { ContentDocument, CountryBrokerRanking, CountryWhatMatters } from '../lib/types';
 import { fetchCountryHubPageModel, type CountryHubPageModel } from '../lib/countryHubModel';
 import PageBlocksRenderer from '../components/PageBlocksRenderer';
 import BrokerCard from '../components/BrokerCard';
