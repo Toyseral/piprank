@@ -258,7 +258,6 @@ export default function CountryHub({ countries, brokers, contentDocs, token, not
   const [query, setQuery] = useState('');
   const [selectedSlug, setSelectedSlug] = useState(() => countries[0]?.slug ?? '');
   const [editingBestFor, setEditingBestFor] = useState<ContentDocument | null | 'new'>(null);
-  const [editingCountryHub, setEditingCountryHub] = useState(false);
   const [docs, setDocs] = useState<ContentDocument[]>(contentDocs);
   useEffect(() => setDocs(contentDocs), [contentDocs]);
 
