@@ -29,6 +29,9 @@ export function brokerHasIntent(bestFor: string[] | null | undefined, canonicalS
 export const CANONICAL_INTENT_SLUGS: Record<string, string> = {
   beginners: 'forex-brokers-for-beginners',
   'low-spread': 'low-spread-forex-brokers',
+  gold: 'gold-forex-brokers',
+  crypto: 'crypto-brokers',
+  'eur-usd': 'eur-usd-forex-brokers',
   mt4: 'mt4-forex-brokers',
   mt5: 'mt5-forex-brokers',
   gold: 'gold-forex-brokers',
