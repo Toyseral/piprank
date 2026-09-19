@@ -92,8 +92,8 @@ export function LocalizationManager({ countries, languages, contentDocs, mutate 
       settings: {
         locale: selectedLang.code,
         language_code: selectedLang.code,
-        intent_slug: owner.slug,
-        canonicalIntentSlug: owner.slug,
+        intent_slug: canonicalOwnerSlug,
+        canonicalIntentSlug: canonicalOwnerSlug,
         source_best_for_id: owner.id,
       },
       published: false,
