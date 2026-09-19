@@ -64,10 +64,13 @@ export default function CountryDetail() {
   ] : undefined);
 
   const comparisonPairs = useMemo(() => {
-    const slugs = ranked.slice(0, 4).map((r) => r.broker?.slug).filter((v): v is string => Boolean(v));
-    return slugs
-      .flatMap((a, i) => slugs.slice(i + 1).map((b) => {
-        const [x, y] = [a, b].sort((m, n) => m.localeCompare(n));
+    const brokers = ranked
+      .slice(0, 4)
+      .map((row) => row.broker)
+      .filter((broker): broker is NonNullable<typeof broker> => Boolean(broker?.slug));
+    return brokers
+      .flatMap((a, i) => brokers.slice(i + 1).map((b) => {
+        const [x, y] = [a, b].sort((m, n) => m.slug.localeCompare(n.slug));
         return { a: x, b: y };
       }))
       .slice(0, 3);
@@ -132,7 +135,7 @@ export default function CountryDetail() {
 
       {hasLocalized && <section id="localized" className="scroll-mt-20 border-b border-line bg-white"><div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:py-16"><SectionHeading eyebrow="Localised content" title={`Forex content for traders in ${country.name}`} copy="Where localized content exists, it is surfaced here without creating a duplicate ownership layer."/><div className="mt-8 grid gap-8 lg:grid-cols-2">{localizedBestFor.length > 0 && <div><h3 className="font-display text-xl font-bold text-ink-950">Best For</h3><div className="mt-4 grid gap-3 sm:grid-cols-2">{localizedBestFor.slice(0,6).map((doc) => <BestForCard key={doc.content_key} doc={doc} countrySlug={country.slug}/>)}</div></div>}{localizedGuides.length > 0 && <div><h3 className="font-display text-xl font-bold text-ink-950">Guides</h3><div className="mt-4 grid gap-3 sm:grid-cols-2">{localizedGuides.slice(0,6).map((doc) => <GuideCard key={doc.content_key} doc={doc} countrySlug={country.slug}/>)}</div></div>}</div></div></section>}
 
-      <section id="compare" className="scroll-mt-20 border-b border-line bg-white"><div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:py-16"><SectionHeading eyebrow="Compare brokers" title={`Compare popular brokers in ${country.name}`} copy="Use head-to-head pages to inspect costs, platforms, execution, withdrawals and other documented metrics."/><div className="mt-7 grid gap-3 sm:grid-cols-3">{comparisonPairs.map(({a,b}) => <Link key={a+b} to={`/compare/${a}-vs-${b}`} className="group rounded-2xl border border-line bg-paper p-5 hover:border-emerald-300 hover:bg-white"><div className="flex items-center justify-between"><span className="text-sm font-bold text-ink-950">{a.replace(/-/g,' ')} <span className="text-slate-400">vs</span> {b.replace(/-/g,' ')}</span><ArrowRight size={15} className="text-emerald-700"/></div></Link>)}</div><Link to={comparisonPath} className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-emerald-700">Open the full comparison tool <Scale size={15}/></Link></div></section>
+      <section id="compare" className="scroll-mt-20 border-b border-line bg-white"><div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:py-16"><SectionHeading eyebrow="Compare brokers" title={`Compare popular brokers in ${country.name}`} copy="Use head-to-head pages to inspect costs, platforms, execution, withdrawals and other documented metrics."/><div className="mt-7 grid gap-3 sm:grid-cols-3">{comparisonPairs.map(({a,b}) => <Link key={a.slug+b.slug} to={`/compare/${a.slug}-vs-${b.slug}`} className="group rounded-2xl border border-line bg-paper p-5 hover:border-emerald-300 hover:bg-white"><div className="flex items-center justify-between"><span className="text-sm font-bold text-ink-950">{a.name} <span className="text-slate-400">vs</span> {b.name}</span><ArrowRight size={15} className="text-emerald-700"/></div></Link>)}</div><Link to={comparisonPath} className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-emerald-700">Open the full comparison tool <Scale size={15}/></Link></div></section>
 
       {faqs.length > 0 && <section id="faq" className="scroll-mt-20 border-b border-line bg-paper"><div className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:py-16"><SectionHeading eyebrow="Country FAQ" title={`Forex broker questions for ${country.name}`}/><div className="mt-8 overflow-hidden rounded-3xl border border-line bg-white">{faqs.map((faq) => <details key={faq.q} className="group border-b border-line px-5 py-5 last:border-b-0 sm:px-7"><summary className="flex cursor-pointer list-none items-center justify-between gap-6 font-display text-base font-bold text-ink-950"><span>{faq.q}</span><span className="text-xl font-normal text-slate-400 transition group-open:rotate-45">+</span></summary><p className="mt-3 pr-8 text-sm leading-7 text-slate-600">{faq.a}</p></details>)}</div></div></section>}
 
