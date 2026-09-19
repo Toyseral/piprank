@@ -47,8 +47,134 @@ function normalizePlatforms(value: unknown): BrokerPlatforms {
   });
 }
 
+function asFiniteNumber(value: unknown, fallback = 0): number {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function asBoolean(value: unknown, fallback = false): boolean {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'string') {
+    if (value.toLowerCase() === 'true') return true;
+    if (value.toLowerCase() === 'false') return false;
+  }
+  return fallback;
+}
+
+function asStringArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.map((item) => String(item).trim()).filter(Boolean) : [];
+}
+
+function normalizeRegulations(value: unknown): Regulation[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item): item is Record<string, unknown> => Boolean(item && typeof item === 'object'))
+    .map((item) => ({
+      body: String(item.body ?? '').trim(),
+      country: String(item.country ?? '').trim(),
+      tier: asFiniteNumber(item.tier, 3),
+    }))
+    .filter((item) => item.body || item.country);
+}
+
+function normalizeHealth(value: unknown): HealthFactors {
+  const h = value && typeof value === 'object' ? value as Record<string, unknown> : {};
+  return {
+    regulation: asFiniteNumber(h.regulation),
+    longevity: asFiniteNumber(h.longevity),
+    withdrawals: asFiniteNumber(h.withdrawals),
+    execution: asFiniteNumber(h.execution),
+    support: asFiniteNumber(h.support),
+    sentiment: asFiniteNumber(h.sentiment),
+  };
+}
+
+function normalizeAssets(value: unknown): BrokerAssets {
+  const a = value && typeof value === 'object' ? value as Record<string, unknown> : {};
+  return {
+    forex: asFiniteNumber(a.forex),
+    indices: asFiniteNumber(a.indices),
+    commodities: asFiniteNumber(a.commodities),
+    crypto: asFiniteNumber(a.crypto),
+    stocks: asFiniteNumber(a.stocks),
+  };
+}
+
+function normalizeFaqs(value: unknown): FAQ[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item): item is Record<string, unknown> => Boolean(item && typeof item === 'object'))
+    .map((item) => ({ q: String(item.q ?? '').trim(), a: String(item.a ?? '').trim() }))
+    .filter((item) => item.q && item.a);
+}
+
+function normalizeTesting(value: unknown): TestResult[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item): item is Record<string, unknown> => Boolean(item && typeof item === 'object'))
+    .map((item) => ({
+      label: String(item.label ?? '').trim(),
+      result: String(item.result ?? '').trim(),
+      detail: String(item.detail ?? '').trim(),
+    }))
+    .filter((item) => item.label || item.result || item.detail);
+}
+
 function normalizeBroker(broker: Broker): Broker {
-  return { ...broker, platforms: normalizePlatforms(broker.platforms) };
+  const raw = broker && typeof broker === 'object' ? broker as Partial<Broker> & Record<string, unknown> : {};
+  const normalized = {
+    ...broker,
+    id: asFiniteNumber(raw.id),
+    name: String(raw.name ?? ''),
+    slug: String(raw.slug ?? ''),
+    tagline: String(raw.tagline ?? ''),
+    brand_color: String(raw.brand_color ?? '#0a1224'),
+    logo_url: raw.logo_url == null ? null : String(raw.logo_url),
+    rating: asFiniteNumber(raw.rating),
+    trust_score: asFiniteNumber(raw.trust_score),
+    founded: asFiniteNumber(raw.founded),
+    headquarters: String(raw.headquarters ?? ''),
+    website: String(raw.website ?? ''),
+    affiliate_url: raw.affiliate_url == null ? null : String(raw.affiliate_url),
+    min_deposit: asFiniteNumber(raw.min_deposit),
+    spread_eurusd: asFiniteNumber(raw.spread_eurusd),
+    commission: String(raw.commission ?? ''),
+    commission_value: asFiniteNumber(raw.commission_value),
+    max_leverage: String(raw.max_leverage ?? ''),
+    leverage_value: asFiniteNumber(raw.leverage_value),
+    execution_ms: asFiniteNumber(raw.execution_ms),
+    withdrawal_hours: asFiniteNumber(raw.withdrawal_hours),
+    deposit_time: String(raw.deposit_time ?? ''),
+    uptime: asFiniteNumber(raw.uptime),
+    withdrawal_fee: asFiniteNumber(raw.withdrawal_fee),
+    inactivity_fee: String(raw.inactivity_fee ?? ''),
+    demo_account: asBoolean(raw.demo_account),
+    islamic_account: asBoolean(raw.islamic_account),
+    copy_trading: asBoolean(raw.copy_trading),
+    scalping: asBoolean(raw.scalping),
+    hedging: asBoolean(raw.hedging),
+    nbp: asBoolean(raw.nbp),
+    segregated: asBoolean(raw.segregated),
+    bonus: raw.bonus == null ? null : String(raw.bonus),
+    support_channels: asStringArray(raw.support_channels),
+    support_score: asFiniteNumber(raw.support_score),
+    regulations: normalizeRegulations(raw.regulations),
+    platforms: normalizePlatforms(raw.platforms),
+    payments: asStringArray(raw.payments),
+    account_types: asStringArray(raw.account_types),
+    assets: normalizeAssets(raw.assets),
+    best_for: asStringArray(raw.best_for),
+    pros: asStringArray(raw.pros),
+    cons: asStringArray(raw.cons),
+    review: asStringArray(raw.review),
+    testing: normalizeTesting(raw.testing),
+    faqs: normalizeFaqs(raw.faqs),
+    health: normalizeHealth(raw.health),
+    featured: asBoolean(raw.featured),
+    updated_at: raw.updated_at == null ? null : String(raw.updated_at),
+    risk_warning: raw.risk_warning == null ? null : String(raw.risk_warning),
+  } satisfies Broker;
+  return normalized;
 }
 
 export const CANONICAL_INTENT_SLUGS: Record<string, string> = {
