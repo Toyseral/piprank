@@ -4,7 +4,7 @@ import type { Broker, ContentDocument, CountryPage } from '../../lib/types';
 import { blocksToHtml, type PageBlock, type ComparisonField } from '../PageBuilder';
 import BestForEditorialPageBuilder from '../BestForEditorialPageBuilder';
 import ManualBrokerOrder from '../ManualBrokerOrder';
-import { brokerMatchesTopic, getCountrySeoTopic, rankCountryTopicBrokers } from '../../data/countrySeoTopics';
+import { brokerHasIntent } from '../../lib/intentTaxonomy';
 import { fetchCountryBrokerAvailability, publicIntentSlug } from '../../lib/api';
 
 type Kind = 'global' | 'country' | 'localized';
@@ -67,19 +67,10 @@ export default function BestForCanonicalPageEditor({ kind, document, brokers, co
     const topic = String(form.topic_slug || topicSlug || '').trim().toLowerCase();
     const excludedSet = new Set(excluded);
     if (!topic) return [] as Broker[];
-    if (kind === 'global') {
-      return brokers.filter((broker) => !excludedSet.has(broker.slug));
-    }
-    if (kind === 'localized') {
-      if (countryAvailableSlugs === null) return brokers.filter((broker) => !excludedSet.has(broker.slug));
-      return brokers.filter((broker) => countryAvailableSlugs.includes(broker.slug) && !excludedSet.has(broker.slug));
-    }
-    const country = countries.find(c => c.slug === (form.country_slug || countrySlug));
-    const countryTopic = getCountrySeoTopic(topic);
-    if (!country || !countryTopic) return [] as Broker[];
-    if (countryAvailableSlugs === null) return rankCountryTopicBrokers(brokers, country, countryTopic).filter(b => !excludedSet.has(b.slug));
-    return brokers.filter((broker) => countryAvailableSlugs.includes(broker.slug) && !excludedSet.has(broker.slug));
-  }, [brokers, countries, countryAvailableSlugs, countrySlug, excluded, form.country_slug, form.topic_slug, kind, topicSlug]);
+    const intentBrokers = brokers.filter((broker) => brokerHasIntent(broker.best_for, topic) && !excludedSet.has(broker.slug));
+    if (kind === 'global' || countryAvailableSlugs === null) return intentBrokers;
+    return intentBrokers.filter((broker) => countryAvailableSlugs.includes(broker.slug));
+  }, [brokers, countryAvailableSlugs, excluded, form.topic_slug, kind, topicSlug]);
   const analysisBrokers = useMemo(() => { const bySlug = new Map(manualPool.map((broker) => [broker.slug, broker])); const ordered = rankingMode === 'manual' ? pinned.map((slug) => bySlug.get(slug)).filter(Boolean) as Broker[] : manualPool; return [...ordered, ...manualPool.filter((broker) => !ordered.some((item) => item.slug === broker.slug))].slice(0, MAX_MANUAL_BROKERS); }, [manualPool, pinned, rankingMode]);
   const unavailablePinned = pinned.filter(slug => !manualPool.some(b => b.slug === slug));
   const uploadImage = async (file: File) => { const reader = new FileReader(); const data = await new Promise<string>((resolve, reject) => { reader.onload = () => resolve(String(reader.result)); reader.onerror = reject; reader.readAsDataURL(file); }); const res = await fetch('/api/content-assets', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ filename: file.name, contentType: file.type, dataBase64: data }) }); const out = await res.json().catch(() => ({})); if (!res.ok) throw new Error(out.error || 'Image upload failed'); return out.url as string; };
