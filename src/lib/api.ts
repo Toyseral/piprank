@@ -1,4 +1,4 @@
-import type { Broker, BrokerCountryAvailability, BrokerCountryVerification, CountryPage, Intent, Review, ContentDocument, CountryLanguage, CountryIntentBrokerRanking, BrokerPlatform, BrokerPlatforms, CountryBrokerRanking } from './types';
+import type { Broker, BrokerAssets, BrokerCountryAvailability, BrokerCountryVerification, CountryPage, FAQ, HealthFactors, Intent, Review, ContentDocument, CountryLanguage, CountryIntentBrokerRanking, BrokerPlatform, BrokerPlatforms, CountryBrokerRanking, Regulation, TestResult } from './types';
 
 async function get<T>(url: string, token?: string): Promise<T> {
   const res = await fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : undefined });
