@@ -61,20 +61,27 @@ export default async function handler(req, res) {
       .single();
     if (brokerErr || !broker) return redirectTo(FALLBACK_PATH);
 
+    // Treat Vercel geo as the compliance/routing source when available.
+    // The country cookie is only a fallback preference and must not override
+    // a server-derived country for availability or affiliate routing.
     const explicitCountry = parseCookieCountry(req.headers.cookie);
     const ipCountryIso = req.headers['x-vercel-ip-country'];
     const ipCountrySlug = isoToSlug(ipCountryIso);
-    const ipCountryCode = ipCountryIso ? String(ipCountryIso).trim().toUpperCase() : null;
+    const ipCountryCode = ipCountrySlug ? slugToIso2(ipCountrySlug) : null;
     const explicitCountryCode = explicitCountry ? slugToIso2(explicitCountry) : null;
-    const countryCode = explicitCountryCode || ipCountryCode || null;
-    const country = explicitCountry || ipCountrySlug || null;
-    const countrySource = explicitCountryCode ? 'explicit' : ipCountryCode ? 'ip_geo' : null;
+    const countryCode = ipCountryCode || explicitCountryCode || null;
+    const country = ipCountrySlug || explicitCountry || null;
+    const countrySource = ipCountryCode ? 'ip_geo' : explicitCountryCode ? 'explicit' : null;
+
+    const countryId = country
+      ? (await supabase.from('countries').select('id').eq('slug', country).maybeSingle()).data?.id ?? -1
+      : -1;
 
     const { data: availability } = await supabase
       .from('broker_country_availability')
       .select('status,is_available')
       .eq('broker_id', broker.id)
-      .eq('country_id', (await supabase.from('countries').select('id').eq('slug', country).maybeSingle()).data?.id ?? -1)
+      .eq('country_id', countryId)
       .maybeSingle();
 
     const countryBlocked = Boolean(availability && (
