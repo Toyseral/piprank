@@ -200,7 +200,10 @@ export const saveBrokerVerification = (payload: Partial<BrokerCountryVerificatio
 // legacy /api/countries Vercel rewrite being part of public route resolution.
 export const fetchCountries = () => get<CountryPage[]>('/api/content?resource=countries');
 export const fetchCountry = (slug: string) => get<CountryPage>(`/api/content?resource=countries&slug=${encodeURIComponent(slug)}`);
-export const fetchCountryIntentRankings = (countrySlug: string, intentSlug: string) => get<CountryIntentBrokerRanking[]>(`/api/country-intent-rankings?country=${encodeURIComponent(countrySlug)}&intent=${encodeURIComponent(publicIntentSlug(intentSlug))}`);
+export const fetchCountryIntentRankings = async (countrySlug: string, intentSlug: string) => {
+  const rows = await get<CountryIntentBrokerRanking[]>(`/api/country-intent-rankings?country=${encodeURIComponent(countrySlug)}&intent=${encodeURIComponent(publicIntentSlug(intentSlug))}`);
+  return rows.map((row) => ({ ...row, broker: row.broker ? normalizeBroker(row.broker) : row.broker }));
+};
 export const createReview = async (payload: { broker_id: number; author: string; country: string; rating: number; title: string; body: string }, authToken?: string): Promise<Review> => { const res = await fetch('/api/reviews', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}) }, body: JSON.stringify(payload) }); const data = await res.json().catch(() => ({})); if (!res.ok) throw new Error((data as { error?: string }).error || `Request failed (${res.status})`); return data as Review; };
 export const voteHelpful = (id: number) => send<Review>('/api/reviews', 'PUT', { id });
 export const subscribeNewsletter = (email: string) => send<{ ok: boolean; duplicate?: boolean }>('/api/newsletter', 'POST', { email });
@@ -224,4 +227,7 @@ export const fetchContentDocuments = (params?: { type?: string; country?: string
   return get<ContentDocument[]>(`/api/content-documents${suffix ? `?${suffix}` : ''}`);
 };
 
-export const fetchCountryBrokerRankings = (countrySlug: string) => get<CountryBrokerRanking[]>(`/api/country-broker-rankings?country=${encodeURIComponent(countrySlug)}`);
+export const fetchCountryBrokerRankings = async (countrySlug: string) => {
+  const rows = await get<CountryBrokerRanking[]>(`/api/country-broker-rankings?country=${encodeURIComponent(countrySlug)}`);
+  return rows.map((row) => ({ ...row, broker: row.broker ? normalizeBroker(row.broker) : row.broker }));
+};
