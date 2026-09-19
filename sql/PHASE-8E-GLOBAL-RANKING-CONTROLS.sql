@@ -24,6 +24,10 @@ WITH base AS (
  FROM public.country_intent_broker_rankings r
  LEFT JOIN public.country_intent_broker_overrides o
    ON o.country_id=r.country_id AND o.intent_id=r.intent_id AND o.broker_id=r.broker_id
+ LEFT JOIN public.broker_country_availability a
+   ON a.country_id=r.country_id AND a.broker_id=r.broker_id
+ WHERE COALESCE(a.is_available,TRUE)=TRUE
+   AND LOWER(COALESCE(a.status,'available')) NOT IN ('unavailable','restricted')
 ), resolved AS (
  SELECT *, (score + COALESCE(score_adjustment,0)) AS final_score
  FROM base
