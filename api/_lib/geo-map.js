@@ -12,7 +12,7 @@ export const SLUG_TO_ISO2 = Object.fromEntries(Object.entries(ISO2_TO_SLUG).map(
 
 export function isoToSlug(iso2) {
   if (!iso2) return null;
-  return ISO2_TO_SLUG[String(iso2).toUpperCase()] ?? null;
+  return ISO2_TO_SLUG[String(iso2).trim().toUpperCase()] ?? null;
 }
 
 export function slugToIso2(slug) {
@@ -24,5 +24,10 @@ export function parseCookieCountry(cookieHeader) {
   if (!cookieHeader) return null;
   const match = String(cookieHeader).match(/(?:^|;\s*)piprank_country=([^;]+)/);
   if (!match) return null;
-  try { return decodeURIComponent(match[1]) || null; } catch { return null; }
+  try {
+    const decoded = decodeURIComponent(match[1]).trim().toLowerCase();
+    return slugToIso2(decoded) ? decoded : null;
+  } catch {
+    return null;
+  }
 }
