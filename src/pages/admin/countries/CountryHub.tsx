@@ -11,7 +11,6 @@ type Props = {
   contentDocs: ContentDocument[];
   token: string;
   notify: (msg: string) => void;
-  onNewCountry: () => void;
 };
 
 function HubMetric({ label, value, sub }: { label: string; value: string; sub: string }) {
@@ -199,7 +198,7 @@ function CountryBrokerRankingPanel({ country, brokers, token, notify }: { countr
   </div>;
 }
 
-export default function CountryHub({ countries, brokers, contentDocs, token, notify, onNewCountry }: Props) {
+export default function CountryHub({ countries, brokers, contentDocs, token, notify }: Props) {
   const [query, setQuery] = useState('');
   const [selectedSlug, setSelectedSlug] = useState(() => countries[0]?.slug ?? '');
   const [editingBestFor, setEditingBestFor] = useState<ContentDocument | null | 'new'>(null);

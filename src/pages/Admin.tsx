@@ -59,6 +59,7 @@ import AdminSidebar from './admin/components/AdminSidebar';
 import AffiliateLinksTab from './admin/AffiliateLinksTab';
 import UnifiedGuideEditor from '../components/admin/UnifiedGuideEditor';
 import RankingManager from '../components/admin/RankingManager';
+import { brokerIntentStorageSlug } from '../lib/intentTaxonomy';
 
 /* =============================== TYPES =============================== */
 
@@ -620,12 +621,12 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
               </h1>
               <p className="mt-1 text-sm text-slate-500">{active.desc}</p>
             </div>
-            {(activeTab === 'brokers' || activeTab === 'countries' || activeTab === 'authors') && (
+            {(activeTab === 'brokers' || activeTab === 'authors') && (
               <button
-                onClick={() => activeTab === 'brokers' ? setEditingBroker('new') : activeTab === 'countries' ? setEditingCountry('new') : setEditingContentDoc({ id: 0, content_key: 'author:new-author', content_type: 'author', country_slug: null, topic_slug: null, slug: 'new-author', title: '', excerpt: '', html: '', blocks: [], seo_title: null, seo_description: null, indexable: false, published: false, updated_by: null, created_at: '', updated_at: '', settings: { role: '', short_bio: '', expertise: [], credentials: [], links: [], display_order: 0, photo_url: '' } } as ContentDocument)}
+                onClick={() => activeTab === 'brokers' ? setEditingBroker('new') : setEditingContentDoc({ id: 0, content_key: 'author:new-author', content_type: 'author', country_slug: null, topic_slug: null, slug: 'new-author', title: '', excerpt: '', html: '', blocks: [], seo_title: null, seo_description: null, indexable: false, published: false, updated_by: null, created_at: '', updated_at: '', settings: { role: '', short_bio: '', expertise: [], credentials: [], links: [], display_order: 0, photo_url: '' } } as ContentDocument)}
                 className="inline-flex items-center gap-1.5 rounded-xl bg-ink-950 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-ink-800"
               >
-                <Plus size={14} className="text-emerald-400" /> {activeTab === 'brokers' ? 'New broker' : activeTab === 'countries' ? 'New country' : 'New author'}
+                <Plus size={14} className="text-emerald-400" /> {activeTab === 'brokers' ? 'New broker' : 'New author'}
               </button>
             )}
           </div>
@@ -706,7 +707,6 @@ function Dashboard({ session, role }: { session: Session; role: string }) {
                   <GlobalHub
                     guides={contentDocs.filter((d) => d.content_type === 'guide' && d.country_slug === null)}
                     brokers={brokers}
-                    intents={intents}
                     onNewGuide={() => setEditingContentDoc({ id: 0, content_key: '', content_type: 'guide', country_slug: null, topic_slug: null, slug: '', title: '', excerpt: '', html: '', blocks: [], seo_title: null, seo_description: null, indexable: true, published: false, updated_by: null, created_at: '', updated_at: '', settings: {} } as ContentDocument)}
                     onEditGuide={(g) => setEditingContentDoc(g)}
                   />
@@ -1543,25 +1543,13 @@ function BrokerEditor({
     }
   };
 
-  const BROKER_INTENT_STORAGE_SLUGS: Record<string, string> = {
-    'forex-brokers-for-beginners': 'beginners',
-    'low-spread-forex-brokers': 'low-spread',
-    'mt4-forex-brokers': 'mt4',
-    'mt5-forex-brokers': 'mt5',
-    'gold-forex-brokers': 'gold',
-    'ecn-forex-brokers': 'ecn',
-    'copy-trading-forex-brokers': 'copy-trading',
-    'forex-brokers-for-scalping': 'scalping',
-    'forex-brokers-for-swing-trading': 'swing-trading',
-    'high-leverage-forex-brokers': 'high-leverage',
-    'islamic-forex-brokers': 'islamic',
-  };
-
   const categoryOptions = intents.map((i) => ({
     value: i.slug,
-    storageValue: BROKER_INTENT_STORAGE_SLUGS[i.slug] ?? i.slug,
+    storageValue: brokerIntentStorageSlug(i.slug),
     label: i.label,
   }));
+
+  const ratingPreview = parseFloat(String(form.rating)) || 0;
   const ratingPreview = parseFloat(String(form.rating)) || 0;
   const completed = EDITOR_TABS.filter((t) => t.done(form)).length;
 
