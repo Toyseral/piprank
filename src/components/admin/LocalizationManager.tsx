@@ -63,7 +63,7 @@ export function LocalizationManager({ countries, languages, contentDocs, mutate 
     const owner = globalBestForOwners.find((doc) => doc.slug === ownerSlug);
     if (!owner) return;
 
-    const ownerSlug = String(owner.slug || '').trim();
+    const canonicalOwnerSlug = String(owner.slug || '').trim();
     if (!ownerSlug) return;
 
     const templateKeyBySlug: Record<string, string> = {
