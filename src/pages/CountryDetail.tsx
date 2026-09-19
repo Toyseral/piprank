@@ -11,11 +11,11 @@ import { buildBreadcrumbJsonLd, buildFAQPageJsonLd, buildItemListJsonLd, country
 import NotFound from './NotFound';
 
 function documentPath(doc: ContentDocument, countrySlug: string) {
-  if (doc.content_type === 'country-guide') return \`/\${countrySlug}/guides/\${doc.slug}\`;
-  if (doc.content_type === 'country-best-for') return \`/\${countrySlug}/\${doc.slug}\`;
-  if (doc.content_type === 'localized-guide') return \`/\${countrySlug}/\${String(doc.settings?.locale || doc.settings?.language || 'en')}/guides/\${doc.slug}\`;
-  if (doc.content_type === 'localized-best-for') return \`/\${countrySlug}/\${String(doc.settings?.locale || doc.settings?.language || 'en')}/\${doc.slug}\`;
-  return \`/\${countrySlug}\`;
+  if (doc.content_type === 'country-guide') return `/${countrySlug}/guides/${doc.slug}`;
+  if (doc.content_type === 'country-best-for') return `/${countrySlug}/${doc.slug}`;
+  if (doc.content_type === 'localized-guide') return `/${countrySlug}/${String(doc.settings?.locale || doc.settings?.language || 'en')}/guides/${doc.slug}`;
+  if (doc.content_type === 'localized-best-for') return `/${countrySlug}/${String(doc.settings?.locale || doc.settings?.language || 'en')}/${doc.slug}`;
+  return `/${countrySlug}`;
 }
 
 function SectionHeading({ eyebrow, title, copy }: { eyebrow: string; title: string; copy?: string }) {
@@ -86,17 +86,17 @@ export default function CountryDetail() {
     slug: country.slug,
     seo_title: document.seo_title,
     seo_description: document.seo_description,
-  }, \`/\${country.slug}\`) : null;
+  }, `/${country.slug}`) : null;
 
   useSEO(seo, seo && country ? [
     buildBreadcrumbJsonLd([
       { name: 'Home', path: '/' },
       { name: 'Countries', path: '/countries' },
-      { name: country.name, path: \`/\${country.slug}\` },
+      { name: country.name, path: `/${country.slug}` },
     ]),
-    buildItemListJsonLd(\`Forex brokers available in \${country.name}\`, ranked.slice(0, 9).map((r) => ({
+    buildItemListJsonLd(`Forex brokers available in ${country.name}`, ranked.slice(0, 9).map((r) => ({
       name: r.broker?.name || '',
-      path: \`/brokers/\${r.broker?.slug || ''}\`,
+      path: `/brokers/${r.broker?.slug || ''}`,
     }))),
     ...(faqs.length ? [buildFAQPageJsonLd(faqs.map((faq) => ({ question: faq.q, answer: faq.a })))] : []),
   ] : undefined);
@@ -189,7 +189,7 @@ export default function CountryDetail() {
         <section id="brokers" className="scroll-mt-16 border-b border-line bg-paper">
           <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:py-16">
             <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-              <SectionHeading eyebrow="Country ranking" title={\`Top forex brokers available in \${country.name}\`} copy="This shortlist uses the country-specific broker pool and the canonical country ranking system. Open a review or compare the options before you choose." />
+              <SectionHeading eyebrow="Country ranking" title={`Top forex brokers available in ${country.name}`} copy="This shortlist uses the country-specific broker pool and the canonical country ranking system. Open a review or compare the options before you choose." />
               <Link to="/brokers" className="inline-flex shrink-0 items-center gap-1.5 text-sm font-bold text-emerald-700">View all broker reviews <ArrowRight size={14} /></Link>
             </div>
             <div className="mt-8"><BrokerRanking ranked={ranked} countrySlug={country.slug} /></div>
@@ -204,7 +204,7 @@ export default function CountryDetail() {
       {bestFor.length > 0 && (
         <section id="best-for" className="scroll-mt-16 border-b border-line bg-white">
           <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:py-16">
-            <SectionHeading eyebrow="Choose by trading goal" title={\`Find a forex broker in \${country.name} for what matters to you\`} copy="Country Best-For pages inherit the canonical global intent owner and use the country-specific ranking for the broker shortlist." />
+            <SectionHeading eyebrow="Choose by trading goal" title={`Find a forex broker in ${country.name} for what matters to you`} copy="Country Best-For pages inherit the canonical global intent owner and use the country-specific ranking for the broker shortlist." />
             <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">{bestFor.slice(0, 9).map((doc) => <BestForCard key={doc.content_key} doc={doc} countrySlug={country.slug} />)}</div>
           </div>
         </section>
@@ -213,7 +213,7 @@ export default function CountryDetail() {
       {guides.length > 0 && (
         <section id="guides" className="scroll-mt-16 border-b border-line bg-paper">
           <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:py-16">
-            <SectionHeading eyebrow="Country guides" title={\`Forex broker guides for \${country.name}\`} copy="Country guides are informational content. They remain separate from Best-For ownership and the country ranking engine." />
+            <SectionHeading eyebrow="Country guides" title={`Forex broker guides for ${country.name}`} copy="Country guides are informational content. They remain separate from Best-For ownership and the country ranking engine." />
             <div className="mt-8 grid gap-5 md:grid-cols-2 lg:grid-cols-3">{guides.slice(0, 9).map((doc) => <GuideCard key={doc.content_key} doc={doc} countrySlug={country.slug} />)}</div>
           </div>
         </section>
@@ -222,7 +222,7 @@ export default function CountryDetail() {
       <section className="border-b border-line bg-white">
         <div className="mx-auto grid max-w-7xl gap-6 px-4 py-12 sm:px-6 lg:grid-cols-3 lg:py-16">
           {[
-            [Globe2, 'Country-specific availability', \`Broker availability, legal entities, leverage and account conditions can differ by country. Check the current terms that apply to residents of \${country.name}.\`],
+            [Globe2, 'Country-specific availability', `Broker availability, legal entities, leverage and account conditions can differ by country. Check the current terms that apply to residents of ${country.name}.`],
             [ShieldCheck, 'A ranking you can inspect', 'PipRank separates country eligibility from broker scoring and editorial controls, so the local shortlist can be traced back to its ranking inputs.'],
             [CheckCircle2, 'Compare before opening', 'Use full broker reviews and the comparison tool to check costs, platforms, regulation and other details before visiting a broker.'],
           ].map(([Icon, title, copy]) => {
@@ -235,7 +235,7 @@ export default function CountryDetail() {
       {faqs.length > 0 && (
         <section id="faq" className="scroll-mt-16 border-b border-line bg-paper">
           <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:py-16">
-            <SectionHeading eyebrow="Country FAQ" title={\`Forex broker questions for \${country.name}\`} />
+            <SectionHeading eyebrow="Country FAQ" title={`Forex broker questions for ${country.name}`} />
             <div className="mt-8 overflow-hidden rounded-3xl border border-line bg-white">
               {faqs.map((faq) => <details key={faq.q} className="group border-b border-line px-5 py-5 last:border-b-0 sm:px-7"><summary className="flex cursor-pointer list-none items-center justify-between gap-6 font-display text-base font-bold text-ink-950"><span>{faq.q}</span><span className="text-xl font-normal text-slate-400 transition group-open:rotate-45">+</span></summary><p className="mt-3 pr-8 text-sm leading-7 text-slate-600">{faq.a}</p></details>)}
             </div>
